@@ -59,7 +59,14 @@ public:
 	void setupAsRenderTarget(uint32 width, uint32 height);
 	void writeContentToBitmap(Bitmap& outBitmap);
 
+	// Defers copying the full content of another texture into this one until this texture's content is actually accessed.
+	// Used by the software drawer when it can draw directly from the source instead of this texture.
+	void setDeferredCopySource(DrawerTexture* source);
+
 	void swap(DrawerTexture& other);
+
+private:
+	void resolveDeferredCopy();
 
 private:
 	Drawer* mRegisteredOwner = nullptr;
@@ -71,4 +78,5 @@ private:
 	bool mSetupAsRenderTarget = false;
 
 	DrawerTextureImplementation* mImplementation = nullptr;
+	DrawerTexture* mDeferredCopySource = nullptr;
 };

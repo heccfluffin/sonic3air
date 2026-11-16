@@ -60,7 +60,22 @@ const Bitmap& DrawerTexture::getBitmap() const
 
 Bitmap& DrawerTexture::accessBitmap()
 {
+	if (nullptr != mDeferredCopySource)
+		resolveDeferredCopy();
 	return mBitmap;
+}
+
+void DrawerTexture::setDeferredCopySource(DrawerTexture* source)
+{
+	mDeferredCopySource = (source == this) ? nullptr : source;
+}
+
+void DrawerTexture::resolveDeferredCopy()
+{
+	DrawerTexture* source = mDeferredCopySource;
+	mDeferredCopySource = nullptr;
+	mBitmap = source->accessBitmap();
+	bitmapUpdated();
 }
 
 void DrawerTexture::bitmapUpdated()
@@ -102,6 +117,7 @@ void DrawerTexture::writeContentToBitmap(Bitmap& outBitmap)
 void DrawerTexture::swap(DrawerTexture& other)
 {
 	mBitmap.swap(other.mBitmap);
+	std::swap(mDeferredCopySource, other.mDeferredCopySource);
 	std::swap(mSize, other.mSize);
 	std::swap(mImplementation, other.mImplementation);
 }

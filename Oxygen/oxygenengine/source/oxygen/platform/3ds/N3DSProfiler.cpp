@@ -126,8 +126,8 @@ namespace n3ds
 
 					// Overwrite the previous table in place instead of clearing the screen first, so it doesn't flicker.
 					// Lines are padded to 39 characters: the bottom screen console is 40 wide, and a full line would wrap.
-					gConsole.cursorX = 0;
-					gConsole.cursorY = 0;
+					gConsole.cursorX = 1;	// libctru console coordinates are 1-based
+					gConsole.cursorY = 1;
 					char text[64];
 					const auto printLine = [&]()  { printf("%-39.39s\n", text); };
 

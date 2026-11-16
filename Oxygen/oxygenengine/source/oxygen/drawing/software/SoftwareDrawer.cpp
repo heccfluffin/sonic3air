@@ -485,11 +485,84 @@ void SoftwareDrawer::setupRenderWindow(SDL_Window* window)
 	mInternal.setupScreenSurface(window);
 }
 
+namespace
+{
+	// Looks for this command sequence, starting with a SET_RENDER_TARGET command:
+	//   SET_RENDER_TARGET(T, full rect), state..., RECT(full rect of T, source texture S, no tint, default UVs, opaque),
+	//   state..., SET_WINDOW_RENDER_TARGET, state..., UPSCALED_RECT(T)
+	// where "state" are only blend / sampling / wrap mode changes. That's what GameView produces each frame when nothing gets drawn
+	// on top of the game screen (e.g. during normal gameplay). In that case, copying S into T is unnecessary: the upscaled rect can be
+	// drawn from S directly, and T gets S's content as a deferred copy, only in case something reads it later (e.g. a screenshot).
+	bool findSkippableRenderTargetCopy(const std::vector<DrawCommand*>& commands, size_t startIndex, BlendMode currentBlendMode, size_t& outRectIndex, size_t& outUpscaledRectIndex)
+	{
+		const auto isStateCommand = [](DrawCommand::Type type)
+		{
+			return (type == DrawCommand::Type::SET_BLEND_MODE || type == DrawCommand::Type::SET_SAMPLING_MODE || type == DrawCommand::Type::SET_WRAP_MODE);
+		};
+
+		const SetRenderTargetDrawCommand& setRenderTarget = commands[startIndex]->as<SetRenderTargetDrawCommand>();
+		DrawerTexture* target = setRenderTarget.mTexture;
+		if (nullptr == target || setRenderTarget.mViewport != Recti(Vec2i(), target->getSize()))
+			return false;
+
+		BlendMode blendMode = currentBlendMode;
+		size_t index = startIndex + 1;
+		for (; index < commands.size() && isStateCommand(commands[index]->getType()); ++index)
+		{
+			if (commands[index]->getType() == DrawCommand::Type::SET_BLEND_MODE)
+				blendMode = commands[index]->as<SetBlendModeDrawCommand>().mBlendMode;
+		}
+		if (index >= commands.size() || commands[index]->getType() != DrawCommand::Type::RECT)
+			return false;
+
+		const RectDrawCommand& rect = commands[index]->as<RectDrawCommand>();
+		if (nullptr == rect.mTexture || rect.mTexture == target || blendMode != BlendMode::OPAQUE || rect.mColor != Color::WHITE ||
+			rect.mUV0 != Vec2f(0.0f, 0.0f) || rect.mUV1 != Vec2f(1.0f, 1.0f) || rect.mRect != setRenderTarget.mViewport || rect.mTexture->getSize() != target->getSize())
+			return false;
+		outRectIndex = index;
+
+		for (++index; index < commands.size() && isStateCommand(commands[index]->getType()); ++index) {}
+		if (index >= commands.size() || commands[index]->getType() != DrawCommand::Type::SET_WINDOW_RENDER_TARGET)
+			return false;
+
+		for (++index; index < commands.size() && isStateCommand(commands[index]->getType()); ++index) {}
+		if (index >= commands.size() || commands[index]->getType() != DrawCommand::Type::UPSCALED_RECT || commands[index]->as<UpscaledRectDrawCommand>().mTexture != target)
+			return false;
+		outUpscaledRectIndex = index;
+		return true;
+	}
+}
+
 void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 {
 	N3DS_PROFILE_SCOPE(DRAWER);
-	for (DrawCommand* drawCommand : drawCollection.getDrawCommands())
+	const std::vector<DrawCommand*>& drawCommands = drawCollection.getDrawCommands();
+
+	// Unnecessary copy into a render target that can be skipped, see "findSkippableRenderTargetCopy"
+	constexpr size_t NONE = (size_t)-1;
+	size_t skippedRenderTargetIndex = NONE;
+	size_t skippedRectIndex = NONE;
+	size_t redirectedUpscaledRectIndex = NONE;
+	DrawerTexture* redirectedSource = nullptr;
+
+	for (size_t commandIndex = 0; commandIndex < drawCommands.size(); ++commandIndex)
 	{
+		DrawCommand* drawCommand = drawCommands[commandIndex];
+
+		if (drawCommand->getType() == DrawCommand::Type::SET_RENDER_TARGET && mInternal.mScissorStack.empty())
+		{
+			size_t rectIndex, upscaledRectIndex;
+			if (findSkippableRenderTargetCopy(drawCommands, commandIndex, mInternal.mCurrentBlendMode, rectIndex, upscaledRectIndex))
+			{
+				skippedRenderTargetIndex = commandIndex;
+				skippedRectIndex = rectIndex;
+				redirectedUpscaledRectIndex = upscaledRectIndex;
+				redirectedSource = drawCommands[rectIndex]->as<RectDrawCommand>().mTexture;
+			}
+		}
+		if (commandIndex == skippedRenderTargetIndex || commandIndex == skippedRectIndex)
+			continue;
+
 		switch (drawCommand->getType())
 		{
 			case DrawCommand::Type::UNDEFINED:
@@ -532,10 +605,17 @@ void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 			case DrawCommand::Type::UPSCALED_RECT:
 			{
 				UpscaledRectDrawCommand& dc = drawCommand->as<UpscaledRectDrawCommand>();
-				if (nullptr != dc.mTexture)
+				DrawerTexture* texture = dc.mTexture;
+				if (commandIndex == redirectedUpscaledRectIndex && nullptr != texture)
+				{
+					// The copy into this texture was skipped: draw from the copy's source directly, and let the texture catch up only if needed
+					texture->setDeferredCopySource(redirectedSource);
+					texture = redirectedSource;
+				}
+				if (nullptr != texture)
 				{
 					BitmapViewMutable<uint32>& outputWrapper = mInternal.getOutputWrapper();
-					BitmapViewMutable<uint32> inputWrapper(dc.mTexture->accessBitmap());
+					BitmapViewMutable<uint32> inputWrapper(texture->accessBitmap());
 
 					if (mInternal.needSwapRedBlueChannels())
 					{
