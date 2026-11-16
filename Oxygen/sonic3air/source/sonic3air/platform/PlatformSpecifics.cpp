@@ -149,6 +149,10 @@ void PlatformSpecifics::platformStartup()
 	// New 3DS / New 2DS XL: switch to 804 MHz and enable the L2 cache (no effect on Old 3DS models)
 	osSetSpeedupEnable(true);
 
+	// SDL ignores joystick button presses while no window has keyboard focus, which on 3DS can happen e.g. after switching to fullscreen,
+	// leaving the built-in buttons without any effect. The game is always the foreground app on 3DS, so accept joystick input regardless.
+	SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
+
 	// Allow up to 30% of the system core to be used by helper threads (e.g. audio)
 	APT_SetAppCpuTimeLimit(30);
 
