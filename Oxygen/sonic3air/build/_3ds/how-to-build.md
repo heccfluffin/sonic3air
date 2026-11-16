@@ -62,8 +62,13 @@ SD card
             └── mods/
 ```
 
-Start it from the Homebrew Launcher. The game version of the data files should match the source version this
-port was built from.
+Start it from the Homebrew Launcher, or install the `.cia` with FBI.
+
+**The data files must come from the same game version as the port.** This branch is built from
+**v26.03.28.0 (stable)**, the current download on sonic3air.org. Data from another version fails with
+"Failed to load 'scripts.bin'", because compiled scripts only load in the exact version they were made for.
+
+The ROM must be the Steam release's `Sonic_Knuckles_wSonic3.bin` (other dumps are rejected by its checksum).
 
 
 ## Mods
