@@ -19,6 +19,55 @@
 	#include <3ds.h>
 	#include <sys/stat.h>
 	#include <unistd.h>
+
+	extern "C"
+	{
+		extern char* fake_heap_start;
+		extern char* fake_heap_end;
+		extern u32 __ctru_heap;
+		extern u32 __ctru_heap_size;
+		extern u32 __ctru_linear_heap;
+		extern u32 __ctru_linear_heap_size;
+
+		// Replaces libctru's default heap setup, which gives everything except 32 MB of linear memory to the application heap.
+		// In the New 3DS 178 MB memory mode, that is more than the 96 MB heap address range, so the allocation fails and the app panics on startup.
+		// Here, the application heap (used by malloc / new) is capped to the heap address range, and the rest goes to the linear heap.
+		void __system_allocateHeaps(void)
+		{
+			Handle reslimit = 0;
+			if (R_FAILED(svcGetResourceLimit(&reslimit, CUR_PROCESS_HANDLE)))
+				svcBreak(USERBREAK_PANIC);
+
+			s64 maxCommit = 0;
+			s64 currentCommit = 0;
+			ResourceLimitType reslimitType = RESLIMIT_COMMIT;
+			svcGetResourceLimitLimitValues(&maxCommit, reslimit, &reslimitType, 1);
+			svcGetResourceLimitCurrentValues(&currentCommit, reslimit, &reslimitType, 1);
+			svcCloseHandle(reslimit);
+
+			const u32 remaining = (u32)(maxCommit - currentCommit) & ~0xFFFu;
+			const u32 maxHeapSize = OS_HEAP_AREA_END - OS_HEAP_AREA_BEGIN;
+			const u32 minLinearHeapSize = 16u << 20;	// Framebuffers, audio buffers
+
+			u32 heapSize = (remaining > 2 * minLinearHeapSize) ? (remaining - minLinearHeapSize) : (remaining / 2);
+			if (heapSize > maxHeapSize)
+				heapSize = maxHeapSize;
+			heapSize &= ~0xFFFu;
+
+			__ctru_heap_size = heapSize;
+			__ctru_linear_heap_size = remaining - heapSize;
+
+			if (R_FAILED(svcControlMemory(&__ctru_heap, OS_HEAP_AREA_BEGIN, 0x0, __ctru_heap_size, MEMOP_ALLOC, (MemPerm)(MEMPERM_READ | MEMPERM_WRITE))))
+				svcBreak(USERBREAK_PANIC);
+			if (R_FAILED(svcControlMemory(&__ctru_linear_heap, 0x0, 0x0, __ctru_linear_heap_size, MEMOP_ALLOC_LINEAR, (MemPerm)(MEMPERM_READ | MEMPERM_WRITE))))
+				svcBreak(USERBREAK_PANIC);
+
+			mappableInit(OS_MAP_AREA_BEGIN, OS_MAP_AREA_END);
+
+			fake_heap_start = (char*)__ctru_heap;
+			fake_heap_end = fake_heap_start + __ctru_heap_size;
+		}
+	}
 #endif
 
 
