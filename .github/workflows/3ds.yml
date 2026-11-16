@@ -1,0 +1,78 @@
+# Builds the Nintendo 3DS port: sonic3air.3dsx (Homebrew Launcher) and sonic3air.cia (install with FBI).
+# Download the results from the "Actions" tab -> latest run -> "Artifacts" -> sonic3air-3ds.
+#
+# The game data and the ROM are NOT part of the build; see Oxygen/sonic3air/build/_3ds/how-to-build.md
+
+name: 3DS build
+
+on:
+  push:
+    branches: [ 3ds-port ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned versions of the CIA packaging tools
+  MAKEROM_REPO: https://github.com/3DSGuy/Project_CTR.git
+  MAKEROM_COMMIT: d52c2b0e788c2d085763d7c5dcc4b2edd9ffb7d8
+  BANNERTOOL_REPO: https://github.com/carstene1ns/3ds-bannertool.git
+  BANNERTOOL_COMMIT: 734d33be79fd3f8c29c6296158f06ac7c5ca9dcb
+
+jobs:
+  build-3ds:
+    runs-on: ubuntu-latest
+    container:
+      image: devkitpro/devkitarm@sha256:116afba8df8453961de2936ffab20dd441edf4d682856c1ec8b0e53d7ed0bbf5
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install host build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential cmake git ca-certificates
+
+      - name: Build sonic3air.3dsx
+        working-directory: Oxygen/sonic3air/build/_3ds
+        run: |
+          /opt/devkitpro/portlibs/3ds/bin/arm-none-eabi-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j"$(nproc)"
+
+      - name: Build makerom
+        run: |
+          mkdir -p "$RUNNER_TEMP/src/makerom" "$RUNNER_TEMP/tools" && cd "$RUNNER_TEMP/src/makerom"
+          git init -q && git remote add origin "$MAKEROM_REPO"
+          git fetch -q --depth 1 origin "$MAKEROM_COMMIT" && git checkout -q FETCH_HEAD
+          make -C makerom deps -j"$(nproc)"
+          make -C makerom program -j"$(nproc)"
+          cp makerom/bin/makerom "$RUNNER_TEMP/tools/"
+
+      - name: Build bannertool
+        run: |
+          mkdir -p "$RUNNER_TEMP/src/bannertool" && cd "$RUNNER_TEMP/src/bannertool"
+          git init -q && git remote add origin "$BANNERTOOL_REPO"
+          git fetch -q --depth 1 origin "$BANNERTOOL_COMMIT" && git checkout -q FETCH_HEAD
+          git submodule update --init --recursive --depth 1
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j"$(nproc)"
+          cp build/bannertool "$RUNNER_TEMP/tools/"
+
+      - name: Package sonic3air.cia
+        working-directory: Oxygen/sonic3air/build/_3ds
+        run: TOOLS_DIR="$RUNNER_TEMP/tools" ./build-cia.sh
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonic3air-3ds
+          path: |
+            Oxygen/sonic3air/build/_3ds/build/sonic3air.3dsx
+            Oxygen/sonic3air/build/_3ds/build/sonic3air.cia
+            Oxygen/sonic3air/build/_3ds/modpatcher/s3air_3ds_modpatcher.py
+            Oxygen/sonic3air/build/_3ds/how-to-build.md
+          if-no-files-found: error
