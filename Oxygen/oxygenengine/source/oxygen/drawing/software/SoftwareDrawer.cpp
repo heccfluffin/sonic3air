@@ -513,11 +513,48 @@ void SoftwareDrawer::setupRenderWindow(SDL_Window* window)
 	mInternal.setupScreenSurface(window);
 }
 
+#if defined(__3DS__) && defined(N3DS_PROFILER)
+namespace
+{
+	// Times each draw command, by category
+	struct DrawCommandProfileScope
+	{
+		explicit DrawCommandProfileScope(DrawCommand::Type type)
+		{
+			switch (type)
+			{
+				case DrawCommand::Type::PRINT_TEXT:
+				case DrawCommand::Type::PRINT_TEXT_W:		mSection = n3ds::profiler::DRAW_TEXT;		break;
+				case DrawCommand::Type::SPRITE:
+				case DrawCommand::Type::SPRITE_RECT:		mSection = n3ds::profiler::DRAW_SPRITE;	break;
+				case DrawCommand::Type::RECT:				mSection = n3ds::profiler::DRAW_RECT;		break;
+				case DrawCommand::Type::UPSCALED_RECT:		mSection = n3ds::profiler::DRAW_UPSCALE;	break;
+				case DrawCommand::Type::MESH:
+				case DrawCommand::Type::MESH_VERTEX_COLOR:	mSection = n3ds::profiler::DRAW_OTHER;		break;
+				default:									return;
+			}
+			mActive = true;
+			n3ds::profiler::beginSection(mSection);
+		}
+		~DrawCommandProfileScope()
+		{
+			if (mActive)
+				n3ds::profiler::endSection(mSection);
+		}
+		n3ds::profiler::Section mSection = n3ds::profiler::DRAW_OTHER;
+		bool mActive = false;
+	};
+}
+#endif
+
 void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 {
 	N3DS_PROFILE_SCOPE(DRAWER);
 	for (DrawCommand* drawCommand : drawCollection.getDrawCommands())
 	{
+	#if defined(__3DS__) && defined(N3DS_PROFILER)
+		DrawCommandProfileScope drawCommandProfileScope(drawCommand->getType());
+	#endif
 		switch (drawCommand->getType())
 		{
 			case DrawCommand::Type::UNDEFINED:

@@ -7,6 +7,7 @@
 */
 
 #include "oxygen/pch.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/application/gameview/GameView.h"
 #include "oxygen/application/Application.h"
 #include "oxygen/application/Configuration.h"
@@ -631,7 +632,9 @@ void GameView::render()
 		if (mStillImage.mBlurringStepTimer >= REDUCTION)
 		{
 			mStillImage.mBlurringStepTimer -= REDUCTION;
+			N3DS_PROFILE_BEGIN(STILL_BLUR);
 			videoOut.blurGameScreen();
+			N3DS_PROFILE_END(STILL_BLUR);
 		}
 	}
 	else

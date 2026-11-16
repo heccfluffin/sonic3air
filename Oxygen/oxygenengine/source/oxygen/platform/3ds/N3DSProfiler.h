@@ -36,6 +36,12 @@ namespace n3ds
 			SW_SPRITES,		//    - Sprites
 			SW_BLUR,		//    - Blur effect
 			DRAWER,			//  - Software drawer: compositing, UI, text, scaling to the window
+			DRAW_TEXT,		//    - Text
+			DRAW_SPRITE,	//    - Sprites (UI graphics)
+			DRAW_RECT,		//    - Rects: color fills and texture copies
+			DRAW_UPSCALE,	//    - Upscaled game screen
+			DRAW_OTHER,		//    - Other drawing (meshes)
+			STILL_BLUR,		//  - Blurring the game screen behind menus
 			PRESENT_REV,	// Presenting: byte order conversion of the window surface (twice)
 			PRESENT_SDL,	// Presenting: SDL_UpdateWindowSurface (rotated copy to the 3DS framebuffer)
 			WAIT,			// Frame cap wait
