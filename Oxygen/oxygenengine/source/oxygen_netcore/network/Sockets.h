@@ -24,6 +24,7 @@ public:
 public:
 	static void startupSockets();
 	static void shutdownSockets();
+	static bool isInitialized()  { return mIsInitialized; }
 
 	static bool resolveToIP(const std::string& hostName, std::string& outIP, bool useIPv6);
 
