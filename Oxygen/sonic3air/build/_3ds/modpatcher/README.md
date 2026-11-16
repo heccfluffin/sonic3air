@@ -1,0 +1,39 @@
+# Sonic 3 A.I.R. 3DS Mod Patcher
+
+A small tool for installing and managing Sonic 3 A.I.R. mods on your 3DS SD card.
+It needs Python 3.8 or newer and nothing else.
+
+## Using the window
+
+1. Put your 3DS SD card in your computer.
+2. Double-click `s3air_3ds_modpatcher.py` (or run `python3 s3air_3ds_modpatcher.py`).
+3. The SD card is detected automatically. If not, click **Browse...** and pick it.
+4. Click **Add mod (.zip)...** or **Add mod folder...** to install mods.
+5. Use **Enable / Disable**, **Move up** and **Move down** to choose which mods are on.
+   When two mods change the same thing, the one higher in the list wins.
+6. **Check SD card** tells you if the game, the data files or the ROM are missing.
+
+## What it does for you
+
+- Finds the `mod.json` inside a download, even when the zip has an extra folder around it
+- Unpacks zips into folders, because the 3DS doesn't have enough memory for zipped mods
+- Warns about things the 3DS port can't do: custom shaders, very large images, very large music packs
+- Copies the mod to `3ds/sonic3air/savedata/mods/` and turns it on
+- Writes the same `active-mods.json` file as the game's own Mods menu, so both stay in sync
+
+## Command line
+
+```bash
+python3 s3air_3ds_modpatcher.py --sd E:/ check-sd
+```
+
+```bash
+python3 s3air_3ds_modpatcher.py --sd E:/ install SomeMod.zip AnotherMod.zip
+```
+
+```bash
+python3 s3air_3ds_modpatcher.py --sd E:/ list
+```
+
+Other commands: `check <zip or folder>`, `enable`, `disable`, `up`, `down` and `remove <mod folder>`.
+Leave out `--sd` to auto-detect the SD card.

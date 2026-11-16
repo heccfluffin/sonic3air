@@ -107,7 +107,7 @@ void PlatformSpecifics::platformStartup()
 	mkdir("sdmc:/3ds", 0777);
 	mkdir("sdmc:/3ds/sonic3air", 0777);
 	mkdir("sdmc:/3ds/sonic3air/savedata", 0777);
-	mkdir("sdmc:/3ds/sonic3air/mods", 0777);
+	mkdir("sdmc:/3ds/sonic3air/savedata/mods", 0777);
 	chdir("sdmc:/3ds/sonic3air");
 #endif
 }
