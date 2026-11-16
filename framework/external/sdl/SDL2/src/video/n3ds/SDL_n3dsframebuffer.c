@@ -71,6 +71,39 @@ int SDL_N3DS_CreateWindowFramebuffer(_THIS, SDL_Window *window, Uint32 *format, 
     return 0;
 }
 
+/* Sonic 3 A.I.R. 3DS port: avoid drawing into a buffer that is still on screen.
+   A buffer swap only takes effect at the screen's next VBlank. If another update comes before that, the buffer it would
+   write into is the one still being displayed, which shows up as a one-frame glitch of mixed old and new frame contents.
+   So count VBlanks per screen, and only wait for one if none happened since the previous swap - this costs nothing as
+   long as frames take longer than a screen refresh, and doesn't lock the frame rate to 60 / 30 FPS like a plain V-Sync. */
+static volatile u32 N3DS_vblank_count[2] = { 0, 0 };
+static u32 N3DS_vblank_count_at_swap[2] = { 0, 0 };
+static SDL_bool N3DS_swap_pending[2] = { SDL_FALSE, SDL_FALSE };
+static SDL_bool N3DS_vblank_callbacks_installed = SDL_FALSE;
+
+static void N3DS_OnVBlankTop(void *data)    { (void)data; ++N3DS_vblank_count[GFX_TOP]; }
+static void N3DS_OnVBlankBottom(void *data) { (void)data; ++N3DS_vblank_count[GFX_BOTTOM]; }
+
+static void N3DS_WaitForPendingSwap(gfxScreen_t screen)
+{
+    if (!N3DS_vblank_callbacks_installed) {
+        gspSetEventCallback(GSPGPU_EVENT_VBlank0, N3DS_OnVBlankTop, NULL, false);
+        gspSetEventCallback(GSPGPU_EVENT_VBlank1, N3DS_OnVBlankBottom, NULL, false);
+        N3DS_vblank_callbacks_installed = SDL_TRUE;
+        return;    /* No swap can be pending yet */
+    }
+    if (N3DS_swap_pending[screen] && N3DS_vblank_count[screen] == N3DS_vblank_count_at_swap[screen]) {
+        gspWaitForEvent((screen == GFX_TOP) ? GSPGPU_EVENT_VBlank0 : GSPGPU_EVENT_VBlank1, true);
+    }
+    N3DS_swap_pending[screen] = SDL_FALSE;
+}
+
+static void N3DS_OnSwapRequested(gfxScreen_t screen)
+{
+    N3DS_vblank_count_at_swap[screen] = N3DS_vblank_count[screen];
+    N3DS_swap_pending[screen] = SDL_TRUE;
+}
+
 int SDL_N3DS_UpdateWindowFramebuffer(_THIS, SDL_Window *window, const SDL_Rect *rects, int numrects)
 {
     SDL_WindowData *drv_data = (SDL_WindowData *)window->driverdata;
@@ -83,6 +116,9 @@ int SDL_N3DS_UpdateWindowFramebuffer(_THIS, SDL_Window *window, const SDL_Rect *
     if (!surface) {
         return SDL_SetError("%s: Unable to get the window surface.", __func__);
     }
+
+    /* Make sure the buffer we're about to write into isn't still on screen */
+    N3DS_WaitForPendingSwap(drv_data->screen);
 
     /* Get the N3DS internal framebuffer and its size */
     framebuffer = gfxGetFramebuffer(drv_data->screen, GFX_LEFT, &width, &height);
@@ -101,6 +137,7 @@ int SDL_N3DS_UpdateWindowFramebuffer(_THIS, SDL_Window *window, const SDL_Rect *
         CopyFramebuffertoN3DS_32(framebuffer, (Dimensions){ width, height },
                                  surface->pixels, (Dimensions){ surface->w, surface->h });
     FlushN3DSBuffer(framebuffer, bufsize, drv_data->screen);
+    N3DS_OnSwapRequested(drv_data->screen);
 
     return 0;
 }
