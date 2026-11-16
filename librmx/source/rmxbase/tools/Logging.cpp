@@ -60,7 +60,7 @@ namespace rmx
 
 	void StdCoutLogger::log(LogLevel logLevel, const std::string& string)
 	{
-	#if !defined(PLATFORM_VITA)
+	#if !defined(PLATFORM_VITA) && !defined(PLATFORM_3DS)		// On 3DS, std::cout goes to the on-screen console (if one is active), which shouldn't show log output
 	#if defined(PLATFORM_WINDOWS)
 		// Use different color in console output on Windows
 		const HANDLE handle = ::GetStdHandle(STD_OUTPUT_HANDLE);

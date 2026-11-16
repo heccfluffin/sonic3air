@@ -118,19 +118,32 @@ namespace n3ds
 					if (!gConsoleInitialized)
 					{
 						consoleInit(GFX_BOTTOM, &gConsole);
+						consoleSelect(&gConsole);
+						consoleClear();
 						gConsoleInitialized = true;
 					}
 					consoleSelect(&gConsole);
-					consoleClear();
-					printf("S3AIR 3DS profiler   ms/frame avg  max\n");
-					printf("FPS %5.1f   game steps/frame %.2f (max %u)\n", fps, stepsPerFrame, (unsigned)gWindowSimStepsMax);
+
+					// Overwrite the previous table in place instead of clearing the screen first, so it doesn't flicker.
+					// Lines are padded to 39 characters: the bottom screen console is 40 wide, and a full line would wrap.
+					gConsole.cursorX = 0;
+					gConsole.cursorY = 0;
+					char text[64];
+					const auto printLine = [&]()  { printf("%-39.39s\n", text); };
+
+					snprintf(text, sizeof(text), "S3AIR 3DS profiler   ms/frame avg  max");
+					printLine();
+					snprintf(text, sizeof(text), "FPS %5.1f   game steps/frame %.2f (max %u)", fps, stepsPerFrame, (unsigned)gWindowSimStepsMax);
+					printLine();
 					for (const Line& line : LINES)
 					{
 						double average, maximum;
 						getLineValues(line, average, maximum);
-						printf("%-20s %8.2f %7.2f\n", line.mLabel, average, maximum);
+						snprintf(text, sizeof(text), "%-20s %8.2f %7.2f", line.mLabel, average, maximum);
+						printLine();
 					}
-					printf("Audio workers %6.2f ms/frame %5.1f%%\n", workerMsPerFrame, workerCorePercent);
+					snprintf(text, sizeof(text), "Audio workers %6.2f ms/frame %5.1f%%", workerMsPerFrame, workerCorePercent);
+					printLine();
 
 					u16 width = 0;
 					u16 height = 0;
