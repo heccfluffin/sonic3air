@@ -36,6 +36,7 @@ typedef struct
 SDL_FORCE_INLINE void CopyFramebuffertoN3DS_16(u16 *dest, const Dimensions dest_dim, const u16 *source, const Dimensions source_dim);
 SDL_FORCE_INLINE void CopyFramebuffertoN3DS_24(u8  *dest, const Dimensions dest_dim, const u8  *source, const Dimensions source_dim);
 SDL_FORCE_INLINE void CopyFramebuffertoN3DS_32(u32 *dest, const Dimensions dest_dim, const u32 *source, const Dimensions source_dim);
+SDL_FORCE_INLINE void CopyFramebuffertoN3DS_32_ByteReversed(u32 *dest, const Dimensions dest_dim, const u32 *source, const Dimensions source_dim);
 SDL_FORCE_INLINE int GetDestOffset(int x, int y, int dest_width);
 SDL_FORCE_INLINE int GetSourceOffset(int x, int y, int source_width);
 SDL_FORCE_INLINE void FlushN3DSBuffer(const void *buffer, u32 bufsize, gfxScreen_t screen);
@@ -48,16 +49,23 @@ int SDL_N3DS_CreateWindowFramebuffer(_THIS, SDL_Window *window, Uint32 *format, 
 
     SDL_N3DS_DestroyWindowFramebuffer(_this, window);
 
+    Uint32 surface_format;
+
     SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &mode);
     SDL_GetWindowSizeInPixels(window, &w, &h);
-    framebuffer = SDL_CreateRGBSurfaceWithFormat(0, w, h, SDL_BYTESPERPIXEL(mode.format), mode.format);
+
+    /* Sonic 3 A.I.R. 3DS port: offer the 32-bit window surface as ABGR8888, which is RGBA8888 with the byte order of
+       each pixel reversed. The copy into the framebuffer reverses it back, in the same pass that rotates the image anyway.
+       This way, software renderers working in ABGR8888 can draw directly, without a separate full-screen conversion. */
+    surface_format = (mode.format == SDL_PIXELFORMAT_RGBA8888) ? SDL_PIXELFORMAT_ABGR8888 : mode.format;
+    framebuffer = SDL_CreateRGBSurfaceWithFormat(0, w, h, SDL_BYTESPERPIXEL(surface_format), surface_format);
 
     if (!framebuffer) {
         return SDL_OutOfMemory();
     }
 
     SDL_SetWindowData(window, N3DS_SURFACE, framebuffer);
-    *format = mode.format;
+    *format = surface_format;
     *pixels = framebuffer->pixels;
     *pitch = framebuffer->pitch;
     return 0;
@@ -86,6 +94,9 @@ int SDL_N3DS_UpdateWindowFramebuffer(_THIS, SDL_Window *window, const SDL_Rect *
     else if (surface->format->BytesPerPixel == 3)
         CopyFramebuffertoN3DS_24(framebuffer, (Dimensions){ width, height },
                                  surface->pixels, (Dimensions){ surface->w, surface->h });
+    else if (surface->format->format == SDL_PIXELFORMAT_ABGR8888)
+        CopyFramebuffertoN3DS_32_ByteReversed(framebuffer, (Dimensions){ width, height },
+                                              surface->pixels, (Dimensions){ surface->w, surface->h });
     else
         CopyFramebuffertoN3DS_32(framebuffer, (Dimensions){ width, height },
                                  surface->pixels, (Dimensions){ surface->w, surface->h });
@@ -134,6 +145,32 @@ CopyFramebuffertoN3DS_32(u32 *dest, const Dimensions dest_dim, const u32 *source
             const u32 *s = source + GetSourceOffset(x, y, source_dim.width);
             u32 *d = dest + GetDestOffset(x, y, dest_dim.width);
             *d = *s;
+        }
+    }
+}
+
+/* Same result as CopyFramebuffertoN3DS_32, plus reversing the byte order of each pixel (ABGR8888 -> RGBA8888).
+   The rotation reads source rows but writes destination columns; working in 8x8 blocks keeps both within the
+   CPU cache, instead of touching a different cache line for almost every written pixel. */
+SDL_FORCE_INLINE void
+CopyFramebuffertoN3DS_32_ByteReversed(u32 *dest, const Dimensions dest_dim, const u32 *source, const Dimensions source_dim)
+{
+    const int rows = SDL_min(dest_dim.width, source_dim.height);
+    const int cols = SDL_min(dest_dim.height, source_dim.width);
+    const int dest_width = dest_dim.width;
+    const int source_width = source_dim.width;
+    for (int by = 0; by < rows; by += 8) {
+        const int ey = SDL_min(by + 8, rows);
+        for (int bx = 0; bx < cols; bx += 8) {
+            const int ex = SDL_min(bx + 8, cols);
+            for (int x = bx; x < ex; ++x) {
+                const u32 *s = source + GetSourceOffset(x, by, source_width);
+                u32 *d = dest + GetDestOffset(x, by, dest_width);    /* Moves backwards by one per source line */
+                for (int y = by; y < ey; ++y) {
+                    *d-- = __builtin_bswap32(*s);
+                    s += source_width;
+                }
+            }
         }
     }
 }
