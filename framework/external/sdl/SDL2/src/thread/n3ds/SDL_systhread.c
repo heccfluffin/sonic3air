@@ -59,6 +59,23 @@ int SDL_SYS_CreateThread(SDL_Thread *thread)
         cpu = 1;
     }
 
+    /* Sonic 3 A.I.R. 3DS port: background job workers of the rmx JobManager (e.g. sound effect synthesis)
+       - Run them at a lower priority than the creating (main) thread: threads of equal priority on a 3DS core
+         are not time-sliced, so a busy worker on the main thread's core could lock it out indefinitely
+       - On New 3DS, prefer the otherwise unused core 2, so they run in parallel with the game */
+    if (thread->name && (SDL_strncmp(thread->name, "rmxJobWorker", 12) == 0)) {
+        bool isNew3DS = false;
+        if (priority < 0x3F) {
+            priority++;
+        }
+        if (R_SUCCEEDED(APT_CheckNew3DS(&isNew3DS)) && isNew3DS) {
+            thread->handle = threadCreate(ThreadEntry, thread, stack_size, priority, 2, false);
+        }
+        if (thread->handle) {
+            return 0;
+        }
+    }
+
     thread->handle = threadCreate(ThreadEntry,
                                   thread,
                                   stack_size,

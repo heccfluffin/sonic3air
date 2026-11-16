@@ -302,6 +302,7 @@ namespace rmx
 
 
 	JobWorkerThread::JobWorkerThread(JobManager& jobManager, int index) :
+		ThreadBase("rmxJobWorker"),	// The 3DS port's SDL thread creation recognizes this name (lower priority, extra CPU core on New 3DS)
 		mJobManager(jobManager)
 	{
 		// Index goes unused at the moment
