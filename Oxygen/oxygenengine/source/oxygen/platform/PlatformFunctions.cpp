@@ -26,6 +26,9 @@
 	#include <emscripten.h>
 	#include <emscripten/html5.h>
 #endif
+#ifdef PLATFORM_3DS
+	#include "oxygen/platform/3ds/N3DSDialog.h"
+#endif
 
 
 namespace
@@ -428,6 +431,10 @@ void PlatformFunctions::showMessageBox(const std::string& caption, const std::st
 
 	MessageBoxA((HWND)FTX::Video->getNativeWindowHandle(), text.c_str(), caption.c_str(), MB_OK | MB_ICONEXCLAMATION);
 
+#elif defined(PLATFORM_3DS)
+
+	n3ds::showDialog(caption.c_str(), text.c_str(), 1);
+
 #else
 
 	// A more platform-independent version provided by SDL; should be used as a fallback if there's nothing better
@@ -465,6 +472,12 @@ PlatformFunctions::DialogResult PlatformFunctions::showDialogBox(rmx::ErrorSever
 		case IDNO:		return DialogResult::NO;
 	}
 	return DialogResult::OK;
+
+#elif defined(PLATFORM_3DS)
+
+	const int numButtons = (dialogButtons == DialogButtons::OK) ? 1 : (dialogButtons == DialogButtons::OK_CANCEL) ? 2 : 3;
+	const int result = n3ds::showDialog(caption.c_str(), text.c_str(), numButtons);
+	return (result == 2) ? DialogResult::CANCEL : (result == 1) ? DialogResult::NO : DialogResult::OK;
 
 #else
 

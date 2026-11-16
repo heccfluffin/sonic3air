@@ -77,7 +77,9 @@ bool EngineDelegate::onEnginePreStartup()
 	#endif
 		if (!check)
 		{
-		#ifdef PLATFORM_WINDOWS
+		#if defined(PLATFORM_3DS)
+			RMX_ERROR("Game data not found.\n\nCopy the 'data' folder (with gamedata.bin, enginedata.bin, audiodata.bin) and config.json from the official Sonic 3 A.I.R. PC release to:\n\n  sdmc:/3ds/sonic3air/data/\n  sdmc:/3ds/sonic3air/config.json", );
+		#elif defined(PLATFORM_WINDOWS)
 			RMX_ERROR("Seems like you launched the Sonic3AIR.exe from inside the downloaded ZIP file.\n\nMake sure to first extract the ZIP somewhere like on your desktop, then start the Sonic3AIR.exe in the extracted folder.", );
 		#else
 			RMX_ERROR("Seems like you launched the Sonic3AIR executable from inside the downloaded ZIP file.\n\nMake sure to first extract the ZIP somewhere like on your desktop, then start the Sonic3AIR executable in the extracted folder.", );
