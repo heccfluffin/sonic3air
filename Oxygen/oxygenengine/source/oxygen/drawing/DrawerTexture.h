@@ -62,6 +62,7 @@ public:
 	// Defers copying the full content of another texture into this one until this texture's content is actually accessed.
 	// Used by the software drawer when it can draw directly from the source instead of this texture.
 	void setDeferredCopySource(DrawerTexture* source);
+	inline DrawerTexture* getDeferredCopySource() const  { return mDeferredCopySource; }
 
 	void swap(DrawerTexture& other);
 
