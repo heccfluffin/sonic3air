@@ -25,6 +25,22 @@ cmake --build build -j4
 ```
 
 
+### Installable .cia (for FBI)
+
+After `./build.sh`, package the same build as a `.cia` with a Home Menu icon and banner:
+
+```bash
+./build-cia.sh
+```
+
+This needs `makerom` (from https://github.com/3DSGuy/Project_CTR) and `bannertool`
+(from https://github.com/carstene1ns/3ds-bannertool) on your PATH, or in a folder given with `TOOLS_DIR=...`.
+Output: `build/sonic3air.cia`. The CIA settings (`cia/sonic3air.rsf`) request the New 3DS's largest memory
+mode (178 MB) and 804 MHz, which a `.3dsx` started from the Homebrew Launcher can't always get.
+
+The CIA reads its game data, ROM, saves and mods from the same `sdmc:/3ds/sonic3air/` folder as the `.3dsx`.
+
+
 ## Installing on the SD card
 
 The port contains no game data. You need your own copy of Sonic 3 & Knuckles, and the data files of the
