@@ -757,7 +757,9 @@ void SoftwareDrawer::presentScreen()
 		return;
 	}
 
+	N3DS_PROFILE_BEGIN(PRESENT_SDL);
 	SDL_UpdateWindowSurface(mInternal.mOutputWindow);
+	N3DS_PROFILE_END(PRESENT_SDL);
 }
 
 const BitmapViewMutable<uint32>& SoftwareDrawer::getRenderTarget() const

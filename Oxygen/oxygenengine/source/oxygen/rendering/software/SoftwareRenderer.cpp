@@ -115,6 +115,73 @@ namespace detail
 		SoftwareRenderer::BufferedPlaneData::PixelBlock* mCurrentPixelBlock = nullptr;
 		uint16 mLastPatternBits = 0xffff;
 	};
+
+	// Writes plane pixels to the game screen: palette lookup for each pixel, skipping transparent ones (color index 0 of a palette line).
+	// Same result as a simple per-pixel loop, but processes 4 pixels at once where possible:
+	//  - The color indices of 4 pixels are read with a single aligned 32-bit load
+	//  - If all 4 are opaque (the common case for backgrounds), they get written without per-pixel checks,
+	//    which lets an in-order CPU like the 3DS's ARM11 overlap the loads instead of waiting on each one
+	template<bool WRITE_DEPTH>
+	FORCE_INLINE void writePlanePixel(const uint8* RESTRICT src, uint32* RESTRICT dstRGBA, uint8* RESTRICT dstDepth, const uint32* RESTRICT palette, int i)
+	{
+		const uint8 colorIndex = src[i];
+		if (colorIndex & 0x0f)
+		{
+			dstRGBA[i] = palette[colorIndex];
+			if (WRITE_DEPTH)
+				dstDepth[i] = 0x80;
+		}
+	}
+
+	template<bool WRITE_DEPTH>
+	FORCE_INLINE void writePlanePixels(const uint8* RESTRICT src, uint32* RESTRICT dstRGBA, uint8* RESTRICT dstDepth, const uint32* RESTRICT palette, int numPixels)
+	{
+		int i = 0;
+
+		// Single pixels until the source is 4-byte aligned
+		const int head = std::min(numPixels, (int)((4 - ((size_t)src & 3)) & 3));
+		for (; i < head; ++i)
+			writePlanePixel<WRITE_DEPTH>(src, dstRGBA, dstDepth, palette, i);
+
+		// Groups of 4 pixels
+		for (; i + 4 <= numPixels; i += 4)
+		{
+			const uint32 indices = *(const uint32*)__builtin_assume_aligned(&src[i], 4);
+			const uint32 nibbles = indices & 0x0f0f0f0f;
+			const bool anyTransparent = (((nibbles - 0x01010101) & ~nibbles & 0x80808080) != 0);	// Checks if any of the 4 bytes is zero
+			if (!anyTransparent)
+			{
+				const uint32 color0 = palette[indices & 0xff];
+				const uint32 color1 = palette[(indices >> 8) & 0xff];
+				const uint32 color2 = palette[(indices >> 16) & 0xff];
+				const uint32 color3 = palette[indices >> 24];
+				dstRGBA[i]     = color0;
+				dstRGBA[i + 1] = color1;
+				dstRGBA[i + 2] = color2;
+				dstRGBA[i + 3] = color3;
+				if (WRITE_DEPTH)
+				{
+					dstDepth[i]     = 0x80;
+					dstDepth[i + 1] = 0x80;
+					dstDepth[i + 2] = 0x80;
+					dstDepth[i + 3] = 0x80;
+				}
+			}
+			else if (nibbles != 0)
+			{
+				// Mix of transparent and opaque pixels
+				writePlanePixel<WRITE_DEPTH>(src, dstRGBA, dstDepth, palette, i);
+				writePlanePixel<WRITE_DEPTH>(src, dstRGBA, dstDepth, palette, i + 1);
+				writePlanePixel<WRITE_DEPTH>(src, dstRGBA, dstDepth, palette, i + 2);
+				writePlanePixel<WRITE_DEPTH>(src, dstRGBA, dstDepth, palette, i + 3);
+			}
+			// Otherwise all 4 are transparent, nothing to do
+		}
+
+		// Remaining single pixels
+		for (; i < numPixels; ++i)
+			writePlanePixel<WRITE_DEPTH>(src, dstRGBA, dstDepth, palette, i);
+	}
 }
 
 
@@ -527,27 +594,16 @@ void SoftwareRenderer::renderPlane(const PlaneGeometry& geometry)
 			uint32* RESTRICT dstRGBA = &gameScreenBitmap.getData()[block.mLinearPosition];
 			const uint32* RESTRICT paletteWithAtex = &palettes[block.mPaletteIndex][block.mAtex];
 
+			// Note: The pixel count is copied into a local variable, as the compiler would otherwise reload it after every written pixel
+			const int numPixels = block.mNumPixels;
 			if (geometry.mPriorityFlag)
 			{
 				uint8* RESTRICT dstDepth = &mDepthBuffer[block.mStartCoords.x + block.mStartCoords.y * 0x200];
-				for (int i = 0; i < block.mNumPixels; ++i)
-				{
-					if (src[i] & 0x0f)
-					{
-						dstRGBA[i] = paletteWithAtex[src[i]];
-						dstDepth[i] = 0x80;
-					}
-				}
+				detail::writePlanePixels<true>(src, dstRGBA, dstDepth, paletteWithAtex, numPixels);
 			}
 			else
 			{
-				for (int i = 0; i < block.mNumPixels; ++i)
-				{
-					if (src[i] & 0x0f)
-					{
-						dstRGBA[i] = paletteWithAtex[src[i]];
-					}
-				}
+				detail::writePlanePixels<false>(src, dstRGBA, nullptr, paletteWithAtex, numPixels);
 			}
 		}
 
