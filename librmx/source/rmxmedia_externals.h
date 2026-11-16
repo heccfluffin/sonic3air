@@ -112,6 +112,9 @@
 	#include <vitaGL.h>
 	#define RMX_USE_GLES2
 
+#elif defined(PLATFORM_3DS)
+	// No OpenGL on 3DS: the PICA200 GPU is not OpenGL-capable, so the engine uses its software renderer
+
 #else
 	#error Unsupported platform
 #endif

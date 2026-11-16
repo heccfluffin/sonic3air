@@ -554,7 +554,7 @@ namespace rmx
 		// Just use SDL for this
 		SDL_AudioSpec waveFormat;
 		unsigned char* waveData = nullptr;
-		unsigned int waveLength = 0;
+		Uint32 waveLength = 0;
 		if (!SDL_LoadWAV(*source, &waveFormat, &waveData, &waveLength))
 			return false;
 

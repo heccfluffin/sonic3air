@@ -17,13 +17,15 @@
 	#define DECLSPEC __attribute__ ((visibility("default")))
 #endif
 
-// OpenGL support master switch
-//  -> Can be disabled for platforms where OpenGL does not work
-#define RMX_WITH_OPENGL_SUPPORT
-
-
 // General includes
 #include "rmxbase.h"
+
+// OpenGL support master switch
+//  -> Can be disabled for platforms where OpenGL does not work
+#if !defined(PLATFORM_3DS)
+	#define RMX_WITH_OPENGL_SUPPORT
+#endif
+
 #include "rmxmedia_externals.h"
 
 // RMX modules

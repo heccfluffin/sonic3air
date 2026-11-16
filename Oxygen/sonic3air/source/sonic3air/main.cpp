@@ -39,6 +39,14 @@ extern "C"
 }
 #endif
 
+#if defined(PLATFORM_3DS)
+extern "C"
+{
+	// The lemonscript compiler is recursive, the default 32 KB main thread stack is not enough
+	unsigned int __stacksize__ = 1024 * 1024;
+}
+#endif
+
 #if defined(PLATFORM_VITA)
 extern "C"
 {
@@ -57,7 +65,7 @@ int main(int argc, char** argv)
 
 	GameArgumentsReader arguments;
 
-#if defined(PLATFORM_VITA)
+#if defined(PLATFORM_VITA) || defined(PLATFORM_3DS)
 	argc = 0;
 #else
 	// Read command line arguments
@@ -88,7 +96,7 @@ int main(int argc, char** argv)
 		FTX::FileSystem->removeFile(L"data/audioremaster.bin");
 #endif
 
-#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_VITA)
+#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_VITA) && !defined(PLATFORM_3DS)
 	if (arguments.mPack)
 	{
 		PackageBuilder::performPacking();

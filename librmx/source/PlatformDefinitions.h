@@ -18,6 +18,7 @@
 //  - PLATFORM_WEB		-> Web version (via emscripten)
 //  - PLATFORM_SWITCH	-> Nintendo Switch (homebrew)
 //  - PLATFORM_VITA		-> Playstation Vita (homebrew)
+//  - PLATFORM_3DS		-> Nintendo 3DS (homebrew, New 3DS recommended)
 
 
 // Platform specific
@@ -54,6 +55,10 @@
 
 #elif __vita__
 	#define PLATFORM_VITA
+	#define USE_UTF8_PATHS
+
+#elif __3DS__
+	#define PLATFORM_3DS
 	#define USE_UTF8_PATHS
 
 #else
