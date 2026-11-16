@@ -463,7 +463,7 @@ namespace rmx
 		// Just use SDL for this
 		SDL_AudioSpec wave;
 		unsigned char* wave_data;
-		unsigned int wave_length;
+		Uint32 wave_length;
 		if (!SDL_LoadWAV(*source, &wave, &wave_data, &wave_length))
 			return false;
 

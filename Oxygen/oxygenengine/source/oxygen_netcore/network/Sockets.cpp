@@ -37,6 +37,10 @@
 	#define SOMAXCONN 4096
 #endif
 
+#if defined(__3DS__) && !defined(SOMAXCONN)
+	#define SOMAXCONN 8
+#endif
+
 
 namespace
 {
@@ -66,7 +70,7 @@ namespace
 		// Allow re-use of the port
 		setSocketOptionBool(socket, SOL_SOCKET, SO_REUSEADDR, true);
 
-	#if !defined(PLATFORM_SWITCH)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
+	#if !defined(PLATFORM_SWITCH) && !defined(PLATFORM_3DS)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
 		if (protocolFamily >= Sockets::ProtocolFamily::IPv6)
 		{
 			// Optionally allow IPv4 + IPv6 dual stack support on the socket
@@ -181,7 +185,7 @@ void SocketAddress::assureSockAddr() const
 	{
 		memset(&mSockAddr, 0, sizeof(mSockAddr));
 		bool success = false;
-	#if !defined(PLATFORM_SWITCH)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
+	#if !defined(PLATFORM_SWITCH) && !defined(PLATFORM_3DS)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
 		{
 			// IPv6
 			sockaddr_in6& addr = *reinterpret_cast<sockaddr_in6*>(&mSockAddr);
@@ -216,7 +220,7 @@ void SocketAddress::assureIpPort() const
 				inet_ntop(addressFamily, &(reinterpret_cast<sockaddr_in&>(mSockAddr).sin_addr), myIP, sizeof(myIP));
 				mPort = ntohs(reinterpret_cast<sockaddr_in&>(mSockAddr).sin_port);
 			}
-		#if !defined(PLATFORM_SWITCH)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
+		#if !defined(PLATFORM_SWITCH) && !defined(PLATFORM_3DS)	// The IPv6 part won't compile on Switch, but isn't really needed there anyways
 			else
 			{
 				// IPv6

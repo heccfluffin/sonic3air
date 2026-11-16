@@ -15,6 +15,12 @@
 	#include "sonic3air/platform/vita/trophies.h"
 #endif
 
+#if defined(PLATFORM_3DS)
+	#include <3ds.h>
+	#include <sys/stat.h>
+	#include <unistd.h>
+#endif
+
 
 namespace
 {
@@ -88,5 +94,20 @@ void PlatformSpecifics::platformStartup()
 	}
 
 	changeWorkingDirectory(L"ux0:/data/sonic3air");
+#endif
+
+#if defined(PLATFORM_3DS)
+	// New 3DS / New 2DS XL: switch to 804 MHz and enable the L2 cache (no effect on Old 3DS models)
+	osSetSpeedupEnable(true);
+
+	// Allow up to 30% of the system core to be used by helper threads (e.g. audio)
+	APT_SetAppCpuTimeLimit(30);
+
+	// All game files live in this directory on the SD card
+	mkdir("sdmc:/3ds", 0777);
+	mkdir("sdmc:/3ds/sonic3air", 0777);
+	mkdir("sdmc:/3ds/sonic3air/savedata", 0777);
+	mkdir("sdmc:/3ds/sonic3air/mods", 0777);
+	chdir("sdmc:/3ds/sonic3air");
 #endif
 }
