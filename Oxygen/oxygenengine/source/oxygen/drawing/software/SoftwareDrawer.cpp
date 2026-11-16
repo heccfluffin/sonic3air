@@ -144,6 +144,17 @@ namespace softwaredrawer
 					break;
 				}
 
+			#if defined(PLATFORM_3DS)
+				case SDL_PIXELFORMAT_RGBA8888:		// 3DS: the only 32-bit format offered by SDL's 3DS backend
+				{
+					// Draw as ABGR8888 and reverse the byte order of each pixel when presenting, which turns it into RGBA8888
+					formatSupported = true;
+					mSurfaceSwapRedBlue = false;
+					mSurfaceReverseBytes = true;
+					break;
+				}
+			#endif
+
 				// TODO: We could also support e.g. SDL_PIXELFORMAT_RGBA8888 by shifting everything by one byte in "getOutputWrapper"
 			}
 
@@ -163,6 +174,17 @@ namespace softwaredrawer
 
 				mScreenSurface = nullptr;
 				mOutputWrapper = BitmapViewMutable<uint32>();
+			}
+		}
+
+		void reverseSurfaceBytes()
+		{
+			uint8* row = (uint8*)mScreenSurface->pixels;
+			for (int y = 0; y < mScreenSurface->h; ++y, row += mScreenSurface->pitch)
+			{
+				uint32* pixels = (uint32*)row;
+				for (int x = 0; x < mScreenSurface->w; ++x)
+					pixels[x] = __builtin_bswap32(pixels[x]);		// A single REV instruction on ARM
 			}
 		}
 
@@ -415,6 +437,7 @@ namespace softwaredrawer
 		SDL_Window* mOutputWindow = nullptr;
 		SDL_Surface* mScreenSurface = nullptr;
 		bool mSurfaceSwapRedBlue = false;
+		bool mSurfaceReverseBytes = false;	// Only used on 3DS, see "setupScreenSurface"
 
 		BlendMode mCurrentBlendMode = BlendMode::OPAQUE;
 		SamplingMode mCurrentSamplingMode = SamplingMode::POINT;
@@ -716,6 +739,16 @@ void SoftwareDrawer::presentScreen()
 		return;
 
 	mInternal.unlockScreenSurface();
+
+	if (mInternal.mSurfaceReverseBytes)
+	{
+		// Convert to the screen's format for presenting, then back to the format the drawer works with
+		mInternal.reverseSurfaceBytes();
+		SDL_UpdateWindowSurface(mInternal.mOutputWindow);
+		mInternal.reverseSurfaceBytes();
+		return;
+	}
+
 	SDL_UpdateWindowSurface(mInternal.mOutputWindow);
 }
 
