@@ -7,6 +7,7 @@
 */
 
 #include "oxygen/pch.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/application/video/VideoOut.h"
 #include "oxygen/application/Configuration.h"
 #include "oxygen/application/EngineMain.h"
@@ -213,7 +214,9 @@ bool VideoOut::updateGameScreen()
 	refreshParameters.mHasNewSimulationFrame = hasNewSimulationFrame;
 	refreshParameters.mUsingFrameInterpolation = mFrameInterpolation.mCurrentlyInterpolating;
 	refreshParameters.mInterFramePosition = mFrameInterpolation.mInterFramePosition;
+	N3DS_PROFILE_BEGIN(REFRESH);
 	mRenderParts->refresh(refreshParameters);
+	N3DS_PROFILE_END(REFRESH);
 
 	// Render a new image
 	renderGameScreen();
@@ -499,14 +502,19 @@ void VideoOut::collectGeometries(std::vector<Geometry*>& geometries)
 void VideoOut::renderGameScreen()
 {
 	// Collect geometries to render
+	N3DS_PROFILE_BEGIN(GEOMETRY);
 	clearGeometries();
 	if (mRenderParts->getActiveDisplay())
 	{
 		collectGeometries(mGeometries);
 	}
 
+	N3DS_PROFILE_END(GEOMETRY);
+
 	// Render them
+	N3DS_PROFILE_BEGIN(SW_RENDER);
 	mActiveRenderer->renderGameScreen(mGeometries);
+	N3DS_PROFILE_END(SW_RENDER);
 }
 
 void VideoOut::preRefreshDebugging()

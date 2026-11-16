@@ -7,6 +7,7 @@
 */
 
 #include "oxygen/pch.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/application/audio/EmulationAudioSource.h"
 #include "oxygen/application/Configuration.h"
 
@@ -202,6 +203,7 @@ void EmulationAudioSource::progressInternal(float precacheTime)
 
 bool EmulationAudioSource::jobFunc()
 {
+	N3DS_PROFILE_WORKER_SCOPE();
 	// This method is executed by a worker thread
 	SDL_LockMutex(mMutex);
 

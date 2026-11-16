@@ -7,6 +7,7 @@
 */
 
 #include "oxygen/pch.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/rendering/software/SoftwareRenderer.h"
 #include "oxygen/rendering/software/SoftwareBlur.h"
 #include "oxygen/rendering/Geometry.h"
@@ -263,12 +264,14 @@ void SoftwareRenderer::renderGeometry(const Geometry& geometry)
 
 		case Geometry::Type::PLANE:
 		{
+			N3DS_PROFILE_SCOPE(SW_PLANES);
 			renderPlane(static_cast<const PlaneGeometry&>(geometry));
 			break;
 		}
 
 		case Geometry::Type::SPRITE:
 		{
+			N3DS_PROFILE_SCOPE(SW_SPRITES);
 			renderSprite(static_cast<const SpriteGeometry&>(geometry));
 			break;
 		}
@@ -302,6 +305,7 @@ void SoftwareRenderer::renderGeometry(const Geometry& geometry)
 
 			if (ebg.mBlurValue >= 1)
 			{
+				N3DS_PROFILE_SCOPE(SW_BLUR);
 				SoftwareBlur::blurBitmap(gameScreenBitmap, ebg.mBlurValue);
 			}
 			break;

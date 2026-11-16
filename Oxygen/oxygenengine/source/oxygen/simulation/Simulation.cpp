@@ -7,6 +7,7 @@
 */
 
 #include "oxygen/pch.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/simulation/Simulation.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
@@ -435,7 +436,9 @@ bool Simulation::generateFrame()
 	if (!completedCurrentFrame)		// Can be true already if game recorder playback just loaded a state
 	{
 		// Perform game simulation
+		N3DS_PROFILE_BEGIN(SCRIPTS);
 		completedCurrentFrame = mCodeExec.performFrameUpdate();
+		N3DS_PROFILE_END(SCRIPTS);
 	}
 
 	// Steps to do when a frame got completed
@@ -495,6 +498,7 @@ bool Simulation::generateFrame()
 		}
 
 		++mFrameNumber;
+		N3DS_PROFILE_SIMULATION_STEP();
 
 		if (mStepsLimit > 0)
 			--mStepsLimit;

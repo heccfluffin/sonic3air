@@ -33,6 +33,12 @@ add_link_options(-Wl,--gc-sections)
 
 add_definitions(-DENDUSER)
 
+# Lightweight frame profiler: prints timings to the bottom screen and logfile.txt every 2 seconds
+option(S3AIR_3DS_PROFILER "Enable the 3DS frame profiler" ON)
+if (S3AIR_3DS_PROFILER)
+	add_definitions(-DN3DS_PROFILER)
+endif()
+
 
 
 # --- SDL2 (bundled copy, includes the N3DS backend) ---

@@ -7,6 +7,7 @@
 */
 
 #include "oxygen/pch.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/drawing/software/SoftwareDrawer.h"
 #include "oxygen/drawing/software/SoftwareDrawerTexture.h"
 #include "oxygen/drawing/software/SoftwareRasterizer.h"
@@ -486,6 +487,7 @@ void SoftwareDrawer::setupRenderWindow(SDL_Window* window)
 
 void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 {
+	N3DS_PROFILE_SCOPE(DRAWER);
 	for (DrawCommand* drawCommand : drawCollection.getDrawCommands())
 	{
 		switch (drawCommand->getType())
@@ -743,9 +745,15 @@ void SoftwareDrawer::presentScreen()
 	if (mInternal.mSurfaceReverseBytes)
 	{
 		// Convert to the screen's format for presenting, then back to the format the drawer works with
+		N3DS_PROFILE_BEGIN(PRESENT_REV);
 		mInternal.reverseSurfaceBytes();
+		N3DS_PROFILE_END(PRESENT_REV);
+		N3DS_PROFILE_BEGIN(PRESENT_SDL);
 		SDL_UpdateWindowSurface(mInternal.mOutputWindow);
+		N3DS_PROFILE_END(PRESENT_SDL);
+		N3DS_PROFILE_BEGIN(PRESENT_REV);
 		mInternal.reverseSurfaceBytes();
+		N3DS_PROFILE_END(PRESENT_REV);
 		return;
 	}
 

@@ -7,6 +7,7 @@
 */
 
 #include "oxygen/pch.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/application/Application.h"
 #include "oxygen/application/Configuration.h"
 #include "oxygen/application/EngineMain.h"
@@ -545,15 +546,21 @@ void Application::update(float timeElapsed)
 
 	// Update simulation
 	Profiling::pushRegion(ProfilingRegion::SIMULATION);
+	N3DS_PROFILE_BEGIN(SIMULATION);
 	mSimulation->update(timeElapsed);
+	N3DS_PROFILE_END(SIMULATION);
 	Profiling::popRegion(ProfilingRegion::SIMULATION);
 
 	// Update game
+	N3DS_PROFILE_BEGIN(UI_UPDATE);
 	EngineMain::getDelegate().updateGame(timeElapsed);
+	N3DS_PROFILE_END(UI_UPDATE);
 
 	// Update audio
 	Profiling::pushRegion(ProfilingRegion::AUDIO);
+	N3DS_PROFILE_BEGIN(AUDIO_MAIN);
 	EngineMain::instance().getAudioOut().realtimeUpdate(timeElapsed);
+	N3DS_PROFILE_END(AUDIO_MAIN);
 	Profiling::popRegion(ProfilingRegion::AUDIO);
 
 	if (isDeveloperMode)
@@ -568,8 +575,10 @@ void Application::update(float timeElapsed)
 	LogDisplay& logDisplay = LogDisplay::instance();
 	logDisplay.mLogDisplayTimeout = std::max(logDisplay.mLogDisplayTimeout - std::min(timeElapsed, 0.1f), 0.0f);
 
+	N3DS_PROFILE_BEGIN(UI_UPDATE);
 	mGameView->earlyUpdate(timeElapsed);
 	GuiBase::update(timeElapsed);
+	N3DS_PROFILE_END(UI_UPDATE);
 
 	if (nullptr != mRemoveChild)
 	{
@@ -601,6 +610,7 @@ void Application::update(float timeElapsed)
 void Application::render()
 {
 	Profiling::pushRegion(ProfilingRegion::RENDERING);
+	N3DS_PROFILE_BEGIN(RENDER);
 
 	if (mIsVeryFirstFrameForLogging)
 	{
@@ -675,6 +685,7 @@ void Application::render()
 	// Needed only for precise profiling
 	//glFinish();
 
+	N3DS_PROFILE_END(RENDER);
 	Profiling::popRegion(ProfilingRegion::RENDERING);
 
 	// Update profiling data & explicit buffer swap
@@ -684,6 +695,7 @@ void Application::render()
 		const double currentTime = mApplicationTimer.getSecondsSinceStart() * 1000.0;
 		const double tickLengthMilliseconds = 1000.0 / (double)mSimulation->getSimulationFrequency();
 		const bool usingFramecap = (drawer.getType() != Drawer::Type::OPENGL || Configuration::instance().mFrameSync != Configuration::FrameSyncType::VSYNC_ON) && (Configuration::instance().mFrameSync != Configuration::FrameSyncType::FRAME_INTERPOLATION);
+		N3DS_PROFILE_BEGIN(WAIT);
 		if (usingFramecap)
 		{
 			double delay = mNextRefreshTime - currentTime;
@@ -708,12 +720,15 @@ void Application::render()
 			}
 		}
 
+		N3DS_PROFILE_END(WAIT);
+
 		if (mIsVeryFirstFrameForLogging)
 		{
 			RMX_LOG_INFO("First present screen call");
 		}
 
 		drawer.presentScreen();
+		N3DS_PROFILE_END_FRAME();
 
 	#if 0
 		// Use a glFinish or glFlush here...?
