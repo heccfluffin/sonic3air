@@ -114,6 +114,42 @@ namespace
 		}
 	}
 
+#if defined(PLATFORM_3DS)
+	// Fixed layout for the 3DS's built-in controls
+	//  -> SDL's 3DS joystick reports button i for bit i of libctru's key mask, the Circle Pad as axes 0/1 and the C-Stick as axes 2/3
+	//  -> Axis assignments use an even index for the negative direction and an odd index for the positive one (up is negative)
+	void setup3DSInputMapping(InputManager::RealDevice& device)
+	{
+		using Button = InputConfig::DeviceDefinition::Button;
+		using Type = InputConfig::Assignment::Type;
+		enum : uint32 { KEY_A = 0, KEY_B = 1, KEY_SELECT = 2, KEY_START = 3, KEY_DRIGHT = 4, KEY_DLEFT = 5, KEY_DUP = 6, KEY_DDOWN = 7, KEY_R = 8, KEY_L = 9, KEY_X = 10, KEY_Y = 11, KEY_ZL = 14, KEY_ZR = 15 };
+		enum : uint32 { CPAD_LEFT = 0, CPAD_RIGHT = 1, CPAD_UP = 2, CPAD_DOWN = 3 };
+
+		InputConfig::DeviceDefinition definition;
+		definition.mDeviceType = InputConfig::DeviceType::GAMEPAD;
+		const auto add = [&](Button button, Type type, uint32 index)  { definition.mMappings[(size_t)button].mAssignments.emplace_back(type, index); };
+
+		// Movement: Circle Pad and D-Pad
+		add(Button::UP,    Type::AXIS, CPAD_UP);     add(Button::UP,    Type::BUTTON, KEY_DUP);
+		add(Button::DOWN,  Type::AXIS, CPAD_DOWN);   add(Button::DOWN,  Type::BUTTON, KEY_DDOWN);
+		add(Button::LEFT,  Type::AXIS, CPAD_LEFT);   add(Button::LEFT,  Type::BUTTON, KEY_DLEFT);
+		add(Button::RIGHT, Type::AXIS, CPAD_RIGHT);  add(Button::RIGHT, Type::BUTTON, KEY_DRIGHT);
+
+		// Face buttons by their 3DS labels: all of them jump in-game; in menus A confirms and B goes back
+		add(Button::A, Type::BUTTON, KEY_A);
+		add(Button::B, Type::BUTTON, KEY_B);
+		add(Button::X, Type::BUTTON, KEY_X);
+		add(Button::Y, Type::BUTTON, KEY_Y);
+
+		add(Button::START, Type::BUTTON, KEY_START);
+		add(Button::BACK,  Type::BUTTON, KEY_SELECT);
+		add(Button::L,     Type::BUTTON, KEY_L);   add(Button::L, Type::BUTTON, KEY_ZL);
+		add(Button::R,     Type::BUTTON, KEY_R);   add(Button::R, Type::BUTTON, KEY_ZR);
+
+		setupRealDeviceInputMapping(device, definition);
+	}
+#endif
+
 	void setupRealDeviceInputMapping(InputManager::RealDevice& device, SDL_GameController& gameController)
 	{
 		using Button = InputConfig::DeviceDefinition::Button;
@@ -625,6 +661,14 @@ InputManager::RescanResult InputManager::rescanRealDevices()
 		InputConfig::DeviceDefinition* fallbackInputDeviceDefinition = nullptr;
 		::getMatchingInputDeviceDefinition(device, (uint32)i, config.mInputDeviceDefinitions, matchingInputDeviceDefinition, fallbackInputDeviceDefinition);
 
+	#if defined(PLATFORM_3DS)
+		if (true)
+		{
+			// Always use the fixed 3DS layout, so that device definitions from a PC config.json can't interfere
+			::setup3DSInputMapping(device);
+		}
+		else
+	#endif
 		if (nullptr != matchingInputDeviceDefinition)
 		{
 			// Use device definition from config
