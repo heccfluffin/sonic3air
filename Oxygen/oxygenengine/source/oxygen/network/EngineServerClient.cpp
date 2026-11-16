@@ -56,11 +56,25 @@ bool EngineServerClient::setupClient(bool useIPv6)
 	mUseIPv6 = useIPv6;
 	Sockets::startupSockets();
 
+#if defined(PLATFORM_3DS)
+	// Without the 3DS socket service, any socket call would fail with an error popup, so just play offline
+	if (!Sockets::isInitialized())
+		return false;
+#endif
+
 	if (getSocketUsage() == SocketUsage::UDP)
 	{
 		// Setup socket & connection manager
 		if (!mUDPSocket.bindToAnyPort(mUseIPv6 ? Sockets::ProtocolFamily::IPv6 : Sockets::ProtocolFamily::IPv4))
+		{
+		#if defined(PLATFORM_3DS)
+			// No network on the 3DS (no Wi-Fi, or socket service unavailable): just play offline
+			RMX_LOG_WARNING("Socket bind to any port failed, online features are unavailable");
+			return false;
+		#else
 			RMX_ERROR("Socket bind to any port failed", return false);
+		#endif
+		}
 	}
 
 	mConnectionState = ConnectionState::NOT_CONNECTED;

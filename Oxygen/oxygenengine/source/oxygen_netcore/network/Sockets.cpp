@@ -41,6 +41,20 @@
 	#define SOMAXCONN 8
 #endif
 
+#if defined(__3DS__)
+	#include <malloc.h>
+	#include <stdint.h>
+
+	// From libctru's <3ds/services/soc.h> (not included here, to keep libctru's type names out of this file)
+	extern "C" int32_t socInit(uint32_t* context_addr, uint32_t context_size);
+	extern "C" int32_t socExit(void);
+
+	namespace
+	{
+		uint32_t* gSocBuffer = nullptr;
+	}
+#endif
+
 
 namespace
 {
@@ -119,6 +133,17 @@ void Sockets::startupSockets()
 	WSADATA wsaData;
 	const int result = ::WSAStartup((WORD)0x0202, &wsaData);
 	RMX_CHECK(result == 0, "WSAStartup failed with error: " << result, );
+#elif defined(__3DS__)
+	// The 3DS socket service must be started, with a page-aligned work buffer, before any socket can be created
+	const uint32_t socBufferSize = 0x100000;
+	gSocBuffer = (uint32_t*)memalign(0x1000, socBufferSize);
+	if (nullptr == gSocBuffer || socInit(gSocBuffer, socBufferSize) < 0)
+	{
+		free(gSocBuffer);
+		gSocBuffer = nullptr;
+		RMX_LOG_WARNING("3DS socket service could not be started, online features are unavailable");
+		return;
+	}
 #endif
 	mIsInitialized = true;
 }
@@ -130,6 +155,10 @@ void Sockets::shutdownSockets()
 
 #ifdef _WIN32
 	::WSACleanup();
+#elif defined(__3DS__)
+	socExit();
+	free(gSocBuffer);
+	gSocBuffer = nullptr;
 #endif
 	mIsInitialized = false;
 }
