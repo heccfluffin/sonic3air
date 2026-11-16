@@ -49,6 +49,13 @@ AccessControlInfo:
   MemoryType              : Application
   HandleTableSize         : 0x200
 
+  # Hardware memory the app may access
+  #  -> Without the DSP memory, libctru's sound code (ndsp) can't reach the sound chip and there's no audio
+  IORegisterMapping:
+    - 1ff00000-1ff7ffff   # DSP memory
+  MemoryMapping:
+    - 1f000000-1f5fffff:r # VRAM
+
   # Game files, saves and mods live in sdmc:/3ds/sonic3air
   FileSystemAccess:
     - DirectSdmc
