@@ -23,3 +23,13 @@ and downloads the CIA / 3DSX from the latest non-prerelease GitHub Release.
 The workflow builds everything and publishes the release "Sonic 3 A.I.R. for New 3DS v0.1.0".
 Use a new, higher version number for each release. If the fork is renamed or moved, regenerate the QR code
 and update the URL in INSTALL.md.
+
+## Test builds
+
+Every build of the development branch (`3ds-gpu-drawer`) is published automatically as the **test-build** pre-release,
+replacing the previous one (job `test-release` in the workflow). It has its own store at a fixed URL:
+
+    https://github.com/heccfluffin/sonic3air/releases/download/test-build/sonic3air-3ds-test.unistore
+
+QR code: `test-store-qr.png`. In Universal-Updater, the test store shows up as "Sonic 3 A.I.R. for New 3DS (test builds)"
+and always offers the newest build. Test builds can be unstable; the normal store only offers tagged releases.

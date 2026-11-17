@@ -148,3 +148,57 @@ jobs:
             --title "Sonic 3 A.I.R. for New 3DS $GITHUB_REF_NAME" --notes-file notes.md \
             dist/sonic3air.cia dist/sonic3air.3dsx dist/build/sonic3air-3ds.t3x \
             dist/sonic3air-3ds.unistore dist/INSTALL.md dist/modpatcher/s3air_3ds_modpatcher.py
+
+  # Publishes every build of the development branch as the rolling "test-build" pre-release (replacing the previous one),
+  # with its own Universal-Updater store at a fixed URL:
+  #   https://github.com/<repo>/releases/download/test-build/sonic3air-3ds-test.unistore
+  test-release:
+    needs: build-3ds
+    if: github.ref == 'refs/heads/3ds-gpu-drawer'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: test-release
+      cancel-in-progress: false
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sonic3air-3ds-*
+          merge-multiple: true
+          path: dist
+
+      - name: Prepare release files
+        run: |
+          cp dist/build/out/sonic3air-*.cia dist/sonic3air.cia
+          cp dist/build/out/sonic3air-*.3dsx dist/sonic3air.3dsx
+          LABEL=$(basename dist/build/out/sonic3air-*.cia .cia | sed 's/^sonic3air-//')
+          echo "LABEL=$LABEL" >> "$GITHUB_ENV"
+          python3 Oxygen/sonic3air/build/_3ds/universal-updater/make_unistore.py --channel test --repo "$GITHUB_REPOSITORY" \
+            --version "$LABEL" --revision "$GITHUB_RUN_NUMBER" --sheet --output dist/sonic3air-3ds-test.unistore
+
+      - name: Replace the test-build pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<EOF
+          **Test build $LABEL** of the unofficial New 3DS port of Sonic 3 A.I.R. (development branch, may be unstable).
+          Replaced automatically with every new build.
+
+          Needs the \`data\` folder of A.I.R. **26.03.28.0** and your own Sonic 3 & Knuckles ROM from Steam in \`sdmc:/3ds/sonic3air/\`,
+          see INSTALL.md. No game content is included here.
+
+          Universal-Updater test store: https://github.com/$GITHUB_REPOSITORY/releases/download/test-build/sonic3air-3ds-test.unistore
+          EOF
+          gh release delete test-build --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          gh release create test-build --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
+            --title "Test build $LABEL" --notes-file notes.md \
+            dist/sonic3air.cia dist/sonic3air.3dsx dist/build/sonic3air-3ds.t3x \
+            dist/sonic3air-3ds-test.unistore dist/INSTALL.md dist/modpatcher/s3air_3ds_modpatcher.py
