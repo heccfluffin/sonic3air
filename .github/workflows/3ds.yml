@@ -74,5 +74,6 @@ jobs:
             Oxygen/sonic3air/build/_3ds/build/sonic3air.3dsx
             Oxygen/sonic3air/build/_3ds/build/sonic3air.cia
             Oxygen/sonic3air/build/_3ds/modpatcher/s3air_3ds_modpatcher.py
+            Oxygen/sonic3air/build/_3ds/INSTALL.md
             Oxygen/sonic3air/build/_3ds/how-to-build.md
           if-no-files-found: error
