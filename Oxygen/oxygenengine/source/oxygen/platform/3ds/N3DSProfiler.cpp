@@ -126,7 +126,7 @@ namespace n3ds
 				{ "AIZ", "Angel Island" },		{ "HCZ", "Hydrocity" },			{ "MGZ", "Marble Garden" },		{ "CNZ", "Carnival Night" },
 				{ "FBZ", "Flying Battery" },	{ "ICZ", "IceCap" },			{ "LBZ", "Launch Base" },		{ "MHZ", "Mushroom Hill" },
 				{ "SOZ", "Sandopolis" },		{ "LRZ", "Lava Reef" },			{ "SSZ", "Sky Sanctuary" },		{ "DEZ", "Death Egg" },
-				{ "DDZ", "The Doomsday" },		{ "END", "Ending" },			{ "ALZ", "Azure Lake" },		{ "BPZ", "Balloon Park" },
+				{ "DDZ", "The Doomsday" },		{ "BG", "Menu background / ending" },			{ "ALZ", "Azure Lake" },		{ "BPZ", "Balloon Park" },
 				{ "DPZ", "Desert Palace" },		{ "CGZ", "Chrome Gadget" },		{ "EMZ", "Endless Mine" },		{ "GUM", "Gumball bonus stage" },
 				{ "PAC", "Glowing Spheres bonus stage" },	{ "SLT", "Slot Machine bonus stage" },
 			};
@@ -245,7 +245,7 @@ namespace n3ds
 			// Writes "profile_report.txt": one row per zone / act / stage, blank for areas not visited in this session
 			void writeReport(bool synchronous)
 			{
-				std::vector<std::string> rows = { "SEGA screen", "Title screen / menu background" };
+				std::vector<std::string> rows = { "SEGA screen / A.I.R. menus", "Title screen / menu background", "Level start / title card" };
 				char name[64];
 				for (int zone = 0; zone <= 0x0b; ++zone)
 				{
@@ -257,7 +257,7 @@ namespace n3ds
 				}
 				snprintf(name, sizeof(name), "%s Act 1", ZONE_NAMES[0x0c].mLong);
 				rows.emplace_back(name);
-				for (const char* extra : { "Special stage", "Blue Sphere menu", "Blue Sphere results", "Gumball bonus stage", "Glowing Spheres bonus stage", "Slot Machine bonus stage" })
+				for (const char* extra : { "Special stage", "After special stage (mode 0x48)", "Blue Sphere menu", "Blue Sphere results", "Gumball bonus stage", "Glowing Spheres bonus stage", "Slot Machine bonus stage" })
 					rows.emplace_back(extra);
 				for (const auto& pair : gAreaAggregates)	// Anything else that was visited (e.g. competition zones)
 				{
@@ -399,12 +399,15 @@ namespace n3ds
 
 				switch (gameMode)
 				{
-					case 0x00:  snprintf(gAreaShort, sizeof(gAreaShort), "SEGA");  snprintf(gAreaLong, sizeof(gAreaLong), "SEGA screen");  break;
+					case 0x00:  snprintf(gAreaShort, sizeof(gAreaShort), "Menu");  snprintf(gAreaLong, sizeof(gAreaLong), "SEGA screen / A.I.R. menus");  break;
 					case 0x04:  snprintf(gAreaShort, sizeof(gAreaShort), "Title"); snprintf(gAreaLong, sizeof(gAreaLong), "Title screen / menu background");  break;
 					case 0x08:  snprintf(gAreaShort, sizeof(gAreaShort), "Demo");  snprintf(gAreaLong, sizeof(gAreaLong), "Demo");  break;
 					case 0x2c:  snprintf(gAreaShort, sizeof(gAreaShort), "BSmenu"); snprintf(gAreaLong, sizeof(gAreaLong), "Blue Sphere menu");  break;
 					case 0x30:  snprintf(gAreaShort, sizeof(gAreaShort), "BSres"); snprintf(gAreaLong, sizeof(gAreaLong), "Blue Sphere results");  break;
 					case 0x34:  snprintf(gAreaShort, sizeof(gAreaShort), "SS");    snprintf(gAreaLong, sizeof(gAreaLong), "Special stage");  break;
+					case 0x48:  snprintf(gAreaShort, sizeof(gAreaShort), "SSres"); snprintf(gAreaLong, sizeof(gAreaLong), "After special stage (mode 0x48)");  break;
+					case 0x88:  snprintf(gAreaShort, sizeof(gAreaShort), "Load");  snprintf(gAreaLong, sizeof(gAreaLong), "Demo start (mode 0x88)");  break;
+					case 0x8c:  snprintf(gAreaShort, sizeof(gAreaShort), "Card");  snprintf(gAreaLong, sizeof(gAreaLong), "Level start / title card");  break;
 					case 0x0c:
 					{
 						// In a level: zone and act
