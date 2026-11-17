@@ -640,47 +640,71 @@ void SoftwareRenderer::renderSprite(const SpriteGeometry& geometry)
 			const int minY = rect.y;
 			const int maxY = rect.y + rect.height;
 
+			// Per row, the sprite is processed in segments of up to 8 pixels that lie in the same pattern (tile): the pattern lookup,
+			// flipping and palette offset are the same for all pixels of a segment, so they're done once per segment instead of per pixel.
+			//  -> Exactly the same result as doing everything per pixel (pixel positions inside the sprite are never negative, as the
+			//     rect starts at the sprite position at the earliest, so "/ 8" and "% 8" are the same as ">> 3" and "& 7").
+			const int spriteX = sprite.mInterpolatedPosition.x;
+			const int spriteY = sprite.mInterpolatedPosition.y;
+			const uint16 firstPattern = sprite.mFirstPattern;
+			const bool flipX = (firstPattern & 0x0800) != 0;
+			const bool flipY = (firstPattern & 0x1000) != 0;
+			const int sizeX = sprite.mSize.x;
+			const int sizeY = sprite.mSize.y;
+
 			for (int y = minY; y < maxY; ++y)
 			{
 				const uint32* palette = (y < paletteManager.mSplitPositionY) ? palettes[0] : palettes[1];
+				const uint8* depthRow = &mDepthBuffer[y * 0x200];
+				uint32* dstRow = gameScreenBitmap.getPixelPointer(0, y);
 
-				for (int x = minX; x < maxX; ++x)
+				const int vy = y - spriteY;
+				int patternY = vy >> 3;
+				if (flipY)
+					patternY = sizeY - patternY - 1;
+				const int pixelRowOffset = (vy & 7) * 8;
+
+				int x = minX;
+				while (x < maxX)
 				{
-					// Depth test
-					if (depthValue < mDepthBuffer[x + y * 0x200])
-						continue;
+					const int segmentStart = x;
+					const int vx = x - spriteX;
+					const int pixelColumn = vx & 7;
+					const int segmentEnd = std::min(x + (8 - pixelColumn), maxX);
 
-					int vx = x - sprite.mInterpolatedPosition.x;
-					int vy = y - sprite.mInterpolatedPosition.y;
+					int patternX = vx >> 3;
+					if (flipX)
+						patternX = sizeX - patternX - 1;
 
-					int patternX = vx / 8;
-					int patternY = vy / 8;
-					if (sprite.mFirstPattern & 0x0800)
-						patternX = sprite.mSize.x - patternX - 1;
-					if (sprite.mFirstPattern & 0x1000)
-						patternY = sprite.mSize.y - patternY - 1;
-
-					const uint16 patternIndex = sprite.mFirstPattern + patternY + patternX * sprite.mSize.y;
+					const uint16 patternIndex = firstPattern + patternY + patternX * sizeY;
 					const PatternManager::CacheItem::Pattern& pattern = patternCache[patternIndex & 0x07ff].mFlipVariation[(patternIndex >> 11) & 3];
+					const uint8* patternPixels = &pattern.mPixels[pixelRowOffset + pixelColumn];
+					const uint8 atex = (uint8)((patternIndex >> 9) & 0x30);
 
-					uint8 colorIndex = pattern.mPixels[(vx%8) + (vy%8) * 8];
-					colorIndex += (patternIndex >> 9) & 0x30;
-					if (colorIndex & 0x0f)
+					for (; x < segmentEnd; ++x)
 					{
-						uint32& dst = *gameScreenBitmap.getPixelPointer(x, y);
-						if (useTintColor)
+						// Depth test
+						if (depthValue < depthRow[x])
+							continue;
+
+						const uint8 colorIndex = (uint8)(patternPixels[x - segmentStart] + atex);
+						if (colorIndex & 0x0f)
 						{
-							Color color = Color::fromABGR32(palette[colorIndex]);
-							color.r = saturate(sprite.mAddedColor.r + color.r * sprite.mTintColor.r);
-							color.g = saturate(sprite.mAddedColor.g + color.g * sprite.mTintColor.g);
-							color.b = saturate(sprite.mAddedColor.b + color.b * sprite.mTintColor.b);
-							color.a = saturate(sprite.mAddedColor.a + color.a * sprite.mTintColor.a);
-							uint32 src = color.getABGR32();
-							BlitterHelper::blendPixelAlpha((uint8*)&dst, (uint8*)&src);
-						}
-						else
-						{
-							dst = palette[colorIndex];
+							uint32& dst = dstRow[x];
+							if (useTintColor)
+							{
+								Color color = Color::fromABGR32(palette[colorIndex]);
+								color.r = saturate(sprite.mAddedColor.r + color.r * sprite.mTintColor.r);
+								color.g = saturate(sprite.mAddedColor.g + color.g * sprite.mTintColor.g);
+								color.b = saturate(sprite.mAddedColor.b + color.b * sprite.mTintColor.b);
+								color.a = saturate(sprite.mAddedColor.a + color.a * sprite.mTintColor.a);
+								uint32 src = color.getABGR32();
+								BlitterHelper::blendPixelAlpha((uint8*)&dst, (uint8*)&src);
+							}
+							else
+							{
+								dst = palette[colorIndex];
+							}
 						}
 					}
 				}
