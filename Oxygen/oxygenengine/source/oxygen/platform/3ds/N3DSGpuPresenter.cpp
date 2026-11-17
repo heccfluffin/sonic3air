@@ -163,7 +163,7 @@ namespace n3ds
 			}
 		}
 
-		bool present(const void* pixels, int width, int height, int pitchBytes, int targetWidth, int targetHeight)
+		bool present(const void* pixels, int width, int height, int pitchBytes, int targetX, int targetY, int targetWidth, int targetHeight)
 		{
 			if (gState == State::UNINITIALIZED)
 			{
@@ -171,7 +171,7 @@ namespace n3ds
 			}
 			if (gState != State::READY)
 				return false;
-			if (width <= 0 || height <= 0 || width > TEXTURE_WIDTH || height > TEXTURE_HEIGHT || targetWidth <= 0 || targetHeight <= 0 || targetWidth > SCREEN_WIDTH || targetHeight > SCREEN_HEIGHT)
+			if (width <= 0 || height <= 0 || width > TEXTURE_WIDTH || height > TEXTURE_HEIGHT || targetWidth <= 0 || targetHeight <= 0 || targetX < 0 || targetY < 0 || targetX + targetWidth > SCREEN_WIDTH || targetY + targetHeight > SCREEN_HEIGHT)
 				return false;
 
 			// Copy the frame into linear memory and let the GPU's DMA convert it into the texture layout.
@@ -210,14 +210,16 @@ namespace n3ds
 			const float u1 = ((float)width + offsetU) / (float)TEXTURE_WIDTH;
 			const float vTop    = ((float)(TEXTURE_HEIGHT - height) + offsetV) / (float)TEXTURE_HEIGHT;
 			const float vBottom = ((float)TEXTURE_HEIGHT + offsetV) / (float)TEXTURE_HEIGHT;
-			const float xRight  = (float)targetWidth;
-			const float yTop    = (float)SCREEN_HEIGHT;
-			const float yBottom = (float)(SCREEN_HEIGHT - targetHeight);
+			//  - Screen positions: y goes upwards in the projection, so the screen's top line is at y = SCREEN_HEIGHT
+			const float xLeft   = (float)targetX;
+			const float xRight  = (float)(targetX + targetWidth);
+			const float yTop    = (float)(SCREEN_HEIGHT - targetY);
+			const float yBottom = (float)(SCREEN_HEIGHT - targetY - targetHeight);
 
 			C3D_ImmDrawBegin(GPU_TRIANGLE_STRIP);
-			addVertex(0.0f,   yTop,    u0, vTop);
+			addVertex(xLeft,  yTop,    u0, vTop);
 			addVertex(xRight, yTop,    u1, vTop);
-			addVertex(0.0f,   yBottom, u0, vBottom);
+			addVertex(xLeft,  yBottom, u0, vBottom);
 			addVertex(xRight, yBottom, u1, vBottom);
 			C3D_ImmDrawEnd();
 

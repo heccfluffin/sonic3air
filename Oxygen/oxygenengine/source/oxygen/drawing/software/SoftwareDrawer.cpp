@@ -257,24 +257,88 @@ namespace softwaredrawer
 		}
 
 	#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
-		// An upscaled draw covering the whole window can be left to the GPU when presenting the frame, which then does the scaling.
-		// It gets drawn on the CPU after all if anything else gets drawn into the window before presenting (see "getOutputWrapper").
+		// An upscaled draw into the window can be left to the GPU when presenting the frame, which then does the scaling.
+		// It gets drawn on the CPU after all if anything else gets drawn into the window before presenting (see "getOutputWrapper"),
+		// except for black bars around it (see "trySkipBlackBar").
 		// Only for unchanged widths: the GPU presenter reproduces the blitter's choice of source lines exactly, but the blitter's
 		// horizontal scaling uses a slightly different fixed-point calculation.
 		bool tryDeferUpscale(DrawerTexture& texture, const Recti& rect)
 		{
 			if (nullptr != mCurrentRenderTarget || nullptr == mScreenSurface || mScreenSurface->format->format != SDL_PIXELFORMAT_ABGR8888 || !mScissorStack.empty())
 				return false;
-			if (rect != Recti(0, 0, mScreenSurface->w, mScreenSurface->h) || texture.getWidth() != rect.width || texture.getHeight() <= 0)
+			if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > mScreenSurface->w || rect.y + rect.height > mScreenSurface->h)
+				return false;
+			if (texture.getWidth() != rect.width || texture.getHeight() <= 0 || rect.height <= 0)
+				return false;
+
+			// When not covering the whole window, the GPU shows black around it - which is only the same as the CPU output
+			// if nothing else was drawn into the window in this frame yet (the black bars come afterwards, see "trySkipBlackBar")
+			const bool coversWindow = (rect == Recti(0, 0, mScreenSurface->w, mScreenSurface->h));
+			if (!coversWindow && mWindowDrawnThisFrame)
 				return false;
 
 			mDeferredUpscaleTexture = &texture;
 			mDeferredUpscaleRect = rect;
+			mNumSkippedBlackBars = 0;
+			return true;
+		}
+
+		// Opaque black rects next to a deferred upscaled draw (the letter box bars) don't need to be drawn by the CPU,
+		// as the GPU shows black around the frame anyway. They're remembered, in case they must get drawn on the CPU after all.
+		bool trySkipBlackBar(const Recti& rect, const DrawerTexture* texture, const Color& color)
+		{
+			if (nullptr == mDeferredUpscaleTexture || nullptr != mCurrentRenderTarget || nullptr != texture || !mScissorStack.empty())
+				return false;
+			if (color.r != 0.0f || color.g != 0.0f || color.b != 0.0f || color.a < 1.0f)
+				return false;
+
+			Recti clippedRect;
+			clippedRect.intersect(rect, Recti(0, 0, mScreenSurface->w, mScreenSurface->h));
+			if (clippedRect.isEmpty())
+				return true;	// Nothing to draw anyways
+			Recti overlap;
+			overlap.intersect(clippedRect, mDeferredUpscaleRect);
+			if (!overlap.isEmpty() || mNumSkippedBlackBars >= MAX_SKIPPED_BLACK_BARS)
+				return false;
+
+			mSkippedBlackBars[mNumSkippedBlackBars] = clippedRect;
+			++mNumSkippedBlackBars;
+			return true;
+		}
+
+		// Whether the deferred upscaled draw plus the skipped black bars cover the whole window, so the GPU output is exactly the same
+		bool isWindowCoveredByDeferredUpscale() const
+		{
+			const int width = mScreenSurface->w;
+			const int height = mScreenSurface->h;
+			for (int y = 0; y < height; ++y)
+			{
+				// Mark covered columns in this line by repeatedly extending the covered part from the left
+				int coveredUntil = 0;
+				bool extended = true;
+				while (extended && coveredUntil < width)
+				{
+					extended = false;
+					for (int k = -1; k < mNumSkippedBlackBars; ++k)
+					{
+						const Recti& rect = (k < 0) ? mDeferredUpscaleRect : mSkippedBlackBars[k];
+						if (y >= rect.y && y < rect.y + rect.height && rect.x <= coveredUntil && rect.x + rect.width > coveredUntil)
+						{
+							coveredUntil = rect.x + rect.width;
+							extended = true;
+						}
+					}
+				}
+				if (coveredUntil < width)
+					return false;
+			}
 			return true;
 		}
 
 		inline DrawerTexture* getDeferredUpscaleTexture() const  { return mDeferredUpscaleTexture; }
 		inline void clearDeferredUpscale()						 { mDeferredUpscaleTexture = nullptr; }
+		inline const Recti& getDeferredUpscaleRect() const		 { return mDeferredUpscaleRect; }
+		inline void startNextFrame()							 { mWindowDrawnThisFrame = false; }
 	#endif
 
 		void resolveDeferredUpscale()
@@ -285,6 +349,14 @@ namespace softwaredrawer
 				DrawerTexture* texture = mDeferredUpscaleTexture;
 				mDeferredUpscaleTexture = nullptr;		// Before drawing, as that calls "getOutputWrapper" again
 				blitUpscaled(*texture, mDeferredUpscaleRect);
+
+				// Draw the black bars that were skipped
+				for (int k = 0; k < mNumSkippedBlackBars; ++k)
+				{
+					const BitmapViewMutable<uint32> outputView(getOutputWrapper(), mSkippedBlackBars[k]);
+					mBlitter.blitColor(outputView, Color::BLACK, BlendMode::OPAQUE);
+				}
+				mNumSkippedBlackBars = 0;
 			}
 		#endif
 		}
@@ -300,6 +372,9 @@ namespace softwaredrawer
 			{
 				// Something gets drawn into the window: an upscaled draw left to the GPU must be done on the CPU first, to keep the order
 				resolveDeferredUpscale();
+			#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+				mWindowDrawnThisFrame = true;
+			#endif
 
 				if (nullptr != mScreenSurface)
 				{
@@ -620,6 +695,10 @@ namespace softwaredrawer
 	#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
 		DrawerTexture* mDeferredUpscaleTexture = nullptr;	// See "tryDeferUpscale"
 		Recti mDeferredUpscaleRect;
+		static const constexpr int MAX_SKIPPED_BLACK_BARS = 8;
+		Recti mSkippedBlackBars[MAX_SKIPPED_BLACK_BARS];	// See "trySkipBlackBar"
+		int mNumSkippedBlackBars = 0;
+		bool mWindowDrawnThisFrame = false;
 	#endif
 		bool mIsScreenSurfaceLocked = false;
 		bool mDisplayedFormatWarning = false;
@@ -729,6 +808,10 @@ void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 				RectDrawCommand& dc = drawCommand->as<RectDrawCommand>();
 				if (mInternal.tryDeferRenderTargetCopy(dc))
 					break;
+			#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+				if (mInternal.trySkipBlackBar(dc.mRect, dc.mTexture, dc.mColor))
+					break;
+			#endif
 
 				Bitmap* inputBitmap = (nullptr == dc.mTexture) ? nullptr : &dc.mTexture->accessBitmap();
 
@@ -947,6 +1030,15 @@ void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 void SoftwareDrawer::presentScreen()
 {
 	++mInternal.mFrameCounter;
+#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+	// When done here, the next frame starts (also on the early returns below)
+	struct NextFrameGuard
+	{
+		softwaredrawer::Internal& mInternal;
+		~NextFrameGuard()  { mInternal.startNextFrame(); }
+	};
+	const NextFrameGuard nextFrameGuard { mInternal };
+#endif
 
 	if (nullptr == mInternal.mScreenSurface)
 		return;
@@ -962,9 +1054,13 @@ void SoftwareDrawer::presentScreen()
 		N3DS_PROFILE_BEGIN(PRESENT_SDL);
 		if (nullptr != mInternal.getDeferredUpscaleTexture())
 		{
-			// The frame is just an upscaled texture: let the GPU do the scaling as well
+			// The frame is just an upscaled texture (plus black bars): let the GPU do the scaling as well
 			Bitmap& bitmap = mInternal.getDeferredUpscaleTexture()->accessBitmap();
-			presented = n3ds::gpu::present(bitmap.getData(), bitmap.getWidth(), bitmap.getHeight(), bitmap.getWidth() * 4, surface.w, surface.h);
+			const Recti& rect = mInternal.getDeferredUpscaleRect();
+			if (mInternal.isWindowCoveredByDeferredUpscale())
+			{
+				presented = n3ds::gpu::present(bitmap.getData(), bitmap.getWidth(), bitmap.getHeight(), bitmap.getWidth() * 4, rect.x, rect.y, rect.width, rect.height);
+			}
 			if (presented)
 			{
 				mInternal.clearDeferredUpscale();
@@ -978,7 +1074,7 @@ void SoftwareDrawer::presentScreen()
 		}
 		if (!presented)
 		{
-			presented = n3ds::gpu::present(surface.pixels, surface.w, surface.h, surface.pitch, surface.w, surface.h);
+			presented = n3ds::gpu::present(surface.pixels, surface.w, surface.h, surface.pitch, 0, 0, surface.w, surface.h);
 		}
 		N3DS_PROFILE_END(PRESENT_SDL);
 		if (presented)
