@@ -953,7 +953,12 @@ namespace lemon
 				if (variable.getStaticMemorySize() > 0)
 				{
 					const int64 value = variable.mInitialValue.get<int64>();
+				#if defined(PLATFORM_3DS)
+					// Use memcpy: the offset is not necessarily aligned, and unaligned 64-bit stores fault on the 3DS
+					memcpy(&mStaticMemory[variable.getStaticMemoryOffset()], &value, sizeof(value));
+				#else
 					*(int64*)&mStaticMemory[variable.getStaticMemoryOffset()] = value;
+				#endif
 				}
 			}
 		}

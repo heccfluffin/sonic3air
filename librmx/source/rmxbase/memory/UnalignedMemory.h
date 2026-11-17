@@ -18,7 +18,25 @@
 
 namespace rmx
 {
-#if !defined(__vita__)
+#if defined(__3DS__)
+	// Nintendo 3DS: the ARM11 faults on unaligned 64-bit and floating point loads (LDRD / VLDR), which the compiler uses
+	// for a plain pointer access of e.g. int64 or double, so always go through memcpy (it compiles to alignment-safe loads)
+	template<typename T>
+	T readMemoryUnaligned(const void* pointer)
+	{
+		T val;
+		__builtin_memcpy(&val, pointer, sizeof(T));
+		return val;
+	}
+
+	template<typename T>
+	T readMemoryUnalignedSwapped(const void* pointer)
+	{
+		T val;
+		__builtin_memcpy(&val, pointer, sizeof(T));
+		return swapBytes<T>(val);
+	}
+#elif !defined(__vita__)
 	template<typename T>
 	T readMemoryUnaligned(const void* pointer) { return *(T*)pointer; }
 
