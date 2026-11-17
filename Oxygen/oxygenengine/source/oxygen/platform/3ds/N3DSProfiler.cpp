@@ -16,8 +16,11 @@
 #include <3ds.h>
 #include <atomic>
 #include <map>
+#include <stdarg.h>
 #include <stdio.h>
 #include <string>
+#include <time.h>
+#include <vector>
 
 #ifndef S3AIR_3DS_BUILD_ID
 	#define S3AIR_3DS_BUILD_ID "local"
@@ -131,6 +134,9 @@ namespace n3ds
 			char gAreaShort[12] = "-";
 			char gAreaLong[48] = "starting up";
 			uint32_t gLastAreaKey = 0xffffffff;
+			uint32_t gCandidateAreaKey = 0xffffffff;		// An area change only counts once the new area stayed the same for a while
+			int gCandidateAreaFrames = 0;
+			const constexpr int AREA_CHANGE_FRAMES = 60;		// About a second
 
 			// Totals for the current visit of the current area, written as one summary line when leaving it
 			struct AreaTotals
@@ -169,8 +175,75 @@ namespace n3ds
 				++aggregate.mVisits;
 			}
 
+			// --- Background file writer ---
+			//  -> Writing to the SD card can take a long time on the 3DS (up to a second or more), so the report never gets written
+			//     on the main thread during the game: a low-priority thread does it, which only runs while the main thread waits anyway
+
+			const char* REPORT_PATH = "sdmc:/3ds/sonic3air/savedata/profile_report.txt";
+			const char* PROFILE_LOG_PATH = "sdmc:/3ds/sonic3air/savedata/profile_log.txt";
+			const char* PROFILE_LOG_PREVIOUS_PATH = "sdmc:/3ds/sonic3air/savedata/profile_log_previous.txt";
+			LightLock gWriterLock;
+			LightEvent gWriterEvent;
+			Thread gWriterThread = nullptr;
+			std::string gPendingReport;		// Protected by gWriterLock
+			bool gHasPendingReport = false;
+			std::string gPendingLogLines;	// Protected by gWriterLock
+
+			void appendToFile(const char* path, const std::string& text)
+			{
+				FILE* file = fopen(path, "a");
+				if (nullptr != file)
+				{
+					fwrite(text.data(), 1, text.size(), file);
+					fclose(file);
+				}
+			}
+
+			void writeFile(const char* path, const std::string& text)
+			{
+				FILE* file = fopen(path, "w");
+				if (nullptr != file)
+				{
+					fwrite(text.data(), 1, text.size(), file);
+					fclose(file);
+				}
+			}
+
+			void writerThreadFunc(void*)
+			{
+				while (true)
+				{
+					LightEvent_Wait(&gWriterEvent);
+					std::string text;
+					std::string logLines;
+					LightLock_Lock(&gWriterLock);
+					const bool hasReport = gHasPendingReport;
+					if (hasReport)
+					{
+						text.swap(gPendingReport);
+						gHasPendingReport = false;
+					}
+					logLines.swap(gPendingLogLines);
+					LightLock_Unlock(&gWriterLock);
+					if (!logLines.empty())
+						appendToFile(PROFILE_LOG_PATH, logLines);
+					if (hasReport)
+						writeFile(REPORT_PATH, text);
+				}
+			}
+
+			void appendFormat(std::string& output, const char* format, ...)
+			{
+				char buffer[256];
+				va_list args;
+				va_start(args, format);
+				vsnprintf(buffer, sizeof(buffer), format, args);
+				va_end(args);
+				output += buffer;
+			}
+
 			// Writes "profile_report.txt": one row per zone / act / stage, blank for areas not visited in this session
-			void writeReport()
+			void writeReport(bool synchronous)
 			{
 				std::vector<std::string> rows = { "SEGA screen", "Title screen / menu background" };
 				char name[64];
@@ -192,19 +265,18 @@ namespace n3ds
 						rows.push_back(pair.first);
 				}
 
-				FILE* file = fopen("sdmc:/3ds/sonic3air/savedata/profile_report.txt", "w");
-				if (nullptr == file)
-					return;
-				fprintf(file, "Sonic 3 A.I.R. 3DS profiling report - build %s\n", S3AIR_3DS_BUILD_ID);
-				fprintf(file, "All visits of each area in this session combined; empty rows: not visited. Times in ms per frame.\n\n");
-				fprintf(file, "%-32s %7s %6s %6s %7s %6s %6s %6s %6s %6s %6s %7s\n",
+				std::string text;
+				text.reserve(6000);
+				appendFormat(text, "Sonic 3 A.I.R. 3DS profiling report - build %s\n", S3AIR_3DS_BUILD_ID);
+				appendFormat(text, "All visits of each area in this session combined; empty rows: not visited. Times in ms per frame.\n\n");
+				appendFormat(text, "%-32s %7s %6s %6s %7s %6s %6s %6s %6s %6s %6s %7s\n",
 						"Area", "Time s", "FPS", "Missed", "Speed%", "Frame", "Max", "Logic", "Render", "Planes", "Sprite", "Present");
 				for (const std::string& row : rows)
 				{
 					const auto it = gAreaAggregates.find(row);
 					if (it == gAreaAggregates.end())
 					{
-						fprintf(file, "%s\n", row.c_str());
+						appendFormat(text, "%s\n", row.c_str());
 						continue;
 					}
 					const AreaTotals& totals = it->second.mTotals;
@@ -212,15 +284,70 @@ namespace n3ds
 					const double frames = (totals.mFrames > 0) ? (double)totals.mFrames : 1.0;
 					const auto avg = [&](Section section)  { return (double)totals.mSection[section] / TICKS_PER_MS / frames; };
 					const double speed = (seconds > 0.0 && gAreaTargetStepRate > 0.0f) ? (double)totals.mSimSteps / seconds * 100.0 / (double)gAreaTargetStepRate : 0.0;
-					fprintf(file, "%-32s %7.1f %6.1f %6u %7.1f %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f %7.2f\n",
+					appendFormat(text, "%-32s %7.1f %6.1f %6u %7.1f %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f %7.2f\n",
 							row.c_str(), seconds, (seconds > 0.0) ? frames / seconds : 0.0, (unsigned)totals.mMissedRefreshes, speed,
 							(double)totals.mFrameTicks / TICKS_PER_MS / frames, (double)totals.mFrameMax / TICKS_PER_MS,
 							avg(SIMULATION), avg(RENDER), avg(SW_PLANES), avg(SW_SPRITES), avg(PRESENT_SDL));
 				}
-				fclose(file);
+
+				if (synchronous || nullptr == gWriterThread)
+				{
+					writeFile(REPORT_PATH, text);
+					return;
+				}
+				LightLock_Lock(&gWriterLock);
+				gPendingReport.swap(text);
+				gHasPendingReport = true;
+				LightLock_Unlock(&gWriterLock);
+				LightEvent_Signal(&gWriterEvent);
 			}
 
-			void writeAreaSummary()
+			// Adds a line to "profile_log.txt" (written in the background, see above)
+			void logLine(const std::string& line)
+			{
+				char timestamp[32] = "";
+				const time_t now = time(nullptr);
+				const struct tm* local = localtime(&now);
+				if (nullptr != local)
+					strftime(timestamp, sizeof(timestamp), "[%Y-%m-%d %H:%M:%S] ", local);
+
+				if (nullptr == gWriterThread)
+				{
+					appendToFile(PROFILE_LOG_PATH, timestamp + line + "\n");
+					return;
+				}
+				LightLock_Lock(&gWriterLock);
+				gPendingLogLines += timestamp;
+				gPendingLogLines += line;
+				gPendingLogLines += '\n';
+				LightLock_Unlock(&gWriterLock);
+				LightEvent_Signal(&gWriterEvent);
+			}
+
+			void flushLogLinesNow()
+			{
+				std::string logLines;
+				LightLock_Lock(&gWriterLock);
+				logLines.swap(gPendingLogLines);
+				LightLock_Unlock(&gWriterLock);
+				if (!logLines.empty())
+					appendToFile(PROFILE_LOG_PATH, logLines);
+			}
+
+			void startWriterThread()
+			{
+				// Keep the previous session's profile log, start a new one
+				remove(PROFILE_LOG_PREVIOUS_PATH);
+				rename(PROFILE_LOG_PATH, PROFILE_LOG_PREVIOUS_PATH);
+				appendToFile(PROFILE_LOG_PATH, std::string("Sonic 3 A.I.R. 3DS profile log - build ") + S3AIR_3DS_BUILD_ID + "\n");
+
+				LightLock_Init(&gWriterLock);
+				LightEvent_Init(&gWriterEvent, RESET_ONESHOT);
+				// Lowest priority: only runs when the main thread is waiting (frame cap, V-blank)
+				gWriterThread = threadCreate(writerThreadFunc, nullptr, 0x8000, 0x3f, -2, true);
+			}
+
+			void writeAreaSummary(bool synchronousReport = false)
 			{
 				addVisitToAggregate();
 				const double seconds = (double)gArea.mFrameTicks / (double)SYSCLOCK_ARM11;
@@ -238,10 +365,10 @@ namespace n3ds
 							 (double)gArea.mFrameTicks / TICKS_PER_MS / frames, (double)gArea.mFrameMax / TICKS_PER_MS,
 							 avg(SIMULATION), avg(RENDER), avg(SW_PLANES), avg(SW_SPRITES), avg(DRAWER),
 							 avg(PRESENT_SDL), avg(PRESENT_GPU_WAIT), avg(PRESENT_SWAP_WAIT), avg(WAIT));
-					RMX_LOG_INFO(buffer);
+					logLine(buffer);
 				}
 				gArea = AreaTotals();
-				writeReport();
+				writeReport(synchronousReport);
 			}
 
 			void updateArea()
@@ -254,6 +381,18 @@ namespace n3ds
 				const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
 				const uint32_t key = ((uint32_t)gameMode << 16) | zoneAct;
 				if (key == gLastAreaKey)
+				{
+					gCandidateAreaKey = key;
+					return;
+				}
+
+				// Values that flicker (e.g. in menus, where a background scene runs) or only last for a moment are no area change
+				if (key != gCandidateAreaKey)
+				{
+					gCandidateAreaKey = key;
+					gCandidateAreaFrames = 0;
+				}
+				if (++gCandidateAreaFrames < AREA_CHANGE_FRAMES && gLastAreaKey != 0xffffffff)
 					return;
 				gLastAreaKey = key;
 				writeAreaSummary();		// For the area that was just left
@@ -289,7 +428,7 @@ namespace n3ds
 						snprintf(gAreaLong, sizeof(gAreaLong), "Game mode 0x%02x", gameMode);
 						break;
 				}
-				RMX_LOG_INFO("PROFILER area -> " << gAreaLong << " (game mode " << rmx::hexString(gameMode, 2) << ", zone/act " << rmx::hexString(zoneAct, 4) << ")");
+				logLine(std::string("PROFILER area -> ") + gAreaLong + " (game mode " + rmx::hexString(gameMode, 2) + ", zone/act " + rmx::hexString(zoneAct, 4) + ")");
 			}
 
 			void getLineValues(const Line& line, double& outAverage, double& outMax)
@@ -399,7 +538,7 @@ namespace n3ds
 						length += snprintf(buffer + length, sizeof(buffer) - length, " | Audio workers %.2f ms/frame %.1f%%", workerMsPerFrame, workerCorePercent);
 					if (length > 0 && length < (int)sizeof(buffer))
 						snprintf(buffer + length, sizeof(buffer) - length, " | Profiler timing %.3f ms/frame (%.0f sections), reports %.3f ms/frame", timingOverheadMs, sectionCallsPerFrame, reportMs);
-					RMX_LOG_INFO(buffer);
+					logLine(buffer);
 				}
 			}
 
@@ -472,7 +611,8 @@ namespace n3ds
 
 		void finish()
 		{
-			writeAreaSummary();
+			writeAreaSummary(true);		// On exit: write the report directly
+			flushLogLinesNow();
 		}
 
 		void showStartupInfo()
@@ -527,6 +667,7 @@ namespace n3ds
 			{
 				// Very first frame: just start measuring from here
 				calibrate();
+				startWriterThread();
 				const uint64_t afterCalibration = svcGetSystemTick();
 				gLastFrameEnd = afterCalibration;
 				resetWindow(afterCalibration);
