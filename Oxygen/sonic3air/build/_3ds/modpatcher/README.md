@@ -46,3 +46,19 @@ official Sonic 3 A.I.R. download (version 26.03.28.0, as .zip or unpacked folder
 SD card. The ROM is searched in your Steam library if you don't pick one, checked with the same size and checksum test
 the game uses, and saved as `Sonic_Knuckles_wSonic3.bin` whatever its original name was.
 **Check SD card** lists what's in place, including the sound firmware (`3ds/dspfirm.cdc`).
+
+
+## Conflicts between mods
+
+Whenever you install or enable a mod, the patcher checks it against the other enabled mods, with the same rules as the
+game's Mods menu (from the mods' `mod.json` "OtherMods" entries) plus one extra check:
+
+- **Conflict:** a mod says it doesn't work together with another enabled mod -> asks whether to disable the other one
+- **Missing mod:** a mod requires another mod that isn't installed or not enabled
+- **Order:** a mod needs to be placed above or below another one in the list
+- **Version:** a mod needs a newer version of another mod
+- **Same files:** two enabled mods replace the same files (sprites, audio, ...): only the higher one in the list is used
+  for those -> asks whether to disable the other one (scripts don't count, all mods' scripts get loaded)
+
+Mods with problems are marked with a ⚠ in the list; **Check conflicts** shows all of them.
+Command line: `conflicts` lists them, `install --disable-conflicting` / `enable --disable-conflicting` turn the other mods off.

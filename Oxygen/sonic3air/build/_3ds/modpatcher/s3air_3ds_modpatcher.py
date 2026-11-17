@@ -270,12 +270,25 @@ def install_air_data(source: Path, sd_root: Path) -> str:
 # ---------------------------------------------------------------------------
 
 @dataclass
+class OtherModRef:
+	"""A mod's declared relation to another mod ("OtherMods" in mod.json), same meaning as in the game's Mods menu."""
+	mod_id: str
+	display_name: str
+	min_version: str = ""
+	required: bool = False
+	conflict: bool = False
+	priority: int = 0            # +1: the other mod must be higher in the list (higher priority), -1: lower, 0: don't care
+
+
+@dataclass
 class ModInfo:
 	folder: str              # Path relative to the mods directory, with forward slashes (as stored by the game)
 	name: str
 	author: str = ""
 	version: str = ""
 	description: str = ""
+	unique_id: str = ""      # "UniqueID" from mod.json, or the folder name (like the game)
+	others: List[OtherModRef] = field(default_factory=list)
 
 
 def load_mod_json(path: Path) -> dict:
@@ -286,8 +299,24 @@ def load_mod_json(path: Path) -> dict:
 
 def mod_info_from_json(folder: str, data: dict) -> ModInfo:
 	meta = data.get("Metadata", {}) if isinstance(data, dict) else {}
+	if not isinstance(meta, dict):
+		meta = {}
 	name = meta.get("DisplayName") or meta.get("Name") or PurePosixPath(folder).name
-	return ModInfo(folder, str(name), str(meta.get("Author", "")), str(meta.get("ModVersion", "")), str(meta.get("Description", "")))
+	unique_id = str(meta.get("UniqueID") or PurePosixPath(folder).name)
+	others = []
+	other_mods = data.get("OtherMods") if isinstance(data, dict) else None
+	if not isinstance(other_mods, dict):
+		other_mods = meta.get("OtherMods")
+	if isinstance(other_mods, dict):
+		for mod_id, info in other_mods.items():
+			if not isinstance(info, dict):
+				continue
+			priority = str(info.get("Priority", "")).lower()
+			others.append(OtherModRef(str(mod_id), str(info.get("DisplayName") or mod_id), str(info.get("MinimumVersion", "")),
+									  bool(info.get("IsRequired", False)), bool(info.get("IsConflict", False)),
+									  +1 if priority == "higher" else -1 if priority == "lower" else 0))
+	return ModInfo(folder, str(name), str(meta.get("Author", "")), str(meta.get("ModVersion", "")), str(meta.get("Description", "")),
+				   unique_id, others)
 
 
 def scan_installed_mods(mods_dir: Path, max_depth: int = 3) -> List[ModInfo]:
@@ -526,6 +555,119 @@ def list_mods(sd_root: Path):
 
 
 # ---------------------------------------------------------------------------
+#  Conflicts between mods
+# ---------------------------------------------------------------------------
+
+@dataclass
+class ModProblem:
+	severity: str                    # "error" (doesn't work like this) or "warning" (may not work as expected)
+	text: str
+	mod: str                         # Folder of the mod the problem is about
+	other: Optional[str] = None      # Folder of the other installed mod involved, if any
+	can_disable_other: bool = False  # Disabling "other" solves it (offered by the window / --disable-conflicting)
+
+
+def _version_tuple(version: str):
+	parts = []
+	for piece in version.replace("-", ".").split("."):
+		digits = "".join(ch for ch in piece if ch.isdigit())
+		parts.append(int(digits) if digits else 0)
+	return tuple(parts)
+
+
+def _content_files(mod_root: Path) -> set:
+	"""Files a mod replaces or adds, relative to its folder - without mod.json, files directly in the mod folder (readme,
+	preview images) and scripts (scripts of different mods are all loaded, they don't replace each other by file name)."""
+	files = set()
+	for path in mod_root.rglob("*"):
+		if not path.is_file():
+			continue
+		rel = path.relative_to(mod_root)
+		if len(rel.parts) < 2 or rel.parts[0].lower() == "scripts":
+			continue
+		files.add(PurePosixPath(*rel.parts).as_posix().lower())
+	return files
+
+
+def find_mod_problems(sd_root: Path) -> List[ModProblem]:
+	"""Checks the enabled mods against each other: declared conflicts, missing required mods, required order, minimum
+	versions (all like the game's Mods menu does), and enabled mods replacing the same files (only the higher one wins)."""
+	mods_dir = sd_root / MODS_DIR
+	installed = {m.folder: m for m in scan_installed_mods(mods_dir)}
+	active = [f for f in read_active_mods(mods_dir) if f in installed]     # Lowest priority first
+	priority = {folder: index for index, folder in enumerate(active)}
+	by_id = {}
+	for m in installed.values():
+		by_id.setdefault(m.unique_id, m)
+		by_id.setdefault(PurePosixPath(m.folder).name, m)
+
+	problems: List[ModProblem] = []
+	reported_pairs = set()
+	for folder in reversed(active):
+		mod = installed[folder]
+		for ref in mod.others:
+			other = by_id.get(ref.mod_id)
+			other_name = other.name if other else ref.display_name
+			other_enabled = other is not None and other.folder in priority
+			if other is not None and other.folder == folder:
+				continue
+			if ref.conflict:
+				pair = frozenset((folder, other.folder)) if other else None
+				if other_enabled and pair not in reported_pairs:
+					reported_pairs.add(pair)
+					problems.append(ModProblem("error", f'"{mod.name}" does not work together with "{other_name}" (says {mod.name}).',
+											   folder, other.folder, True))
+				continue
+			if not other_enabled:
+				if ref.required:
+					if other is not None:
+						problems.append(ModProblem("error", f'"{mod.name}" requires "{other_name}" - it is installed, but not enabled.', folder, other.folder))
+					else:
+						problems.append(ModProblem("error", f'"{mod.name}" requires "{other_name}", which is not installed.', folder))
+				continue
+			if ref.priority != 0:
+				other_is_higher = priority[other.folder] > priority[folder]
+				if other_is_higher != (ref.priority > 0):
+					where = "below" if ref.priority > 0 else "above"
+					problems.append(ModProblem("error" if ref.required else "warning",
+											   f'"{mod.name}" needs to be placed {where} "{other_name}" in the list.', folder, other.folder))
+			if ref.min_version and other.version and _version_tuple(other.version) < _version_tuple(ref.min_version):
+				problems.append(ModProblem("warning", f'"{mod.name}" needs "{other_name}" version {ref.min_version} or newer (installed: {other.version}).',
+										   folder, other.folder))
+
+	# Enabled mods replacing the same files: only the one higher in the list has an effect for those files
+	files = {folder: _content_files(mods_dir / folder) for folder in active}
+	for i, high in enumerate(reversed(active)):
+		for low in list(reversed(active))[i + 1:]:
+			if frozenset((high, low)) in reported_pairs:
+				continue
+			shared = sorted(files[high] & files[low])
+			if shared:
+				example = ", ".join(shared[:3]) + (f" and {len(shared) - 3} more" if len(shared) > 3 else "")
+				problems.append(ModProblem("warning", f'"{installed[high].name}" and "{installed[low].name}" both change the same files '
+											f'({example}); only "{installed[high].name}" (higher in the list) is used for those.',
+											high, low, True))
+	return problems
+
+
+def problems_for(problems: List[ModProblem], folder: str) -> List[ModProblem]:
+	return [p for p in problems if p.mod == folder or p.other == folder]
+
+
+def disable_conflicting(sd_root: Path, folder: str) -> List[str]:
+	"""Disables the other mods that conflict with this one (declared conflicts and file overlaps). Returns their folders."""
+	disabled = []
+	for problem in problems_for(find_mod_problems(sd_root), folder):
+		if not problem.can_disable_other:
+			continue
+		other = problem.other if problem.mod == folder else problem.mod
+		if other and other != folder and other not in disabled:
+			set_enabled(sd_root, other, False)
+			disabled.append(other)
+	return disabled
+
+
+# ---------------------------------------------------------------------------
 #  Command line
 # ---------------------------------------------------------------------------
 
@@ -549,6 +691,23 @@ def _print_check(check: CheckResult):
 		print("  " + n)
 
 
+def _print_problems(problems: List[ModProblem]):
+	for problem in problems:
+		print(("  CONFLICT: " if problem.severity == "error" else "  WARNING:  ") + problem.text)
+
+
+def _handle_conflicts_cli(sd: Path, folder: str, disable_others: bool):
+	problems = problems_for(find_mod_problems(sd), folder)
+	if not problems:
+		return
+	_print_problems(problems)
+	if disable_others:
+		for other in disable_conflicting(sd, folder):
+			print(f"  Disabled: {other}")
+	elif any(p.can_disable_other for p in problems):
+		print("  -> Disable the other mod with 'disable <folder>', or install/enable again with --disable-conflicting")
+
+
 def main_cli(argv: List[str]) -> int:
 	ap = argparse.ArgumentParser(description="Install and manage Sonic 3 A.I.R. mods on a 3DS SD card.")
 	ap.add_argument("--sd", help="SD card root (auto-detected if omitted)")
@@ -558,15 +717,19 @@ def main_cli(argv: List[str]) -> int:
 	p.add_argument("--air", help=f"The official Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download (.zip or unpacked folder)")
 	p.add_argument("--rom", help="Your Sonic 3 & Knuckles ROM from Steam (any file name; searched in your Steam library if omitted)")
 	sub.add_parser("list", help="List installed mods")
+	sub.add_parser("conflicts", help="Check the enabled mods for conflicts with each other")
 	p = sub.add_parser("install", help="Install mods from .zip files or folders")
 	p.add_argument("paths", nargs="+")
 	p.add_argument("--disabled", action="store_true", help="Install without enabling")
+	p.add_argument("--disable-conflicting", action="store_true", help="Disable other mods that conflict with the installed one")
 	p = sub.add_parser("check", help="Check a mod for 3DS compatibility without installing")
 	p.add_argument("path")
 	for name, hlp in [("enable", "Enable a mod (as highest priority)"), ("disable", "Disable a mod"), ("remove", "Delete a mod from the SD card"),
 					  ("up", "Raise a mod's priority"), ("down", "Lower a mod's priority")]:
 		p = sub.add_parser(name, help=hlp)
 		p.add_argument("folder", help="Mod folder name, as shown by 'list'")
+		if name == "enable":
+			p.add_argument("--disable-conflicting", action="store_true", help="Disable other mods that conflict with this one")
 	args = ap.parse_args(argv)
 
 	try:
@@ -619,13 +782,22 @@ def main_cli(argv: List[str]) -> int:
 				print(f"  {m.folder:30}  {m.name}" + (f"  v{m.version}" if m.version else ""))
 			if not disabled:
 				print("  (none)")
+		elif args.cmd == "conflicts":
+			problems = find_mod_problems(sd)
+			_print_problems(problems)
+			if not problems:
+				print("No conflicts between the enabled mods.")
+			return 1 if any(p.severity == "error" for p in problems) else 0
 		elif args.cmd == "install":
 			for path in args.paths:
 				r = install_mod(Path(path), sd, enable=not args.disabled)
 				print(f"{'Updated' if r.replaced else 'Installed'}: {r.mod.name}  ->  {(MODS_DIR / r.mod.folder).as_posix()}")
 				_print_check(r.check)
+				if not args.disabled:
+					_handle_conflicts_cli(sd, r.mod.folder, args.disable_conflicting)
 		elif args.cmd == "enable":
 			set_enabled(sd, args.folder, True)
+			_handle_conflicts_cli(sd, args.folder, args.disable_conflicting)
 		elif args.cmd == "disable":
 			set_enabled(sd, args.folder, False)
 		elif args.cmd == "remove":
@@ -758,14 +930,22 @@ def main_gui() -> int:
 		if not sd_var.get():
 			return
 		enabled, disabled = list_mods(Path(sd_var.get()))
+		problem_folders = set()
+		for problem in find_mod_problems(Path(sd_var.get())):
+			problem_folders.add(problem.mod)
+			if problem.other:
+				problem_folders.add(problem.other)
 		for i, m in enumerate(enabled):
 			label = "ON  (top)" if i == 0 else "ON"
+			if m.folder in problem_folders:
+				label += " \u26a0"
 			tree.insert("", "end", iid=m.folder, values=(label, m.name, m.author, m.version))
 		for m in disabled:
 			tree.insert("", "end", iid=m.folder, values=("off", m.name, m.author, m.version))
 		if select and tree.exists(select):
 			tree.selection_set(select)
-		status_var.set(f"{len(enabled)} enabled, {len(disabled)} disabled. Enabled mods higher in the list win when they change the same thing.")
+		conflict_text = f" \u26a0 {len(problem_folders)} mods with conflicts - see 'Check conflicts'." if problem_folders else ""
+		status_var.set(f"{len(enabled)} enabled, {len(disabled)} disabled. Enabled mods higher in the list win when they change the same thing.{conflict_text}")
 
 	def guarded(fn):
 		def wrapper():
@@ -775,15 +955,51 @@ def main_gui() -> int:
 				messagebox.showerror("Error", str(e))
 		return wrapper
 
+	def resolve_conflicts(folder: str):
+		"""After enabling a mod: report its conflicts and offer to disable the other mod for each one."""
+		card = sd()
+		if not card:
+			return
+		handled = set()
+		names = {m.folder: m.name for m in scan_installed_mods(card / MODS_DIR)}
+		for problem in problems_for(find_mod_problems(card), folder):
+			other = problem.other if problem.mod == folder else problem.mod
+			if problem.can_disable_other and other and other != folder:
+				if other in handled:
+					continue
+				handled.add(other)
+				title = "Mod conflict" if problem.severity == "error" else "Possible mod conflict"
+				if messagebox.askyesno(title, f"{problem.text}\n\nDisable \"{names.get(other, other)}\"?"):
+					set_enabled(card, other, False)
+			else:
+				messagebox.showwarning("Mod problem", problem.text)
+		refresh(folder)
+
+	@guarded
+	def check_conflicts():
+		card = sd()
+		if not card:
+			return
+		problems = find_mod_problems(card)
+		if not problems:
+			messagebox.showinfo("Check conflicts", "No conflicts between the enabled mods.")
+			return
+		lines = [("CONFLICT: " if p.severity == "error" else "WARNING: ") + p.text for p in problems]
+		if any(p.can_disable_other for p in problems):
+			lines.append("\nSelect a mod and click 'Enable / Disable' to turn one of them off.")
+		messagebox.showwarning("Check conflicts", "\n\n".join(lines))
+
 	def add_mods(paths):
 		card = sd()
 		if not card:
 			return
 		messages = []
 		last = None
+		installed_folders = []
 		for p in paths:
 			r = install_mod(Path(p), card)
 			last = r.mod.folder
+			installed_folders.append(r.mod.folder)
 			msg = f"{'Updated' if r.replaced else 'Installed'}: {r.mod.name}"
 			if r.check.warnings:
 				msg += "\n  - " + "\n  - ".join(r.check.warnings)
@@ -791,6 +1007,8 @@ def main_gui() -> int:
 		refresh(last)
 		if messages:
 			messagebox.showinfo("Mods installed", "\n\n".join(messages))
+		for folder in installed_folders:
+			resolve_conflicts(folder)
 
 	@guarded
 	def add_zip():
@@ -810,6 +1028,8 @@ def main_gui() -> int:
 			enabled_now = folder in read_active_mods(card / MODS_DIR)
 			set_enabled(card, folder, not enabled_now)
 			refresh(folder)
+			if not enabled_now:
+				resolve_conflicts(folder)
 
 	def mover(step):
 		@guarded
@@ -829,7 +1049,7 @@ def main_gui() -> int:
 
 	for text, cmd in [("Add mod (.zip)...", add_zip), ("Add mod folder...", add_folder), (None, None),
 					  ("Enable / Disable", toggle), ("Move up", mover(+1)), ("Move down", mover(-1)), (None, None),
-					  ("Remove", remove), ("Refresh", refresh)]:
+					  ("Remove", remove), ("Check conflicts", check_conflicts), ("Refresh", refresh)]:
 		if text is None:
 			ttk.Separator(side).pack(fill="x", pady=6)
 		else:
