@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Generates banner.wav, the sound the HOME Menu plays when the app is selected.
+Generates an original "coin" banner sound (the HOME Menu banner used it before "Ringle", see banner.wav).
+Run it with banner.wav as the output to switch back to it.
 
 An original "coin" sound, synthesized from scratch: two metallic clinks (a coin landing and bouncing once),
 followed by a short sparkle. A metal coin rings with inharmonic overtones, so each clink is a sum of decaying
 sine partials at non-integer frequency ratios, plus a very short noise burst for the impact.
 
 Only uses the Python standard library. Output: 16-bit mono PCM, 22050 Hz (the format bannertool takes).
-Usage: python3 make_banner_sound.py [output.wav]
+Usage: python3 make_banner_sound.py [output.wav]     (default: coin.wav)
 """
 
 import math
@@ -61,7 +62,7 @@ def sparkle(buffer, start, frequencies, level):
 
 
 def main():
-	output = sys.argv[1] if len(sys.argv) > 1 else "banner.wav"
+	output = sys.argv[1] if len(sys.argv) > 1 else "coin.wav"
 	buffer = [0.0] * int(DURATION * SAMPLE_RATE)
 
 	clink(buffer, 0.000, 1870.0, 1.00, 0.22)	# Landing
