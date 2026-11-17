@@ -15,6 +15,7 @@
 #include <3ds.h>
 #include <citro3d.h>
 #include <string.h>
+#include <numeric>
 
 // Compiled vertex shader (build/_3ds/gpu/quad.v.pica), embedded at build time
 #include "s3air_3ds_shaders_shbin.h"
@@ -162,13 +163,15 @@ namespace n3ds
 			}
 		}
 
-		bool present(const void* pixels, int width, int height, int pitchBytes)
+		bool present(const void* pixels, int width, int height, int pitchBytes, int targetWidth, int targetHeight)
 		{
 			if (gState == State::UNINITIALIZED)
 			{
 				gState = initialize() ? State::READY : State::FAILED;
 			}
-			if (gState != State::READY || width > SCREEN_WIDTH || height > SCREEN_HEIGHT)
+			if (gState != State::READY)
+				return false;
+			if (width <= 0 || height <= 0 || width > TEXTURE_WIDTH || height > TEXTURE_HEIGHT || targetWidth <= 0 || targetHeight <= 0 || targetWidth > SCREEN_WIDTH || targetHeight > SCREEN_HEIGHT)
 				return false;
 
 			// Copy the frame into linear memory and let the GPU's DMA convert it into the texture layout.
@@ -192,20 +195,30 @@ namespace n3ds
 			C3D_FrameDrawOn(gTarget);
 			setupRenderState(texture);
 
-			// With the vertical flip of the texture transfer, the frame's first line ends up at v = 1 - height / TEXTURE_HEIGHT,
-			// and its last line at the texture's top (v = 1)
-			const float u0 = 0.0f;
-			const float u1 = (float)width / (float)TEXTURE_WIDTH;
-			const float vTop = 1.0f - (float)height / (float)TEXTURE_HEIGHT;
-			const float vBottom = 1.0f;
-			const float yTop = (float)SCREEN_HEIGHT;
-			const float yBottom = (float)(SCREEN_HEIGHT - height);
+			// Texture coordinates, in texels:
+			//  - With the vertical flip of the texture transfer, the frame's first line ends up at texel row (TEXTURE_HEIGHT - height),
+			//    and its last line at the texture's top
+			//  - The software blitter's nearest-neighbor scaling picks source pixel floor(i * source / target) for target pixel i.
+			//    The GPU samples at pixel centers, i.e. at (i + 0.5) * source / target + offset. With the offset below, that becomes
+			//    floor(i * source / target + epsilon), where epsilon is half the smallest possible distance of i * source / target to the
+			//    next integer, so the result is exactly the same - with a safety margin against GPU rounding.
+			const auto getOffset = [](int source, int target)  { return -0.5f * (float)source / (float)target + (float)std::gcd(source, target) / (float)(2 * target); };
+			const float offsetU = getOffset(width, targetWidth);
+			const float offsetV = getOffset(height, targetHeight);
+
+			const float u0 = offsetU / (float)TEXTURE_WIDTH;
+			const float u1 = ((float)width + offsetU) / (float)TEXTURE_WIDTH;
+			const float vTop    = ((float)(TEXTURE_HEIGHT - height) + offsetV) / (float)TEXTURE_HEIGHT;
+			const float vBottom = ((float)TEXTURE_HEIGHT + offsetV) / (float)TEXTURE_HEIGHT;
+			const float xRight  = (float)targetWidth;
+			const float yTop    = (float)SCREEN_HEIGHT;
+			const float yBottom = (float)(SCREEN_HEIGHT - targetHeight);
 
 			C3D_ImmDrawBegin(GPU_TRIANGLE_STRIP);
-			addVertex(0.0f,         yTop,    u0, vTop);
-			addVertex((float)width, yTop,    u1, vTop);
-			addVertex(0.0f,         yBottom, u0, vBottom);
-			addVertex((float)width, yBottom, u1, vBottom);
+			addVertex(0.0f,   yTop,    u0, vTop);
+			addVertex(xRight, yTop,    u1, vTop);
+			addVertex(0.0f,   yBottom, u0, vBottom);
+			addVertex(xRight, yBottom, u1, vBottom);
 			C3D_ImmDrawEnd();
 
 			// The buffer swap for the previous frame was requested when the GPU finished it (at the latest when "C3D_FrameBegin" returned),

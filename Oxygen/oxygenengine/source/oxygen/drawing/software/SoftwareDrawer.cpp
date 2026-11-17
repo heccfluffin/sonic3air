@@ -242,6 +242,53 @@ namespace softwaredrawer
 			return true;
 		}
 
+		// Draws a texture scaled into a rect of the current output (nearest neighbor)
+		void blitUpscaled(DrawerTexture& texture, const Recti& rect)
+		{
+			BitmapViewMutable<uint32>& outputWrapper = getOutputWrapper();
+			BitmapViewMutable<uint32> inputWrapper(texture.accessBitmap());
+
+			if (needSwapRedBlueChannels())
+			{
+				setupRedBlueSwappedBitmapWrapper(inputWrapper);
+			}
+
+			mBlitter.blitRectWithScaling(outputWrapper, rect, inputWrapper, Recti(0, 0, inputWrapper.getSize().x, inputWrapper.getSize().y), Blitter::Options());
+		}
+
+	#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+		// An upscaled draw covering the whole window can be left to the GPU when presenting the frame, which then does the scaling.
+		// It gets drawn on the CPU after all if anything else gets drawn into the window before presenting (see "getOutputWrapper").
+		// Only for unchanged widths: the GPU presenter reproduces the blitter's choice of source lines exactly, but the blitter's
+		// horizontal scaling uses a slightly different fixed-point calculation.
+		bool tryDeferUpscale(DrawerTexture& texture, const Recti& rect)
+		{
+			if (nullptr != mCurrentRenderTarget || nullptr == mScreenSurface || mScreenSurface->format->format != SDL_PIXELFORMAT_ABGR8888 || !mScissorStack.empty())
+				return false;
+			if (rect != Recti(0, 0, mScreenSurface->w, mScreenSurface->h) || texture.getWidth() != rect.width || texture.getHeight() <= 0)
+				return false;
+
+			mDeferredUpscaleTexture = &texture;
+			mDeferredUpscaleRect = rect;
+			return true;
+		}
+
+		inline DrawerTexture* getDeferredUpscaleTexture() const  { return mDeferredUpscaleTexture; }
+		inline void clearDeferredUpscale()						 { mDeferredUpscaleTexture = nullptr; }
+	#endif
+
+		void resolveDeferredUpscale()
+		{
+		#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+			if (nullptr != mDeferredUpscaleTexture)
+			{
+				DrawerTexture* texture = mDeferredUpscaleTexture;
+				mDeferredUpscaleTexture = nullptr;		// Before drawing, as that calls "getOutputWrapper" again
+				blitUpscaled(*texture, mDeferredUpscaleRect);
+			}
+		#endif
+		}
+
 		DrawerTexture* getCurrentRenderTarget() const
 		{
 			return mCurrentRenderTarget;
@@ -251,6 +298,9 @@ namespace softwaredrawer
 		{
 			if (nullptr == mCurrentRenderTarget)
 			{
+				// Something gets drawn into the window: an upscaled draw left to the GPU must be done on the CPU first, to keep the order
+				resolveDeferredUpscale();
+
 				if (nullptr != mScreenSurface)
 				{
 					if (!mIsScreenSurfaceLocked)
@@ -567,6 +617,10 @@ namespace softwaredrawer
 		DrawerTexture* mCurrentRenderTarget = nullptr;
 		BitmapViewMutable<uint32> mOutputWrapper;
 		bool mRenderTargetOutputWrapperOutdated = false;
+	#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+		DrawerTexture* mDeferredUpscaleTexture = nullptr;	// See "tryDeferUpscale"
+		Recti mDeferredUpscaleRect;
+	#endif
 		bool mIsScreenSurfaceLocked = false;
 		bool mDisplayedFormatWarning = false;
 	};
@@ -693,15 +747,11 @@ void SoftwareDrawer::performRendering(const DrawCollection& drawCollection)
 				}
 				if (nullptr != texture)
 				{
-					BitmapViewMutable<uint32>& outputWrapper = mInternal.getOutputWrapper();
-					BitmapViewMutable<uint32> inputWrapper(texture->accessBitmap());
-
-					if (mInternal.needSwapRedBlueChannels())
-					{
-						mInternal.setupRedBlueSwappedBitmapWrapper(inputWrapper);
-					}
-
-					mInternal.mBlitter.blitRectWithScaling(outputWrapper, dc.mRect, inputWrapper, Recti(0, 0, inputWrapper.getSize().x, inputWrapper.getSize().y), Blitter::Options());
+				#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+					if (mInternal.tryDeferUpscale(*texture, dc.mRect))
+						break;
+				#endif
+					mInternal.blitUpscaled(*texture, dc.mRect);
 				}
 				break;
 			}
@@ -907,12 +957,38 @@ void SoftwareDrawer::presentScreen()
 	// Let the GPU present the frame: it takes care of the pixel format and the rotated framebuffer layout of the 3DS screen
 	if (mInternal.mScreenSurface->format->format == SDL_PIXELFORMAT_ABGR8888)
 	{
+		SDL_Surface& surface = *mInternal.mScreenSurface;
+		bool presented = false;
 		N3DS_PROFILE_BEGIN(PRESENT_SDL);
-		const bool presented = n3ds::gpu::present(mInternal.mScreenSurface->pixels, mInternal.mScreenSurface->w, mInternal.mScreenSurface->h, mInternal.mScreenSurface->pitch);
+		if (nullptr != mInternal.getDeferredUpscaleTexture())
+		{
+			// The frame is just an upscaled texture: let the GPU do the scaling as well
+			Bitmap& bitmap = mInternal.getDeferredUpscaleTexture()->accessBitmap();
+			presented = n3ds::gpu::present(bitmap.getData(), bitmap.getWidth(), bitmap.getHeight(), bitmap.getWidth() * 4, surface.w, surface.h);
+			if (presented)
+			{
+				mInternal.clearDeferredUpscale();
+			}
+			else
+			{
+				// Do the scaling on the CPU after all
+				mInternal.resolveDeferredUpscale();
+				mInternal.unlockScreenSurface();
+			}
+		}
+		if (!presented)
+		{
+			presented = n3ds::gpu::present(surface.pixels, surface.w, surface.h, surface.pitch, surface.w, surface.h);
+		}
 		N3DS_PROFILE_END(PRESENT_SDL);
 		if (presented)
 			return;
 		// Otherwise fall back to presenting via SDL
+	}
+	else
+	{
+		mInternal.resolveDeferredUpscale();
+		mInternal.unlockScreenSurface();
 	}
 #endif
 

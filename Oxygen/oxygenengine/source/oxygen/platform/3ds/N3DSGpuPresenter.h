@@ -15,7 +15,10 @@ namespace n3ds
 	{
 		// Presents a finished frame on the top screen using the GPU, instead of SDL's CPU-side rotated copy.
 		//  - "pixels" are in ABGR8888 (the software drawer's native format), "pitchBytes" is the size of one line in bytes
-		//  - Returns false if the GPU path is not available (e.g. initialization failed); the caller should then present via SDL
-		bool present(const void* pixels, int width, int height, int pitchBytes);
+		//  - The frame gets scaled from width x height to targetWidth x targetHeight (placed at the top left of the screen),
+		//    picking exactly the same source pixel for each target pixel as the software blitter's nearest-neighbor scaling
+		//  - Returns false if the GPU path is not available (e.g. initialization failed, or unsupported sizes);
+		//    the caller should then present via SDL
+		bool present(const void* pixels, int width, int height, int pitchBytes, int targetWidth, int targetHeight);
 	}
 }
