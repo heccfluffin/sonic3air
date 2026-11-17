@@ -15,7 +15,9 @@
 
 #include <3ds.h>
 #include <atomic>
+#include <map>
 #include <stdio.h>
+#include <string>
 
 #ifndef S3AIR_3DS_BUILD_ID
 	#define S3AIR_3DS_BUILD_ID "local"
@@ -143,8 +145,84 @@ namespace n3ds
 			AreaTotals gArea;
 			float gAreaTargetStepRate = 60.0f;
 
+			// All visits of each area in this session, for the report file
+			struct AreaAggregate
+			{
+				AreaTotals mTotals;
+				uint32_t mVisits = 0;
+			};
+			std::map<std::string, AreaAggregate> gAreaAggregates;
+
+			void addVisitToAggregate()
+			{
+				if (gArea.mFrames == 0)
+					return;
+				AreaAggregate& aggregate = gAreaAggregates[gAreaLong];
+				AreaTotals& totals = aggregate.mTotals;
+				for (int i = 0; i < _NUM; ++i)
+					totals.mSection[i] += gArea.mSection[i];
+				totals.mFrameTicks += gArea.mFrameTicks;
+				totals.mFrameMax = std::max(totals.mFrameMax, gArea.mFrameMax);
+				totals.mFrames += gArea.mFrames;
+				totals.mSimSteps += gArea.mSimSteps;
+				totals.mMissedRefreshes += gArea.mMissedRefreshes;
+				++aggregate.mVisits;
+			}
+
+			// Writes "profile_report.txt": one row per zone / act / stage, blank for areas not visited in this session
+			void writeReport()
+			{
+				std::vector<std::string> rows = { "SEGA screen", "Title screen / menu background" };
+				char name[64];
+				for (int zone = 0; zone <= 0x0b; ++zone)
+				{
+					for (int act = 1; act <= 2; ++act)
+					{
+						snprintf(name, sizeof(name), "%s Act %d", ZONE_NAMES[zone].mLong, act);
+						rows.emplace_back(name);
+					}
+				}
+				snprintf(name, sizeof(name), "%s Act 1", ZONE_NAMES[0x0c].mLong);
+				rows.emplace_back(name);
+				for (const char* extra : { "Special stage", "Blue Sphere menu", "Blue Sphere results", "Gumball bonus stage", "Glowing Spheres bonus stage", "Slot Machine bonus stage" })
+					rows.emplace_back(extra);
+				for (const auto& pair : gAreaAggregates)	// Anything else that was visited (e.g. competition zones)
+				{
+					if (std::find(rows.begin(), rows.end(), pair.first) == rows.end())
+						rows.push_back(pair.first);
+				}
+
+				FILE* file = fopen("sdmc:/3ds/sonic3air/savedata/profile_report.txt", "w");
+				if (nullptr == file)
+					return;
+				fprintf(file, "Sonic 3 A.I.R. 3DS profiling report - build %s\n", S3AIR_3DS_BUILD_ID);
+				fprintf(file, "All visits of each area in this session combined; empty rows: not visited. Times in ms per frame.\n\n");
+				fprintf(file, "%-32s %7s %6s %6s %7s %6s %6s %6s %6s %6s %6s %7s\n",
+						"Area", "Time s", "FPS", "Missed", "Speed%", "Frame", "Max", "Logic", "Render", "Planes", "Sprite", "Present");
+				for (const std::string& row : rows)
+				{
+					const auto it = gAreaAggregates.find(row);
+					if (it == gAreaAggregates.end())
+					{
+						fprintf(file, "%s\n", row.c_str());
+						continue;
+					}
+					const AreaTotals& totals = it->second.mTotals;
+					const double seconds = (double)totals.mFrameTicks / (double)SYSCLOCK_ARM11;
+					const double frames = (totals.mFrames > 0) ? (double)totals.mFrames : 1.0;
+					const auto avg = [&](Section section)  { return (double)totals.mSection[section] / TICKS_PER_MS / frames; };
+					const double speed = (seconds > 0.0 && gAreaTargetStepRate > 0.0f) ? (double)totals.mSimSteps / seconds * 100.0 / (double)gAreaTargetStepRate : 0.0;
+					fprintf(file, "%-32s %7.1f %6.1f %6u %7.1f %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f %7.2f\n",
+							row.c_str(), seconds, (seconds > 0.0) ? frames / seconds : 0.0, (unsigned)totals.mMissedRefreshes, speed,
+							(double)totals.mFrameTicks / TICKS_PER_MS / frames, (double)totals.mFrameMax / TICKS_PER_MS,
+							avg(SIMULATION), avg(RENDER), avg(SW_PLANES), avg(SW_SPRITES), avg(PRESENT_SDL));
+				}
+				fclose(file);
+			}
+
 			void writeAreaSummary()
 			{
+				addVisitToAggregate();
 				const double seconds = (double)gArea.mFrameTicks / (double)SYSCLOCK_ARM11;
 				if (gArea.mFrames > 0 && seconds >= 1.0)		// Skip very short visits, like transitions
 				{
@@ -163,6 +241,7 @@ namespace n3ds
 					RMX_LOG_INFO(buffer);
 				}
 				gArea = AreaTotals();
+				writeReport();
 			}
 
 			void updateArea()
@@ -350,6 +429,8 @@ namespace n3ds
 			void printPendingScreenLines()
 			{
 				if (gNextScreenLine >= SCREEN_LINES)
+					return;
+				if (!aptIsActive())		// The bottom screen belongs to the system while suspended
 					return;
 
 				initConsole();

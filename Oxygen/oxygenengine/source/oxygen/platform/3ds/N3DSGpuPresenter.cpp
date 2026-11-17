@@ -166,7 +166,9 @@ namespace n3ds
 
 		void shutdown()
 		{
-			if (gState == State::READY)
+			// When the app gets closed from the HOME Menu, it doesn't own the GPU anymore: waiting for it could take forever.
+			// The system frees everything when the process ends anyway.
+			if (gState == State::READY && aptIsActive() && !aptShouldClose())
 			{
 				// Wait until the GPU is done with the last frame before freeing anything it may still use
 				C3D_FrameSync();
@@ -201,6 +203,11 @@ namespace n3ds
 			}
 			if (gState != State::READY)
 				return false;
+
+			// While the app is suspended (HOME Menu) or being closed, the screens and the GPU belong to the system:
+			// don't touch them, just drop the frame (and don't let the caller fall back to presenting via SDL either)
+			if (!aptIsActive() || aptShouldClose())
+				return true;
 			if (width <= 0 || height <= 0 || width > TEXTURE_WIDTH || height > TEXTURE_HEIGHT || targetWidth <= 0 || targetHeight <= 0 || targetX < 0 || targetY < 0 || targetX + targetWidth > SCREEN_WIDTH || targetY + targetHeight > SCREEN_HEIGHT)
 				return false;
 
@@ -268,8 +275,10 @@ namespace n3ds
 			// and only takes effect at the next screen refresh. Before this frame gets transferred into the framebuffer, make sure it was
 			// applied, so that the buffer still on screen never gets overwritten. GSP tells whether a requested swap is still pending,
 			// so this only waits when really needed - unlike V-Sync, it doesn't lock the frame rate to 60 / 30 FPS.
+			//  -> Limited to a few screen refreshes: if the swap doesn't happen (e.g. the app just lost the screens to the system),
+			//     never wait forever
 			N3DS_PROFILE_BEGIN(PRESENT_SWAP_WAIT);
-			while (gspIsPresentPending(GSP_SCREEN_TOP))
+			for (int waited = 0; waited < 4 && gspIsPresentPending(GSP_SCREEN_TOP) && aptIsActive(); ++waited)
 			{
 				gspWaitForVBlank();
 			}
