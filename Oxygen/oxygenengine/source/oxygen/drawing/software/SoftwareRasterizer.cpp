@@ -27,6 +27,13 @@ namespace
 		return (truncated > x) ? (truncated - 1.0f) : truncated;
 	}
 
+	// Same as floorFast, without the range check - only for values known to be within the int range
+	FORCE_INLINE float floorTruncated(float x)
+	{
+		const float truncated = (float)(int)x;
+		return (truncated > x) ? (truncated - 1.0f) : truncated;
+	}
+
 	template<typename VERTEX>
 	void sortThreeVerticesByY(const VERTEX* inVertices, int* outSortedIndices)
 	{
@@ -70,10 +77,17 @@ namespace
 			currentUV.y -= 0.5f / scaleUV.y;
 		}
 
+		// If all texture coordinates of this line are safely within the int range, rounding down needs no range check per pixel
+		const float endU = currentUV.x + diffUV.x * (float)numPixels;
+		const float endV = currentUV.y + diffUV.y * (float)numPixels;
+		const float maxAbsU = std::max(std::fabs(currentUV.x), std::fabs(endU)) + std::fabs(diffUV.x);
+		const float maxAbsV = std::max(std::fabs(currentUV.y), std::fabs(endV)) + std::fabs(diffUV.y);
+		const bool uvInSafeRange = (maxAbsU < 1.0e8f && maxAbsV < 1.0e8f);		// Also false for NaN
+
 		for (int i = 0; i < numPixels; ++i)
 		{
-			const float u = currentUV.x - floorFast(currentUV.x);
-			const float v = currentUV.y - floorFast(currentUV.y);
+			const float u = currentUV.x - (uvInSafeRange ? floorTruncated(currentUV.x) : floorFast(currentUV.x));
+			const float v = currentUV.y - (uvInSafeRange ? floorTruncated(currentUV.y) : floorFast(currentUV.y));
 
 			if constexpr (BILINEAR_SAMPLING)
 			{
@@ -129,8 +143,9 @@ namespace
 			else
 			{
 				// Point sampling
-				const int sampleX = (int)floorFast(u * scaleUV.x);
-				const int sampleY = (int)floorFast(v * scaleUV.y);
+				// Note that u and v are never negative (a value minus its rounded-down value), so truncation gives the same result as rounding down
+				const int sampleX = (int)(u * scaleUV.x);
+				const int sampleY = (int)(v * scaleUV.y);
 
 				if constexpr (ALPHA_BLENDING)
 				{
@@ -149,12 +164,24 @@ namespace
 					}
 					else
 					{
-						const uint16 multiplierA = ((uint32)sample[3] << 8) / 255;
-						const uint16 multiplierB = (256 - multiplierA);
+						const uint8 alpha = sample[3];
+						if (alpha == 0xff)
+						{
+							// Fully opaque: the blending below would yield exactly the texture color
+							output[0] = sample[SAMPLE_INDEX_R];
+							output[1] = sample[SAMPLE_INDEX_G];
+							output[2] = sample[SAMPLE_INDEX_B];
+						}
+						else if (alpha != 0)
+						{
+							const uint16 multiplierA = ((uint32)alpha << 8) / 255;
+							const uint16 multiplierB = (256 - multiplierA);
 
-						output[0] = (sample[SAMPLE_INDEX_R] * multiplierA + output[0] * multiplierB) >> 8;
-						output[1] = (sample[SAMPLE_INDEX_G] * multiplierA + output[1] * multiplierB) >> 8;
-						output[2] = (sample[SAMPLE_INDEX_B] * multiplierA + output[2] * multiplierB) >> 8;
+							output[0] = (sample[SAMPLE_INDEX_R] * multiplierA + output[0] * multiplierB) >> 8;
+							output[1] = (sample[SAMPLE_INDEX_G] * multiplierA + output[1] * multiplierB) >> 8;
+							output[2] = (sample[SAMPLE_INDEX_B] * multiplierA + output[2] * multiplierB) >> 8;
+						}
+						// Otherwise fully transparent: the blending would yield exactly the previous output color
 						output[3] = 0xff;
 					}
 				}
