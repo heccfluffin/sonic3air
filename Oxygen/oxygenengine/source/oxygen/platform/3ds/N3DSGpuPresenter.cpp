@@ -188,7 +188,6 @@ namespace n3ds
 			//  -> No C3D_FRAME_SYNCDRAW: that waits for the next screen refresh (i.e. V-Sync), which locks the frame rate to 30 FPS
 			//     as soon as a frame takes slightly longer than 16.7 ms. Instead, only wait for the GPU to be finished with the previous frame.
 			C3D_FrameBegin(0);
-			const u32 refreshCounterAtFrameStart = C3D_FrameCounter(0);
 			C3D_RenderTargetClear(gTarget, C3D_CLEAR_ALL, 0x000000FF, 0);
 			C3D_FrameDrawOn(gTarget);
 			setupRenderState(texture);
@@ -210,10 +209,10 @@ namespace n3ds
 			C3D_ImmDrawEnd();
 
 			// The buffer swap for the previous frame was requested when the GPU finished it (at the latest when "C3D_FrameBegin" returned),
-			// and only takes effect at the next screen refresh. Before this frame gets transferred into the framebuffer, make sure that
-			// refresh has happened, so that the buffer still on screen never gets overwritten. This doesn't cost anything as long as
-			// frames take longer than one screen refresh, and unlike V-Sync it doesn't lock the frame rate to 60 / 30 FPS.
-			if (C3D_FrameCounter(0) == refreshCounterAtFrameStart)
+			// and only takes effect at the next screen refresh. Before this frame gets transferred into the framebuffer, make sure it was
+			// applied, so that the buffer still on screen never gets overwritten. GSP tells whether a requested swap is still pending,
+			// so this only waits when really needed - unlike V-Sync, it doesn't lock the frame rate to 60 / 30 FPS.
+			while (gspIsPresentPending(GSP_SCREEN_TOP))
 			{
 				gspWaitForVBlank();
 			}
