@@ -23,9 +23,9 @@ import json
 SHEET_ASSET = 'sonic3air-3ds.t3x'		# Name of the icon sheet in the release
 CHANNELS = {
 	'stable': {'store_file': 'sonic3air-3ds.unistore', 'sheet_file': 'sonic3air-3ds.t3x', 'prereleases': False,
-			   'store_title': 'Sonic 3 A.I.R. for New 3DS', 'app_title': 'Sonic 3 A.I.R. (New 3DS)'},
+			   'store_title': 'Sonic 3 A.I.R. for New 3DS by heccfluffin', 'app_title': 'Sonic 3 A.I.R. (New 3DS)'},
 	'test':   {'store_file': 'sonic3air-3ds-test.unistore', 'sheet_file': 'sonic3air-3ds-test.t3x', 'prereleases': True,
-			   'store_title': 'Sonic 3 A.I.R. for New 3DS (test builds)', 'app_title': 'Sonic 3 A.I.R. (New 3DS, test build)'},
+			   'store_title': 'Sonic 3 A.I.R. for New 3DS by heccfluffin (test builds)', 'app_title': 'Sonic 3 A.I.R. (New 3DS, test build)'},
 }
 
 PROMPT = ('Sonic 3 A.I.R. needs files that can\'t be downloaded here:\n'
@@ -58,8 +58,8 @@ def main():
 
 	store_info = {
 		'title': channel['store_title'],
-		'author': 'Unofficial port',
-		'description': 'Unofficial New 3DS port of Sonic 3 A.I.R. (Eukaryot)',
+		'author': 'heccfluffin',
+		'description': 'Unofficial New 3DS port of Sonic 3 A.I.R. by heccfluffin. Original game by Eukaryot & contributors.',
 		'file': store_file,
 		'url': latest + store_file,
 		'version': 3,
@@ -67,11 +67,11 @@ def main():
 	}
 	info = {
 		'title': channel['app_title'],
-		'author': 'Eukaryot & contributors, unofficial 3DS port',
+		'author': 'heccfluffin (3DS port), Eukaryot & contributors (original)',
 		'version': args.version,
 		'category': ['game'],
 		'console': ['3DS'],
-		'description': ('Unofficial New 3DS / New 2DS XL port of Sonic 3 - Angel Island Revisited. '
+		'description': ('Unofficial New 3DS / New 2DS XL port of Sonic 3 - Angel Island Revisited by heccfluffin. '
 						'Needs your own Sonic 3 & Knuckles ROM (Steam) named Sonic_Knuckles_wSonic3.bin '
 						'and the data folder of A.I.R. 26.03.28.0 in sdmc:/3ds/sonic3air/. See INSTALL.md.'),
 		'license': 'gpl-3.0',

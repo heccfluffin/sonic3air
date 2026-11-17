@@ -1,7 +1,7 @@
 # Sonic 3 A.I.R. on New 3DS — install guide
 
-This is an unofficial port of [Sonic 3 A.I.R.](https://sonic3air.org) to the **New Nintendo 3DS / New 3DS XL /
-New 2DS XL**. It does not run on the original (Old) 3DS / 2DS models, which don't have enough memory and CPU speed.
+This is an unofficial port by **heccfluffin** of [Sonic 3 A.I.R.](https://sonic3air.org) (by Eukaryot & contributors)
+to the **New Nintendo 3DS / New 3DS XL / New 2DS XL**. It does not run on the original (Old) 3DS / 2DS models, which don't have enough memory and CPU speed.
 
 The port contains **no game content**. You need two things the port can't include:
 your own copy of the game's ROM, and the data files from the official A.I.R. PC release.

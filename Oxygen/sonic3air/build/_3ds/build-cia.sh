@@ -26,7 +26,7 @@ ELF=build/sonic3air.elf
 [ -f "$ELF" ] || { echo "Error: $ELF not found, run ./build.sh first." >&2; exit 1; }
 
 "$BANNERTOOL" makebanner -i cia/banner.png -a cia/banner.wav -o build/banner.bnr
-LONG_DESCRIPTION="Angel Island Revisited (unofficial 3DS port)"
+LONG_DESCRIPTION="Angel Island Revisited - unofficial 3DS port by heccfluffin"
 if [ -n "$BUILD_LABEL" ]; then LONG_DESCRIPTION="$LONG_DESCRIPTION - build $BUILD_LABEL"; fi
 VERSION_ARGS=""
 if [ -n "$BUILD_NUMBER" ]; then VERSION_ARGS="-ver $BUILD_NUMBER"; fi
@@ -34,7 +34,7 @@ if [ -n "$BUILD_NUMBER" ]; then VERSION_ARGS="-ver $BUILD_NUMBER"; fi
 "$BANNERTOOL" makesmdh \
 	-s "Sonic 3 A.I.R." \
 	-l "$LONG_DESCRIPTION" \
-	-p "Eukaryot & contributors, 3DS port" \
+	-p "heccfluffin (3DS port) / Eukaryot (original)" \
 	-i icon.png -o build/icon.icn
 
 "$MAKEROM" -f cia -o build/sonic3air.cia -target t -exefslogo $VERSION_ARGS \

@@ -359,7 +359,9 @@ namespace n3ds
 			initConsole();
 			gConsole.cursorX = 1;
 			gConsole.cursorY = 1;
-			printf("Sonic 3 A.I.R. for New 3DS (unofficial)\n\n");
+			printf("Sonic 3 A.I.R. for New 3DS\n");
+			printf("Unofficial port by heccfluffin\n");
+			printf("Original game: Eukaryot & contributors\n\n");
 			printf("Build %s\n\n", S3AIR_3DS_BUILD_ID);
 			printf("Loading...\n");
 			presentConsole();

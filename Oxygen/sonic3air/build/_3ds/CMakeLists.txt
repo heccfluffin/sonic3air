@@ -170,8 +170,8 @@ target_link_libraries(sonic3air oxygen SDL2main SDL2-static ${S3AIR_3DS_GPU_LIBS
 # Homebrew metadata and .3dsx packaging
 ctr_generate_smdh(sonic3air.smdh
 	NAME        "Sonic 3 A.I.R."
-	DESCRIPTION "Angel Island Revisited (unofficial 3DS port)"
-	AUTHOR      "Eukaryot & contributors, 3DS port"
+	DESCRIPTION "Angel Island Revisited - unofficial 3DS port by heccfluffin"
+	AUTHOR      "heccfluffin (3DS port) / Eukaryot (original)"
 	ICON        ${CMAKE_CURRENT_SOURCE_DIR}/icon.png
 )
 ctr_create_3dsx(sonic3air SMDH sonic3air.smdh)
