@@ -79,7 +79,8 @@ namespace n3ds
 				{ "     Other",        DRAW_OTHER },
 				{ "   Menu bg blur",   STILL_BLUR },
 				{ " Present: bswap",   PRESENT_REV },
-				{ " Present: copy",    PRESENT_SDL },
+				{ " Present",          PRESENT_SDL },
+				{ "   GPU/swap wait",  PRESENT_WAIT },
 				{ " Frame cap wait",   WAIT },
 				{ " Other",            -2 },
 			};

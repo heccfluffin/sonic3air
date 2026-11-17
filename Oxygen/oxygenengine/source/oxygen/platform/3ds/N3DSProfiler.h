@@ -43,7 +43,8 @@ namespace n3ds
 			DRAW_OTHER,		//    - Other drawing (meshes)
 			STILL_BLUR,		//  - Blurring the game screen behind menus
 			PRESENT_REV,	// Presenting: byte order conversion of the window surface (twice)
-			PRESENT_SDL,	// Presenting: SDL_UpdateWindowSurface (rotated copy to the 3DS framebuffer)
+			PRESENT_SDL,	// Presenting: SDL_UpdateWindowSurface (rotated copy to the 3DS framebuffer), or the GPU presenter
+			PRESENT_WAIT,	//  - GPU presenter: waiting for the GPU / the previous frame's buffer swap
 			WAIT,			// Frame cap wait
 			_NUM
 		};

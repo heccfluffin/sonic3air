@@ -11,6 +11,7 @@
 #if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
 
 #include "oxygen/platform/3ds/N3DSGpuPresenter.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 
 #include <3ds.h>
 #include <citro3d.h>
@@ -176,10 +177,13 @@ namespace n3ds
 
 			// Copy the frame into linear memory and let the GPU's DMA convert it into the texture layout.
 			// The texture used two frames ago is not in use by the GPU anymore at this point, as starting the previous frame waited for it.
+			//  -> The frame gets placed vertically centered in the texture: the texture coordinates below then address the same rows
+			//     no matter in which vertical direction the texture rows are counted (see there)
+			const int firstRow = (TEXTURE_HEIGHT - height) / 2;
 			const u8* source = (const u8*)pixels;
 			for (int y = 0; y < height; ++y)
 			{
-				memcpy(&gStagingBuffer[y * TEXTURE_WIDTH], source + y * pitchBytes, width * 4);
+				memcpy(&gStagingBuffer[(firstRow + y) * TEXTURE_WIDTH], source + y * pitchBytes, width * 4);
 			}
 			GSPGPU_FlushDataCache(gStagingBuffer, TEXTURE_WIDTH * TEXTURE_HEIGHT * 4);
 
@@ -190,14 +194,18 @@ namespace n3ds
 			// Draw the frame as one quad, 1:1 with nearest sampling, so each screen pixel gets exactly one frame pixel
 			//  -> No C3D_FRAME_SYNCDRAW: that waits for the next screen refresh (i.e. V-Sync), which locks the frame rate to 30 FPS
 			//     as soon as a frame takes slightly longer than 16.7 ms. Instead, only wait for the GPU to be finished with the previous frame.
+			N3DS_PROFILE_BEGIN(PRESENT_WAIT);
 			C3D_FrameBegin(0);
+			N3DS_PROFILE_END(PRESENT_WAIT);
 			C3D_RenderTargetClear(gTarget, C3D_CLEAR_ALL, 0x000000FF, 0);
 			C3D_FrameDrawOn(gTarget);
 			setupRenderState(texture);
 
 			// Texture coordinates, in texels:
-			//  - With the vertical flip of the texture transfer, the frame's first line ends up at texel row (TEXTURE_HEIGHT - height),
-			//    and its last line at the texture's top
+			//  - The frame's lines are in texel rows firstRow ... firstRow + height - 1, counted from the top. As the frame is centered,
+			//    this range is the same when counting from the bottom (for even height differences, which is the case for 224 and 240 lines).
+			//    Earlier versions assumed the rows were counted from the bottom (due to the vertical flip of the transfer), which turned out
+			//    wrong on actual hardware / Citra: the picture was shifted up by (TEXTURE_HEIGHT - height) lines.
 			//  - The software blitter's nearest-neighbor scaling picks source pixel floor(i * source / target) for target pixel i.
 			//    The GPU samples at pixel centers, i.e. at (i + 0.5) * source / target + offset. With the offset below, that becomes
 			//    floor(i * source / target + epsilon), where epsilon is half the smallest possible distance of i * source / target to the
@@ -208,8 +216,8 @@ namespace n3ds
 
 			const float u0 = offsetU / (float)TEXTURE_WIDTH;
 			const float u1 = ((float)width + offsetU) / (float)TEXTURE_WIDTH;
-			const float vTop    = ((float)(TEXTURE_HEIGHT - height) + offsetV) / (float)TEXTURE_HEIGHT;
-			const float vBottom = ((float)TEXTURE_HEIGHT + offsetV) / (float)TEXTURE_HEIGHT;
+			const float vTop    = ((float)firstRow + offsetV) / (float)TEXTURE_HEIGHT;
+			const float vBottom = ((float)(firstRow + height) + offsetV) / (float)TEXTURE_HEIGHT;
 			//  - Screen positions: y goes upwards in the projection, so the screen's top line is at y = SCREEN_HEIGHT
 			const float xLeft   = (float)targetX;
 			const float xRight  = (float)(targetX + targetWidth);
@@ -227,10 +235,12 @@ namespace n3ds
 			// and only takes effect at the next screen refresh. Before this frame gets transferred into the framebuffer, make sure it was
 			// applied, so that the buffer still on screen never gets overwritten. GSP tells whether a requested swap is still pending,
 			// so this only waits when really needed - unlike V-Sync, it doesn't lock the frame rate to 60 / 30 FPS.
+			N3DS_PROFILE_BEGIN(PRESENT_WAIT);
 			while (gspIsPresentPending(GSP_SCREEN_TOP))
 			{
 				gspWaitForVBlank();
 			}
+			N3DS_PROFILE_END(PRESENT_WAIT);
 
 			// GX_CMDLIST_FLUSH: only flush the command list, instead of the CPU cache for the entire linear memory (citro3d's default).
 			// The only CPU-written linear memory used for drawing is the staging buffer, which got flushed above already.
