@@ -23,6 +23,24 @@ your own copy of the game's ROM, and the data files from the official A.I.R. PC 
 > If there's no `3ds` folder yet, create it next to `Nintendo 3DS`.
 
 
+## The easy way: let the mod patcher do steps 2 to 4
+
+The mod patcher (`s3air_3ds_modpatcher.py`, needs [Python 3](https://www.python.org/downloads/) on your PC) can set up the
+game files for you:
+
+1. Download Sonic 3 A.I.R. **26.03.28.0** for Windows from [sonic3air.org](https://sonic3air.org) (just the .zip, no need to unpack it).
+2. Put the 3DS SD card into your PC and double-click `s3air_3ds_modpatcher.py`.
+3. Select the SD card at the top, then click **Set up game files...** and follow the two questions:
+   - pick the downloaded A.I.R. .zip: it checks the version and copies the `data` folder
+   - it looks for your Sonic 3 & Knuckles ROM in your Steam library (or you pick the file): it checks that it's the
+     right ROM, exactly like the game does, and copies it **under the right name automatically**
+4. It then shows a checklist of everything on the SD card. Step 1 (sound firmware) still has to be done on the 3DS.
+
+Command line alternative: `python3 s3air_3ds_modpatcher.py setup --air <A.I.R. zip> [--rom <your ROM>]`
+
+The manual steps below do the same by hand.
+
+
 ## Step 1: Sound firmware (one time only)
 
 Homebrew needs a dump of the console's sound firmware, otherwise the game has no audio.

@@ -37,3 +37,12 @@ python3 s3air_3ds_modpatcher.py --sd E:/ list
 
 Other commands: `check <zip or folder>`, `enable`, `disable`, `up`, `down` and `remove <mod folder>`.
 Leave out `--sd` to auto-detect the SD card.
+
+
+## Setting up the game files
+
+**Set up game files...** (or `setup --air <zip> [--rom <file>]` on the command line) copies the `data` folder from the
+official Sonic 3 A.I.R. download (version 26.03.28.0, as .zip or unpacked folder) and your Sonic 3 & Knuckles ROM to the
+SD card. The ROM is searched in your Steam library if you don't pick one, checked with the same size and checksum test
+the game uses, and saved as `Sonic_Knuckles_wSonic3.bin` whatever its original name was.
+**Check SD card** lists what's in place, including the sound firmware (`3ds/dspfirm.cdc`).

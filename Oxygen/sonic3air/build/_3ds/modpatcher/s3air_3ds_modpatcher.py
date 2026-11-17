@@ -2,8 +2,15 @@
 """
 Sonic 3 A.I.R. - 3DS Mod Patcher
 
-Installs, checks and orders mods for the Nintendo 3DS port of Sonic 3 A.I.R.,
-directly on the 3DS SD card (or any folder that mirrors its layout).
+Sets up the game files and installs, checks and orders mods for the Nintendo 3DS port
+of Sonic 3 A.I.R., directly on the 3DS SD card (or any folder that mirrors its layout).
+
+Game file setup ("Set up game files" / the "setup" command):
+  - Copies the "data" folder from the official A.I.R. PC download (the .zip or the
+    unpacked folder) and checks that it's the version the port needs
+  - Finds your Sonic 3 & Knuckles ROM in your Steam library (or takes the file you pick),
+    checks that it's the right one - exactly like the game does - and copies it under
+    the file name the game requires
 
   * Double-click / run without arguments  -> simple window (Tkinter)
   * Run with a command                    -> command line, see --help
@@ -36,7 +43,14 @@ GAME_DIR = Path("3ds") / "sonic3air"
 MODS_DIR = GAME_DIR / "savedata" / "mods"
 ACTIVE_MODS_FILE = "active-mods.json"
 ROM_NAME = "Sonic_Knuckles_wSonic3.bin"
-REQUIRED_DATA_FILES = ["gamedata.bin", "enginedata.bin", "audiodata.bin"]
+REQUIRED_DATA_FILES = ["gamedata.bin", "enginedata.bin", "audiodata.bin", "scripts.bin", "metadata.json"]
+REQUIRED_AIR_VERSION = "26.03.28.0"      # The A.I.R. version the port is built from: its data files must match exactly
+DSP_FIRMWARE = Path("3ds") / "dspfirm.cdc"
+
+# ROM check, same as the game's (see ConfigurationImpl.cpp and ResourcesCache.cpp)
+ROM_SIZE = 0x400000
+ROM_CHECKSUM = 0x344983ffcfeff8cb
+ROM_OVERWRITES = [(0x2001f0, 0x4a)]
 
 # Compatibility thresholds for the 3DS (New 3DS: ~178 MB of app memory in total)
 MAX_IMAGE_SIDE = 1024            # pixels
@@ -78,7 +92,7 @@ class SetupReport:
 
 
 def check_sd(sd_root: Path) -> SetupReport:
-	"""Check that the port, the game data and the ROM are where the 3DS build expects them."""
+	"""Check that the game data, the ROM and the sound firmware are where the 3DS build expects them."""
 	game = sd_root / GAME_DIR
 	lines = []
 	ok = True
@@ -88,26 +102,167 @@ def check_sd(sd_root: Path) -> SetupReport:
 		ok = ok and good
 		lines.append(("[OK]   " if good else "[MISS] ") + text + ("" if good or not fix else f"\n         -> {fix}"))
 
-	item((game / "sonic3air.3dsx").is_file(), "sonic3air.3dsx",
-		 f"Copy sonic3air.3dsx into {GAME_DIR.as_posix()}/")
 	for name in REQUIRED_DATA_FILES:
 		item((game / "data" / name).is_file(), f"data/{name}",
-			 "Copy the 'data' folder from the official Sonic 3 A.I.R. PC release (sonic3air.org)")
-	item((game / "config.json").is_file(), "config.json",
-		 "Copy config.json from the official PC release (next to the 'data' folder)")
+			 f"Use 'Set up game files' with the official Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download (sonic3air.org)")
+	version = read_air_version(game / "data")
+	if version is not None:
+		item(version == REQUIRED_AIR_VERSION, f"A.I.R. data version {version}",
+			 f"The port needs the data of version {REQUIRED_AIR_VERSION} exactly, otherwise the scripts fail to load")
 
 	rom_paths = [game / ROM_NAME, game / "savedata" / ROM_NAME]
 	rom = next((p for p in rom_paths if p.is_file()), None)
 	if rom is None:
-		item(False, ROM_NAME, f"Put your own copy of the Steam ROM in {GAME_DIR.as_posix()}/ (it is not included, for legal reasons)")
+		item(False, ROM_NAME, "Use 'Set up game files' to copy your own Steam ROM (it is not included, for legal reasons)")
 	else:
-		size_mb = rom.stat().st_size / (1024 * 1024)
-		item(abs(size_mb - 4.0) < 0.01, f"{ROM_NAME} ({size_mb:.1f} MB)",
-			 "This doesn't look like the 4 MB Sonic 3 & Knuckles ROM from Steam")
+		good, reason = check_rom(rom)
+		item(good, f"{ROM_NAME}" + ("" if good else f" ({reason})"), "This is not the Sonic 3 & Knuckles ROM from Steam that the game needs")
+
+	item((sd_root / DSP_FIRMWARE).is_file(), DSP_FIRMWARE.as_posix() + " (sound firmware)",
+		 "Run the DSP1 homebrew app once on your 3DS, otherwise the game has no sound")
 
 	has_remaster = (game / "data" / "audioremaster.bin").is_file()
 	lines.append(("[OK]   " if has_remaster else "[INFO] ") + "data/audioremaster.bin (optional remastered music)")
 	return SetupReport(ok, lines)
+
+
+# ---------------------------------------------------------------------------
+#  Game file setup: ROM and A.I.R. data
+# ---------------------------------------------------------------------------
+
+def murmur2_64(data: bytes) -> int:
+	"""MurmurHash64A with seed 0, like rmx::getMurmur2_64 in the game."""
+	mask = 0xFFFFFFFFFFFFFFFF
+	m = 0xc6a4a7935bd1e995
+	r = 47
+	length = len(data)
+	h = (length * m) & mask
+	whole = length // 8
+	for (k,) in struct.iter_unpack("<Q", data[:whole * 8]):
+		k = (k * m) & mask
+		k ^= k >> r
+		k = (k * m) & mask
+		h ^= k
+		h = (h * m) & mask
+	tail = data[whole * 8:]
+	if tail:
+		for i in reversed(range(len(tail))):
+			h ^= tail[i] << (8 * i)
+		h = (h * m) & mask
+	h ^= h >> r
+	h = (h * m) & mask
+	h ^= h >> r
+	return h
+
+
+def check_rom(path: Path):
+	"""Returns (ok, reason): whether this is the ROM the game accepts, checked the same way as the game does."""
+	try:
+		size = path.stat().st_size
+		if size != ROM_SIZE:
+			return False, f"wrong size: {size} bytes instead of {ROM_SIZE}"
+		data = bytearray(path.read_bytes())
+	except OSError as e:
+		return False, str(e)
+	for offset, value in ROM_OVERWRITES:
+		data[offset] = value
+	if murmur2_64(bytes(data)) != ROM_CHECKSUM:
+		return False, "different content (not the Steam version of Sonic 3 & Knuckles)"
+	return True, ""
+
+
+def find_steam_roms() -> List[Path]:
+	"""Look for the Steam ROM in the usual Steam library locations."""
+	steam_roots = []
+	if os.name == "nt":
+		for env in ("ProgramFiles(x86)", "ProgramFiles"):
+			if os.environ.get(env):
+				steam_roots.append(Path(os.environ[env]) / "Steam")
+	else:
+		home = Path.home()
+		steam_roots += [home / ".steam" / "steam", home / ".local" / "share" / "Steam",
+						home / ".var" / "app" / "com.valvesoftware.Steam" / ".local" / "share" / "Steam",
+						home / "Library" / "Application Support" / "Steam"]
+
+	# Additional Steam libraries are listed in libraryfolders.vdf
+	libraries = []
+	for root in steam_roots:
+		libraries.append(root)
+		vdf = root / "steamapps" / "libraryfolders.vdf"
+		try:
+			for line in vdf.read_text(encoding="utf-8", errors="ignore").splitlines():
+				parts = line.strip().split('"')
+				if len(parts) >= 4 and parts[1] == "path":
+					libraries.append(Path(parts[3].replace("\\\\", "\\")))
+		except OSError:
+			pass
+
+	found = []
+	for library in libraries:
+		common = library / "steamapps" / "common"
+		try:
+			games = [p for p in common.iterdir() if p.is_dir()]
+		except OSError:
+			continue
+		for game in games:
+			for candidate in [game / ROM_NAME, game / "uncompressed ROMs" / ROM_NAME]:
+				if candidate.is_file() and candidate not in found:
+					found.append(candidate)
+	return found
+
+
+def read_air_version(data_dir: Path) -> Optional[str]:
+	try:
+		return str(json.loads((data_dir / "metadata.json").read_text(encoding="utf-8-sig")).get("Version"))
+	except (OSError, ValueError, AttributeError):
+		return None
+
+
+def _find_air_data_dir(directory: Path) -> Optional[Path]:
+	"""Find the A.I.R. 'data' folder (with gamedata.bin and metadata.json) somewhere below a folder."""
+	for meta in sorted(directory.rglob("metadata.json"), key=lambda p: len(p.parts)):
+		if (meta.parent / "gamedata.bin").is_file():
+			return meta.parent
+	return None
+
+
+def install_rom(rom: Path, sd_root: Path) -> Path:
+	good, reason = check_rom(rom)
+	if not good:
+		raise PatcherError(f"{rom.name}: {reason}.\nSonic 3 A.I.R. only accepts the ROM from the Steam release of Sonic 3 & Knuckles.")
+	target = sd_root / GAME_DIR / ROM_NAME
+	target.parent.mkdir(parents=True, exist_ok=True)
+	shutil.copyfile(rom, target)
+	return target
+
+
+def install_air_data(source: Path, sd_root: Path) -> str:
+	"""Copy the 'data' folder of the official A.I.R. download (zip or folder) to the SD card. Returns the version."""
+	with tempfile.TemporaryDirectory() as tmp:
+		if source.is_file() and zipfile.is_zipfile(source):
+			_safe_extract(source, Path(tmp))
+			source = Path(tmp)
+		if not source.is_dir():
+			raise PatcherError(f"{source} is neither a .zip file nor a folder.")
+		data_dir = _find_air_data_dir(source)
+		if data_dir is None:
+			raise PatcherError("No A.I.R. 'data' folder found in there (with gamedata.bin and metadata.json).\n"
+							   "Use the Windows download of Sonic 3 A.I.R. from sonic3air.org.")
+		version = read_air_version(data_dir)
+		if version != REQUIRED_AIR_VERSION:
+			raise PatcherError(f"This is Sonic 3 A.I.R. version {version}, but the 3DS port needs version {REQUIRED_AIR_VERSION}.\n"
+							   "The data files must match the port exactly, otherwise the game can't load its scripts.")
+		missing = [name for name in REQUIRED_DATA_FILES if not (data_dir / name).is_file()]
+		if missing:
+			raise PatcherError("The A.I.R. data folder is incomplete, missing: " + ", ".join(missing))
+
+		target = sd_root / GAME_DIR / "data"
+		target.mkdir(parents=True, exist_ok=True)
+		for file in data_dir.iterdir():
+			if file.is_file():
+				shutil.copyfile(file, target / file.name)
+	(sd_root / MODS_DIR).mkdir(parents=True, exist_ok=True)
+	return version
 
 
 # ---------------------------------------------------------------------------
@@ -398,7 +553,10 @@ def main_cli(argv: List[str]) -> int:
 	ap = argparse.ArgumentParser(description="Install and manage Sonic 3 A.I.R. mods on a 3DS SD card.")
 	ap.add_argument("--sd", help="SD card root (auto-detected if omitted)")
 	sub = ap.add_subparsers(dest="cmd", required=True)
-	sub.add_parser("check-sd", help="Check that the game, data files and ROM are in place")
+	sub.add_parser("check-sd", help="Check that the game data, ROM and sound firmware are in place")
+	p = sub.add_parser("setup", help="Copy the A.I.R. data and your ROM to the SD card")
+	p.add_argument("--air", help=f"The official Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download (.zip or unpacked folder)")
+	p.add_argument("--rom", help="Your Sonic 3 & Knuckles ROM from Steam (any file name; searched in your Steam library if omitted)")
 	sub.add_parser("list", help="List installed mods")
 	p = sub.add_parser("install", help="Install mods from .zip files or folders")
 	p.add_argument("paths", nargs="+")
@@ -428,6 +586,22 @@ def main_cli(argv: List[str]) -> int:
 				return 1 if check.errors else 0
 
 		sd = _resolve_sd(args.sd)
+		if args.cmd == "setup":
+			if args.air:
+				version = install_air_data(Path(args.air), sd)
+				print(f"Copied the A.I.R. {version} data folder to {(GAME_DIR / 'data').as_posix()}/")
+			if args.rom:
+				rom = Path(args.rom)
+			else:
+				roms = [r for r in find_steam_roms() if check_rom(r)[0]]
+				rom = roms[0] if roms else None
+				if rom is None and not (sd / GAME_DIR / ROM_NAME).is_file():
+					print("No Steam ROM found automatically, pass it with --rom")
+			if rom is not None:
+				print(f"Copied ROM {rom}  ->  {(GAME_DIR / ROM_NAME).as_posix()}  ({install_rom(rom, sd)})")
+			report = check_sd(sd)
+			print("\n".join(report.lines))
+			return 0 if report.ok else 1
 		if args.cmd == "check-sd":
 			report = check_sd(sd)
 			print(f"SD card: {sd}")
@@ -476,14 +650,14 @@ def main_gui() -> int:
 
 	root = tk.Tk()
 	root.title("Sonic 3 A.I.R. - 3DS Mod Patcher")
-	root.geometry("720x480")
+	root.geometry("820x480")
 	root.minsize(600, 380)
 
 	sd_var = tk.StringVar()
 	cards = find_sd_cards()
 	if cards:
 		sd_var.set(str(cards[0]))
-	status_var = tk.StringVar(value="Pick your 3DS SD card, then add mods.")
+	status_var = tk.StringVar(value="Pick your 3DS SD card. First time? Click 'Set up game files...'. Then add mods.")
 
 	# Top: SD card selection
 	top = ttk.Frame(root, padding=8)
@@ -504,6 +678,54 @@ def main_gui() -> int:
 		report = check_sd(Path(sd_var.get()))
 		(messagebox.showinfo if report.ok else messagebox.showwarning)("SD card check", "\n".join(report.lines))
 	ttk.Button(top, text="Check SD card", command=do_check_sd).pack(side="left", padx=(6, 0))
+
+	def do_setup():
+		if not sd_var.get():
+			messagebox.showwarning("No SD card", "Select your 3DS SD card first.")
+			return
+		card = Path(sd_var.get())
+		done = []
+		try:
+			# A.I.R. data
+			if messagebox.askyesno("Set up game files (1/2)",
+								   f"Copy the game data from the official Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download?\n\n"
+								   "Download the Windows version from sonic3air.org first. Then pick the downloaded .zip "
+								   "(or choose 'No' here if the data is already on the SD card)."):
+				path = filedialog.askopenfilename(title=f"Select the Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download (.zip)",
+												  filetypes=[("Zip archives", "*.zip"), ("All files", "*.*")])
+				if not path:
+					path = filedialog.askdirectory(title="Or select the unpacked Sonic 3 A.I.R. folder")
+				if path:
+					root.config(cursor="watch"); root.update()
+					version = install_air_data(Path(path), card)
+					done.append(f"Copied the A.I.R. {version} data.")
+
+			# ROM
+			root.config(cursor="watch"); root.update()
+			roms = [r for r in find_steam_roms() if check_rom(r)[0]]
+			root.config(cursor="")
+			rom = None
+			if roms and messagebox.askyesno("Set up game files (2/2)", f"Found your Sonic 3 & Knuckles ROM in Steam:\n{roms[0]}\n\nCopy it to the SD card?"):
+				rom = roms[0]
+			elif not roms:
+				messagebox.showinfo("Set up game files (2/2)",
+									"Now pick your Sonic 3 & Knuckles ROM from Steam.\nIts file name doesn't matter, it gets renamed automatically.")
+			if rom is None:
+				path = filedialog.askopenfilename(title="Select your Sonic 3 & Knuckles ROM (Steam)", filetypes=[("ROM files", "*.bin *.md *.gen"), ("All files", "*.*")])
+				if path:
+					rom = Path(path)
+			if rom is not None:
+				root.config(cursor="watch"); root.update()
+				install_rom(rom, card)
+				done.append(f"Copied the ROM as {ROM_NAME}.")
+		except (PatcherError, OSError, zipfile.BadZipFile) as e:
+			messagebox.showerror("Set up game files", str(e))
+		finally:
+			root.config(cursor="")
+		report = check_sd(card)
+		(messagebox.showinfo if report.ok else messagebox.showwarning)("Set up game files", "\n".join(done + ([""] if done else []) + report.lines))
+		refresh()
+	ttk.Button(top, text="Set up game files...", command=do_setup).pack(side="left", padx=(6, 0))
 
 	# Middle: mod list
 	mid = ttk.Frame(root, padding=(8, 0))
