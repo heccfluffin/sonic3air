@@ -1,0 +1,34 @@
+; Sonic 3 A.I.R. 3DS port: vertex shader for drawing textured quads with the PICA200 GPU
+;  - Input v0: position (x, y, z), in pixels of the target
+;  - Input v1: texture coordinates (u, v)
+
+; Uniforms
+.fvec projection[4]
+
+; Constants
+.constf constants(1.0, 0.0, 0.0, 0.0)
+.alias  ones constants.xxxx
+
+; Outputs
+.out outpos position
+.out outtc0 texcoord0
+
+; Inputs
+.alias inpos v0
+.alias intc0 v1
+
+.proc main
+	; Position with w = 1.0, transformed by the projection matrix
+	mov r0.xyz, inpos
+	mov r0.w,   ones
+
+	dp4 outpos.x, projection[0], r0
+	dp4 outpos.y, projection[1], r0
+	dp4 outpos.z, projection[2], r0
+	dp4 outpos.w, projection[3], r0
+
+	; Texture coordinates are passed through
+	mov outtc0, intc0
+
+	end
+.end

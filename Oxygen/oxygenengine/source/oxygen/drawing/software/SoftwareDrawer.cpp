@@ -8,6 +8,9 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/platform/3ds/N3DSProfiler.h"
+#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+	#include "oxygen/platform/3ds/N3DSGpuPresenter.h"
+#endif
 #include "oxygen/drawing/software/SoftwareDrawer.h"
 #include "oxygen/drawing/software/SoftwareDrawerTexture.h"
 #include "oxygen/drawing/software/SoftwareRasterizer.h"
@@ -899,6 +902,19 @@ void SoftwareDrawer::presentScreen()
 		return;
 
 	mInternal.unlockScreenSurface();
+
+#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+	// Let the GPU present the frame: it takes care of the pixel format and the rotated framebuffer layout of the 3DS screen
+	if (mInternal.mScreenSurface->format->format == SDL_PIXELFORMAT_ABGR8888)
+	{
+		N3DS_PROFILE_BEGIN(PRESENT_SDL);
+		const bool presented = n3ds::gpu::present(mInternal.mScreenSurface->pixels, mInternal.mScreenSurface->w, mInternal.mScreenSurface->h, mInternal.mScreenSurface->pitch);
+		N3DS_PROFILE_END(PRESENT_SDL);
+		if (presented)
+			return;
+		// Otherwise fall back to presenting via SDL
+	}
+#endif
 
 	if (mInternal.mSurfaceReverseBytes)
 	{

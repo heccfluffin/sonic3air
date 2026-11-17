@@ -147,6 +147,17 @@ file(GLOB_RECURSE OXYGEN_SOURCES ${WORKSPACE_DIR}/Oxygen/oxygenengine/source/oxy
 add_library(oxygen STATIC ${OXYGEN_SOURCES})
 target_link_libraries(oxygen minizip rmxmedia rmxext_oggvorbis lemonscript oxygen_netcore)
 
+# Presenting frames with the PICA200 GPU (citro3d) instead of SDL's CPU-side rotated copy
+option(S3AIR_3DS_GPU_PRESENT "Present frames via the 3DS GPU" ON)
+set(S3AIR_3DS_GPU_LIBS "")
+if (S3AIR_3DS_GPU_PRESENT)
+	target_compile_definitions(oxygen PRIVATE N3DS_GPU_PRESENT)
+	ctr_add_shader_library(s3air_3ds_shaders ${CMAKE_CURRENT_SOURCE_DIR}/gpu/quad.v.pica)
+	dkp_add_embedded_binary_library(s3air_3ds_shader_data s3air_3ds_shaders)
+	target_link_libraries(oxygen s3air_3ds_shader_data)
+	set(S3AIR_3DS_GPU_LIBS citro3d)
+endif()
+
 
 
 # --- Sonic 3 A.I.R. executable ---
@@ -154,7 +165,7 @@ target_link_libraries(oxygen minizip rmxmedia rmxext_oggvorbis lemonscript oxyge
 file(GLOB_RECURSE SONIC3AIR_SOURCES ${WORKSPACE_DIR}/Oxygen/sonic3air/source/sonic3air/*.cpp)
 add_executable(sonic3air ${SONIC3AIR_SOURCES})
 target_precompile_headers(sonic3air PRIVATE ${WORKSPACE_DIR}/Oxygen/sonic3air/source/sonic3air/pch.h)
-target_link_libraries(sonic3air oxygen SDL2main SDL2-static ctru m)
+target_link_libraries(sonic3air oxygen SDL2main SDL2-static ${S3AIR_3DS_GPU_LIBS} ctru m)
 
 # Homebrew metadata and .3dsx packaging
 ctr_generate_smdh(sonic3air.smdh

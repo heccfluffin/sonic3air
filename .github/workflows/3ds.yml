@@ -7,7 +7,7 @@ name: 3DS build
 
 on:
   push:
-    branches: [ 3ds-port ]
+    branches: [ 3ds-port, 3ds-gpu-drawer ]
   workflow_dispatch:
 
 permissions:
