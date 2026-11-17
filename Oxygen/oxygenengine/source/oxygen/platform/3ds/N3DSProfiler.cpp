@@ -130,6 +130,41 @@ namespace n3ds
 			char gAreaLong[48] = "starting up";
 			uint32_t gLastAreaKey = 0xffffffff;
 
+			// Totals for the current visit of the current area, written as one summary line when leaving it
+			struct AreaTotals
+			{
+				uint64_t mSection[_NUM] = { 0 };
+				uint64_t mFrameTicks = 0;
+				uint64_t mFrameMax = 0;
+				uint32_t mFrames = 0;
+				uint32_t mSimSteps = 0;
+				uint32_t mMissedRefreshes = 0;
+			};
+			AreaTotals gArea;
+			float gAreaTargetStepRate = 60.0f;
+
+			void writeAreaSummary()
+			{
+				const double seconds = (double)gArea.mFrameTicks / (double)SYSCLOCK_ARM11;
+				if (gArea.mFrames > 0 && seconds >= 1.0)		// Skip very short visits, like transitions
+				{
+					const double frames = (double)gArea.mFrames;
+					const auto avg = [&](Section section)  { return (double)gArea.mSection[section] / TICKS_PER_MS / frames; };
+					const double stepsPerSecond = (double)gArea.mSimSteps / seconds;
+					char buffer[640];
+					snprintf(buffer, sizeof(buffer),
+							 "PROFILER AREA SUMMARY %s | %.1f s | shown_fps %.1f | missed_refreshes %u | game_speed %.1f%% | frame avg %.2f max %.2f ms"
+							 " | game logic %.2f | render %.2f (planes %.2f, sprites %.2f, drawer %.2f) | present %.2f (gpu wait %.2f, swap wait %.2f) | frame cap wait %.2f",
+							 gAreaLong, seconds, frames / seconds, (unsigned)gArea.mMissedRefreshes,
+							 (gAreaTargetStepRate > 0.0f) ? stepsPerSecond * 100.0 / (double)gAreaTargetStepRate : 0.0,
+							 (double)gArea.mFrameTicks / TICKS_PER_MS / frames, (double)gArea.mFrameMax / TICKS_PER_MS,
+							 avg(SIMULATION), avg(RENDER), avg(SW_PLANES), avg(SW_SPRITES), avg(DRAWER),
+							 avg(PRESENT_SDL), avg(PRESENT_GPU_WAIT), avg(PRESENT_SWAP_WAIT), avg(WAIT));
+					RMX_LOG_INFO(buffer);
+				}
+				gArea = AreaTotals();
+			}
+
 			void updateArea()
 			{
 				if (!EmulatorInterface::hasInstance())
@@ -142,6 +177,7 @@ namespace n3ds
 				if (key == gLastAreaKey)
 					return;
 				gLastAreaKey = key;
+				writeAreaSummary();		// For the area that was just left
 
 				switch (gameMode)
 				{
@@ -353,6 +389,11 @@ namespace n3ds
 			}
 		}
 
+		void finish()
+		{
+			writeAreaSummary();
+		}
+
 		void showStartupInfo()
 		{
 			// Before the game data and scripts get loaded: if anything fails there, at least the build is visible
@@ -427,12 +468,18 @@ namespace n3ds
 
 			for (int i = 0; i < _NUM; ++i)
 			{
+				gArea.mSection[i] += gFrameAccum[i];
 				gWindowTotal[i] += gFrameAccum[i];
 				if (gFrameAccum[i] > gWindowMax[i])
 					gWindowMax[i] = gFrameAccum[i];
 				gFrameAccum[i] = 0;
 			}
 			gWindowFrameTotal += frameTicks;
+			gArea.mFrameTicks += frameTicks;
+			gArea.mFrameMax = std::max(gArea.mFrameMax, frameTicks);
+			++gArea.mFrames;
+			gArea.mSimSteps += gFrameSimSteps;
+			gAreaTargetStepRate = gTargetStepRate;
 			if (frameTicks > gWindowFrameMax)
 				gWindowFrameMax = frameTicks;
 			gWindowOtherTotal += otherTicks;
@@ -449,7 +496,10 @@ namespace n3ds
 			// A frame that took about N screen refreshes was on screen for N refreshes, i.e. N - 1 refreshes didn't show a new frame
 			const uint64_t refreshes = (frameTicks + REFRESH_TICKS / 2) / REFRESH_TICKS;
 			if (refreshes > 1)
+			{
 				gWindowMissedRefreshes += (uint32_t)(refreshes - 1);
+				gArea.mMissedRefreshes += (uint32_t)(refreshes - 1);
+			}
 
 			// The profiler's own work: counted as part of the next frame, in its own section, so it's not hidden in "Unaccounted"
 			beginSection(PROFILER);

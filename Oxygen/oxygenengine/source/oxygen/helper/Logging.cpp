@@ -89,6 +89,18 @@ namespace oxygen
 {
 	void Logging::startup(const std::wstring& filename)
 	{
+	#if defined(PLATFORM_3DS)
+		// Keep the log of the previous session as "logfile_previous.txt" (only one, so they don't pile up on the SD card)
+		if (FTX::FileSystem->exists(filename))
+		{
+			std::wstring previous = filename;
+			const size_t dot = previous.find_last_of(L'.');
+			previous.insert((dot == std::wstring::npos) ? previous.length() : dot, L"_previous");
+			if (FTX::FileSystem->exists(previous))
+				FTX::FileSystem->removeFile(previous);
+			FTX::FileSystem->renameFile(filename, previous);
+		}
+	#endif
 		rmx::Logging::addLogger(*new rmx::StdCoutLogger());
 		rmx::Logging::addLogger(*new rmx::FileLogger(filename, true));
 

@@ -61,6 +61,7 @@ namespace n3ds
 		uint64_t getTicks();
 		void endFrame();						// Call once per frame, right after presenting
 		void showStartupInfo();					// Shows the build on the bottom screen while the game loads
+		void finish();							// On exit: writes the summary of the current area to the log
 
 		struct Scope
 		{
@@ -86,6 +87,7 @@ namespace n3ds
 #define N3DS_PROFILE_TARGET_STEP_RATE(x)	n3ds::profiler::setTargetStepRate(x)
 #define N3DS_PROFILE_END_FRAME()		n3ds::profiler::endFrame()
 #define N3DS_PROFILE_STARTUP_INFO()		n3ds::profiler::showStartupInfo()
+#define N3DS_PROFILE_FINISH()			n3ds::profiler::finish()
 
 #else
 
@@ -97,5 +99,6 @@ namespace n3ds
 #define N3DS_PROFILE_TARGET_STEP_RATE(x)
 #define N3DS_PROFILE_END_FRAME()
 #define N3DS_PROFILE_STARTUP_INFO()
+#define N3DS_PROFILE_FINISH()
 
 #endif

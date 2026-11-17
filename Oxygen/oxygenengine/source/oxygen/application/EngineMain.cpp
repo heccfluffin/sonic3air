@@ -30,6 +30,9 @@
 #include "oxygen/platform/CrashHandler.h"
 #include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/platform/3ds/N3DSProfiler.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSExitGuard.h"
+#endif
 #if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
 	#include "oxygen/platform/3ds/N3DSGpuPresenter.h"
 #endif
@@ -335,16 +338,25 @@ void EngineMain::run()
 
 	Application application;
 	FTX::System->run(application);
+
+#if defined(PLATFORM_3DS)
+	// The main loop ended, the game exits: save the settings right away, before anything gets destroyed, and make sure the
+	// 3DS gets back to the HOME Menu even if a shutdown step should hang
+	RMX_LOG_INFO("Main loop ended, exiting");
+	n3ds::exitguard::start(5);
+	n3ds::exitguard::step("saving settings");
+	mInternal.mModManager.copyModSettingsToConfig();
+	Configuration::instance().saveSettings();
+	N3DS_PROFILE_FINISH();
+	n3ds::exitguard::step("application cleanup");
+#endif
 }
 
 void EngineMain::shutdown()
 {
 #if defined(PLATFORM_3DS)
-	// 3DS: save the settings first, so nothing gets lost if any of the steps below has issues, and log each step
-	#define N3DS_SHUTDOWN_STEP(text)  RMX_LOG_INFO("Shutdown: " text)
-	N3DS_SHUTDOWN_STEP("saving settings");
-	mInternal.mModManager.copyModSettingsToConfig();
-	Configuration::instance().saveSettings();
+	// 3DS: the settings were saved already at the end of "run", and each step is tracked by the exit guard
+	#define N3DS_SHUTDOWN_STEP(text)  n3ds::exitguard::step(text)
 	#if defined(N3DS_GPU_PRESENT)
 		N3DS_SHUTDOWN_STEP("GPU presenter");
 		n3ds::gpu::shutdown();		// Before the window (and with it the graphics system) goes away

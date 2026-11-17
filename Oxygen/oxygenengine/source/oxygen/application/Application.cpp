@@ -9,6 +9,9 @@
 #include "oxygen/pch.h"
 #include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/application/Application.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSExitGuard.h"
+#endif
 #include "oxygen/application/Configuration.h"
 #include "oxygen/application/EngineMain.h"
 #include "oxygen/application/GameLoader.h"
@@ -74,13 +77,26 @@ Application::~Application()
 	ImGuiManager::instance().clearProviders();
 #endif
 
+#if defined(PLATFORM_3DS)
+	n3ds::exitguard::step("network client");
+#endif
 	EngineServerClient::instance().shutdownClient();
 
+#if defined(PLATFORM_3DS)
+	n3ds::exitguard::step("game loader, save state menu, simulation");
+#endif
 	delete mGameLoader;
 	delete mSaveStateMenu;
 	delete mSimulation;
 
+#if defined(PLATFORM_3DS)
+	n3ds::exitguard::step("network service (sockets)");
+#endif
 	Sockets::shutdownSockets();
+
+#if defined(PLATFORM_3DS)
+	n3ds::exitguard::step("application members");
+#endif
 }
 
 void Application::initialize()
