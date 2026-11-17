@@ -40,7 +40,7 @@ jobs:
       - name: Build sonic3air.3dsx
         working-directory: Oxygen/sonic3air/build/_3ds
         run: |
-          /opt/devkitpro/portlibs/3ds/bin/arm-none-eabi-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          /opt/devkitpro/portlibs/3ds/bin/arm-none-eabi-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DS3AIR_3DS_BUILD_ID="${GITHUB_SHA::7}"
           cmake --build build -j"$(nproc)"
 
       - name: Build makerom

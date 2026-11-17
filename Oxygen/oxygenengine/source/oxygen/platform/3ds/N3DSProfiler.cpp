@@ -137,7 +137,10 @@ namespace n3ds
 					char text[64];
 					const auto printLine = [&]()  { printf("%-39.39s\n", text); };
 
-					snprintf(text, sizeof(text), "S3AIR 3DS profiler   ms/frame avg  max");
+				#ifndef S3AIR_3DS_BUILD_ID
+					#define S3AIR_3DS_BUILD_ID "local"
+				#endif
+					snprintf(text, sizeof(text), "Build %-10.10s     ms/frame avg  max", S3AIR_3DS_BUILD_ID);
 					printLine();
 					snprintf(text, sizeof(text), "FPS %5.1f   game steps/frame %.2f (max %u)", fps, stepsPerFrame, (unsigned)gWindowSimStepsMax);
 					printLine();

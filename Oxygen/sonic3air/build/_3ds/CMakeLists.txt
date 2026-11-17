@@ -39,6 +39,15 @@ if (S3AIR_3DS_PROFILER)
 	add_definitions(-DN3DS_PROFILER)
 endif()
 
+# Build id shown by the profiler: given by the CI build, otherwise the current git commit if available
+if (NOT S3AIR_3DS_BUILD_ID)
+	execute_process(COMMAND git rev-parse --short=7 HEAD WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+		OUTPUT_VARIABLE S3AIR_3DS_BUILD_ID OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+if (S3AIR_3DS_BUILD_ID)
+	add_definitions(-DS3AIR_3DS_BUILD_ID="${S3AIR_3DS_BUILD_ID}")
+endif()
+
 
 
 # --- SDL2 (bundled copy, includes the N3DS backend) ---
