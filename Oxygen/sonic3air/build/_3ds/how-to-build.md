@@ -43,32 +43,14 @@ The CIA reads its game data, ROM, saves and mods from the same `sdmc:/3ds/sonic3
 
 ## Installing on the SD card
 
-The port contains no game data. You need your own copy of Sonic 3 & Knuckles, and the data files of the
-official A.I.R. PC release.
+See **[INSTALL.md](INSTALL.md)** for the full player guide (SD card layout, game data, ROM, sound firmware,
+troubleshooting). In short:
 
-```
-SD card
-└── 3ds/
-    └── sonic3air/
-        ├── sonic3air.3dsx                ← from this build
-        ├── config.json                   ← from the official PC release (sonic3air.org)
-        ├── data/                         ← the whole "data" folder from the official PC release
-        │   ├── gamedata.bin
-        │   ├── enginedata.bin
-        │   ├── audiodata.bin
-        │   └── audioremaster.bin         ← optional (remastered music)
-        ├── Sonic_Knuckles_wSonic3.bin    ← your own ROM from the Steam release
-        └── savedata/                     ← created by the game (settings, saves, mods)
-            └── mods/
-```
-
-Start it from the Homebrew Launcher, or install the `.cia` with FBI.
-
-**The data files must come from the same game version as the port.** This branch is built from
-**v26.03.28.0 (stable)**, the current download on sonic3air.org. Data from another version fails with
-"Failed to load 'scripts.bin'", because compiled scripts only load in the exact version they were made for.
-
-The ROM must be the Steam release's `Sonic_Knuckles_wSonic3.bin` (other dumps are rejected by its checksum).
+- `sdmc:/3ds/sonic3air/data/`: the `data` folder of the official PC release, **same version as the port**
+  (this branch: **v26.03.28.0 stable**); other versions fail with "Failed to load 'scripts.bin'"
+- `sdmc:/3ds/sonic3air/Sonic_Knuckles_wSonic3.bin`: your own Steam ROM, named exactly like this
+- `sdmc:/3ds/dspfirm.cdc`: needed for sound (dump it with DSP1)
+- `config.json` from the PC release is not needed
 
 
 ## Mods
@@ -82,10 +64,8 @@ while files in folders are loaded from the SD card when needed. The patcher unpa
 
 ## Known limitations / to do
 
-- Not yet tested on hardware or in an emulator
-- Performance: software rendering plus lemonscript on an 804 MHz ARM11 will need profiling and optimization
-  (ideas: draw sprites/planes with the PICA200 GPU through citro3d, use the integer Tremor Ogg decoder,
-  cache compiled scripts, lower the audio mixing rate)
+- Runs at about 60 FPS in tested gameplay scenes in Citra; real-hardware profiling is in progress
+- Rendering is done on the CPU; the GPU (citro3d) presents and places the finished picture
 - Memory: the New 3DS gives apps roughly 124-178 MB; large music mods may not fit
 - No OpenGL-only features (custom shaders, upscaling filters)
-- The bottom screen is unused for now
+- The bottom screen shows the profiler in development builds; a controls display is planned
