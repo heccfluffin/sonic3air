@@ -30,6 +30,9 @@
 #include "oxygen/platform/CrashHandler.h"
 #include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/platform/3ds/N3DSProfiler.h"
+#if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
+	#include "oxygen/platform/3ds/N3DSGpuPresenter.h"
+#endif
 #include "oxygen/resources/FontCollection.h"
 #include "oxygen/resources/ResourcesCache.h"
 #include "oxygen/rendering/RenderResources.h"
@@ -336,27 +339,52 @@ void EngineMain::run()
 
 void EngineMain::shutdown()
 {
+#if defined(PLATFORM_3DS)
+	// 3DS: save the settings first, so nothing gets lost if any of the steps below has issues, and log each step
+	#define N3DS_SHUTDOWN_STEP(text)  RMX_LOG_INFO("Shutdown: " text)
+	N3DS_SHUTDOWN_STEP("saving settings");
+	mInternal.mModManager.copyModSettingsToConfig();
+	Configuration::instance().saveSettings();
+	#if defined(N3DS_GPU_PRESENT)
+		N3DS_SHUTDOWN_STEP("GPU presenter");
+		n3ds::gpu::shutdown();		// Before the window (and with it the graphics system) goes away
+	#endif
+#else
+	#define N3DS_SHUTDOWN_STEP(text)
+#endif
+
+	N3DS_SHUTDOWN_STEP("window");
 	destroyWindow();
 
 	// Shutdown subsystems
+	N3DS_SHUTDOWN_STEP("video out");
 	mInternal.mVideoOut.shutdown();
 	if (nullptr != mAudioOut)
 	{
+		N3DS_SHUTDOWN_STEP("audio out");
 		mAudioOut->shutdown();
 		SAFE_DELETE(mAudioOut);
 	}
 
 	// Shutdown drawer
+	N3DS_SHUTDOWN_STEP("drawer");
 	mDrawer.shutdown();
 
 	// Cleanup system
 	RMX_LOG_INFO("System shutdown");
+	N3DS_SHUTDOWN_STEP("audio system");
 	FTX::Audio->exit();
+	N3DS_SHUTDOWN_STEP("system");
 	FTX::System->exit();
+	N3DS_SHUTDOWN_STEP("job threads");
 	FTX::JobManager->~JobManager();
 
+#if !defined(PLATFORM_3DS)
 	mInternal.mModManager.copyModSettingsToConfig();
 	Configuration::instance().saveSettings();
+#endif
+	N3DS_SHUTDOWN_STEP("done");
+	#undef N3DS_SHUTDOWN_STEP
 	oxygen::Logging::shutdown();
 }
 

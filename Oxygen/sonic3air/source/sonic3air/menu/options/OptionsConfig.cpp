@@ -73,7 +73,7 @@ void OptionsConfig::buildSystem()
 {
 	ConfigBuilder configBuilder(mSystemOptions);
 
-#if !defined(PLATFORM_VITA)
+#if !defined(PLATFORM_VITA) && !defined(PLATFORM_3DS)		// 3DS: updates come via Universal-Updater, and there's no ghost sync
 	CATEGORY("Update")
 	{
 		configBuilder.addSetting("Check for updates", option::_CHECK_FOR_UPDATE)
@@ -102,11 +102,13 @@ void OptionsConfig::buildSystem()
 	}
 #endif
 
+#if !defined(PLATFORM_3DS)		// No web browser to open these in
 	CATEGORY("More Info")
 	{
 		configBuilder.addSetting("Open Game Homepage", option::_OPEN_HOMEPAGE);
 		configBuilder.addSetting("Open Manual", option::_OPEN_MANUAL);
 	}
+#endif
 
 	CATEGORY("Debugging")
 	{
@@ -139,7 +141,10 @@ void OptionsConfig::buildDisplay()
 		configBuilder.addSetting("Renderer:", option::RENDERER);
 		const Configuration::RenderMethod highest = Configuration::getHighestSupportedRenderMethod();
 
-	#if !defined(PLATFORM_VITA)
+	#if defined(PLATFORM_3DS)
+		// Only software rendering on 3DS (this setting is hidden there, see "OptionsMenu::setupOptionsMenu")
+		configBuilder.addOption("Software", (uint32)Configuration::RenderMethod::SOFTWARE);
+	#elif !defined(PLATFORM_VITA)
 		configBuilder.addOption("Fail-Safe / Software", (uint32)Configuration::RenderMethod::SOFTWARE);
 		if (highest >= Configuration::RenderMethod::OPENGL_SOFT)
 			configBuilder.addOption("OpenGL Software", (uint32)Configuration::RenderMethod::OPENGL_SOFT);
@@ -200,9 +205,11 @@ void OptionsConfig::buildDisplay()
 			.addOption("100%", 4);
 	}
 
+#if !defined(PLATFORM_3DS)		// The settings below are hidden on 3DS, so don't show their category title either
 	CATEGORY("Window Mode")
+#endif
 	{
-	#if !defined(PLATFORM_VITA)
+	#if !defined(PLATFORM_VITA) && !defined(PLATFORM_3DS)
 	#if defined(PLATFORM_LINUX)
 		// Under Linux, the fullscreen with desktop resolution works better, so that's what we present as option
 		const Configuration::WindowMode borderlessFullscreenMode = Configuration::WindowMode::FULLSCREEN_DESKTOP;
@@ -538,7 +545,9 @@ void OptionsConfig::buildControls()
 		}
 	}
 
+#if !defined(PLATFORM_3DS)		// The 3DS has no rumble; the settings below are hidden there
 	CATEGORY("Controller Rumble")
+#endif
 	{
 		for (int k = 0; k < InputManager::NUM_PLAYERS; ++k)
 		{

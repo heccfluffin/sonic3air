@@ -386,7 +386,9 @@ void OptionsMenu::initialize()
 	{
 		const bool validPlayerIndex = (playerIndex < Configuration::instance().mNumPlayers);
 		mOptionEntries[option::CONTROLLER_PLAYER_1 + playerIndex].mGameMenuEntry->setVisible(validPlayerIndex);
+	#if !defined(PLATFORM_3DS)		// No rumble on 3DS, these stay hidden
 		mOptionEntries[option::CONTROLLER_RUMBLE_P1 + playerIndex].mGameMenuEntry->setVisible(validPlayerIndex);
+	#endif
 		mOptionEntries[option::CONTROLLER_AUTOASSIGN].mGameMenuEntry->getOptionByValue(playerIndex)->mVisible = validPlayerIndex;
 	}
 
@@ -998,6 +1000,15 @@ void OptionsMenu::setupOptionsMenu(bool enteredFromIngame)
 	// These options don't work on Android, so hide them
 	mOptionEntries[option::WINDOW_MODE].mGameMenuEntry->setVisible(false);
 	mOptionEntries[option::WINDOW_MODE_STARTUP].mGameMenuEntry->setVisible(false);
+#elif defined(PLATFORM_3DS)
+	// These options don't have any effect on 3DS: there's only software rendering presented by the GPU (no OpenGL for
+	// screen filters & scanlines, no V-Sync choice), no window, and no rumble. They are kept, but hidden.
+	for (option::Option hidden : { option::WINDOW_MODE, option::WINDOW_MODE_STARTUP, option::RENDERER, option::FRAME_SYNC, option::FILTERING, option::SCANLINES,
+								   option::CONTROLLER_RUMBLE_P1, option::CONTROLLER_RUMBLE_P2, option::CONTROLLER_RUMBLE_P3, option::CONTROLLER_RUMBLE_P4 })
+	{
+		if (nullptr != mOptionEntries[hidden].mGameMenuEntry)
+			mOptionEntries[hidden].mGameMenuEntry->setVisible(false);
+	}
 #endif
 
 	// Hide Mods and System tabs

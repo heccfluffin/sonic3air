@@ -164,6 +164,35 @@ namespace n3ds
 			}
 		}
 
+		void shutdown()
+		{
+			if (gState == State::READY)
+			{
+				// Wait until the GPU is done with the last frame before freeing anything it may still use
+				C3D_FrameSync();
+				for (C3D_Tex& texture : gTextures)
+					C3D_TexDelete(&texture);
+				if (nullptr != gStagingBuffer)
+				{
+					linearFree(gStagingBuffer);
+					gStagingBuffer = nullptr;
+				}
+				shaderProgramFree(&gProgram);
+				if (nullptr != gShaderDvlb)
+				{
+					DVLB_Free(gShaderDvlb);
+					gShaderDvlb = nullptr;
+				}
+				if (nullptr != gTarget)
+				{
+					C3D_RenderTargetDelete(gTarget);
+					gTarget = nullptr;
+				}
+				C3D_Fini();
+			}
+			gState = State::FAILED;		// Don't initialize again
+		}
+
 		bool present(const void* pixels, int width, int height, int pitchBytes, int targetX, int targetY, int targetWidth, int targetHeight)
 		{
 			if (gState == State::UNINITIALIZED)
