@@ -29,6 +29,7 @@
 #include "oxygen/network/EngineServerClient.h"
 #include "oxygen/platform/CrashHandler.h"
 #include "oxygen/platform/PlatformFunctions.h"
+#include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/resources/FontCollection.h"
 #include "oxygen/resources/ResourcesCache.h"
 #include "oxygen/rendering/RenderResources.h"
@@ -824,6 +825,7 @@ bool EngineMain::createWindow()
 
 	// Tell FTX video manager that everything is okay
 	FTX::Video->setInitialized(videoConfig, mSDLWindow);
+	N3DS_PROFILE_STARTUP_INFO();
 
 #if defined(PLATFORM_WINDOWS)
 	// Set window icon (using a Windows-specific method)

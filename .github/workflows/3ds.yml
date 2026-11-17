@@ -43,9 +43,11 @@ jobs:
       - name: Build sonic3air.3dsx
         working-directory: Oxygen/sonic3air/build/_3ds
         run: |
-          # Build id shown by the profiler: the version tag for releases, otherwise the commit
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then BUILD_ID="$GITHUB_REF_NAME"; else BUILD_ID="$(echo "$GITHUB_SHA" | cut -c1-7)"; fi
-          /opt/devkitpro/portlibs/3ds/bin/arm-none-eabi-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DS3AIR_3DS_BUILD_ID="$BUILD_ID"
+          # Build label, shown in the game, by FBI and in the file names: "<tag>-b<number>" for releases, otherwise "b<number>-<commit>".
+          # The build number (workflow run number) increases with every build and becomes the CIA's title version.
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then BUILD_LABEL="$GITHUB_REF_NAME-b$GITHUB_RUN_NUMBER"; else BUILD_LABEL="b$GITHUB_RUN_NUMBER-$(echo "$GITHUB_SHA" | cut -c1-7)"; fi
+          echo "BUILD_LABEL=$BUILD_LABEL" >> "$GITHUB_ENV"
+          /opt/devkitpro/portlibs/3ds/bin/arm-none-eabi-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DS3AIR_3DS_BUILD_ID="$BUILD_LABEL"
           cmake --build build -j"$(nproc)"
 
       - name: Build makerom
@@ -69,19 +71,26 @@ jobs:
 
       - name: Package sonic3air.cia
         working-directory: Oxygen/sonic3air/build/_3ds
-        run: TOOLS_DIR="$RUNNER_TEMP/tools" ./build-cia.sh
+        run: TOOLS_DIR="$RUNNER_TEMP/tools" BUILD_NUMBER="$GITHUB_RUN_NUMBER" ./build-cia.sh
 
       - name: Build Universal-Updater icon sheet
         working-directory: Oxygen/sonic3air/build/_3ds
         run: /opt/devkitpro/tools/bin/tex3ds --atlas -f rgba8888 -z auto -o build/sonic3air-3ds.t3x icon.png
 
+      - name: Name files by build
+        working-directory: Oxygen/sonic3air/build/_3ds
+        run: |
+          mkdir -p build/out
+          cp build/sonic3air.cia "build/out/sonic3air-$BUILD_LABEL.cia"
+          cp build/sonic3air.3dsx "build/out/sonic3air-$BUILD_LABEL.3dsx"
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: sonic3air-3ds
+          name: sonic3air-3ds-${{ env.BUILD_LABEL }}
           path: |
-            Oxygen/sonic3air/build/_3ds/build/sonic3air.3dsx
-            Oxygen/sonic3air/build/_3ds/build/sonic3air.cia
+            Oxygen/sonic3air/build/_3ds/build/out/sonic3air-${{ env.BUILD_LABEL }}.cia
+            Oxygen/sonic3air/build/_3ds/build/out/sonic3air-${{ env.BUILD_LABEL }}.3dsx
             Oxygen/sonic3air/build/_3ds/build/sonic3air-3ds.t3x
             Oxygen/sonic3air/build/_3ds/modpatcher/s3air_3ds_modpatcher.py
             Oxygen/sonic3air/build/_3ds/INSTALL.md
@@ -105,8 +114,14 @@ jobs:
       - name: Download build
         uses: actions/download-artifact@v4
         with:
-          name: sonic3air-3ds
+          pattern: sonic3air-3ds-*
+          merge-multiple: true
           path: dist
+
+      - name: Use fixed file names for the release (the store and the install guide refer to these)
+        run: |
+          cp dist/build/out/sonic3air-*.cia dist/sonic3air.cia
+          cp dist/build/out/sonic3air-*.3dsx dist/sonic3air.3dsx
 
       - name: Create Universal-Updater store file
         run: |
@@ -131,5 +146,5 @@ jobs:
           EOF
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --title "Sonic 3 A.I.R. for New 3DS $GITHUB_REF_NAME" --notes-file notes.md \
-            dist/build/sonic3air.cia dist/build/sonic3air.3dsx dist/build/sonic3air-3ds.t3x \
+            dist/sonic3air.cia dist/sonic3air.3dsx dist/build/sonic3air-3ds.t3x \
             dist/sonic3air-3ds.unistore dist/INSTALL.md dist/modpatcher/s3air_3ds_modpatcher.py

@@ -60,6 +60,7 @@ namespace n3ds
 		void addWorkerTicks(uint32_t ticks);	// Thread-safe, for audio job worker threads
 		uint64_t getTicks();
 		void endFrame();						// Call once per frame, right after presenting
+		void showStartupInfo();					// Shows the build on the bottom screen while the game loads
 
 		struct Scope
 		{
@@ -84,6 +85,7 @@ namespace n3ds
 #define N3DS_PROFILE_SIMULATION_STEP()	n3ds::profiler::addSimulationStep()
 #define N3DS_PROFILE_TARGET_STEP_RATE(x)	n3ds::profiler::setTargetStepRate(x)
 #define N3DS_PROFILE_END_FRAME()		n3ds::profiler::endFrame()
+#define N3DS_PROFILE_STARTUP_INFO()		n3ds::profiler::showStartupInfo()
 
 #else
 
@@ -94,5 +96,6 @@ namespace n3ds
 #define N3DS_PROFILE_SIMULATION_STEP()
 #define N3DS_PROFILE_TARGET_STEP_RATE(x)
 #define N3DS_PROFILE_END_FRAME()
+#define N3DS_PROFILE_STARTUP_INFO()
 
 #endif

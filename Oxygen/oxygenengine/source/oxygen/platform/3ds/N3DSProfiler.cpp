@@ -16,6 +16,10 @@
 #include <atomic>
 #include <stdio.h>
 
+#ifndef S3AIR_3DS_BUILD_ID
+	#define S3AIR_3DS_BUILD_ID "local"
+#endif
+
 
 namespace n3ds
 {
@@ -161,10 +165,6 @@ namespace n3ds
 				const double timingOverheadMs = toMs((uint64_t)(sectionCallsPerFrame * gTicksPerSectionCall));
 				const double reportMs = toMs(gWindowTotal[PROFILER]) / frames;
 
-			#ifndef S3AIR_3DS_BUILD_ID
-				#define S3AIR_3DS_BUILD_ID "local"
-			#endif
-
 				// Bottom screen lines
 				{
 					int index = 0;
@@ -179,7 +179,7 @@ namespace n3ds
 						}
 					};
 
-					addLine("Build %-10.10s     ms/frame avg  max", S3AIR_3DS_BUILD_ID);
+					addLine("%-20.20s %8s %7s", "Build " S3AIR_3DS_BUILD_ID, "avg ms", "max");
 					addLine("Shown FPS %5.1f   missed refreshes %u", shownFps, (unsigned)gWindowMissedRefreshes);
 					if (gWindowSimSteps > 0)
 						addLine("Game speed %5.1f%%  %5.1f steps/s, max %u", gameSpeedPercent, stepsPerSecond, (unsigned)gWindowSimStepsMax);
@@ -220,11 +220,8 @@ namespace n3ds
 				}
 			}
 
-			void printPendingScreenLines()
+			void initConsole()
 			{
-				if (gNextScreenLine >= SCREEN_LINES)
-					return;
-
 				if (!gConsoleInitialized)
 				{
 					consoleInit(GFX_BOTTOM, &gConsole);
@@ -232,6 +229,26 @@ namespace n3ds
 					gConsoleInitialized = true;
 				}
 				consoleSelect(&gConsole);
+			}
+
+			void presentConsole()
+			{
+				u16 width = 0;
+				u16 height = 0;
+				u8* framebuffer = gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, &width, &height);
+				if (nullptr != framebuffer)
+				{
+					GSPGPU_FlushDataCache(framebuffer, (u32)width * (u32)height * 2);
+					gfxScreenSwapBuffers(GFX_BOTTOM, false);
+				}
+			}
+
+			void printPendingScreenLines()
+			{
+				if (gNextScreenLine >= SCREEN_LINES)
+					return;
+
+				initConsole();
 
 				// Overwrite the previous table in place instead of clearing the screen first, so it doesn't flicker
 				const int end = std::min(gNextScreenLine + SCREEN_LINES_PER_FRAME, SCREEN_LINES);
@@ -244,14 +261,7 @@ namespace n3ds
 
 				if (gNextScreenLine >= SCREEN_LINES)
 				{
-					u16 width = 0;
-					u16 height = 0;
-					u8* framebuffer = gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, &width, &height);
-					if (nullptr != framebuffer)
-					{
-						GSPGPU_FlushDataCache(framebuffer, (u32)width * (u32)height * 2);
-						gfxScreenSwapBuffers(GFX_BOTTOM, false);
-					}
+					presentConsole();
 				}
 			}
 
@@ -273,6 +283,18 @@ namespace n3ds
 				gWindowSectionCalls = 0;
 				gWindowStart = now;
 			}
+		}
+
+		void showStartupInfo()
+		{
+			// Before the game data and scripts get loaded: if anything fails there, at least the build is visible
+			initConsole();
+			gConsole.cursorX = 1;
+			gConsole.cursorY = 1;
+			printf("Sonic 3 A.I.R. for New 3DS (unofficial)\n\n");
+			printf("Build %s\n\n", S3AIR_3DS_BUILD_ID);
+			printf("Loading...\n");
+			presentConsole();
 		}
 
 		uint64_t getTicks()
