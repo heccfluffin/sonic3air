@@ -185,16 +185,20 @@ namespace n3ds
 			C3D_SyncDisplayTransfer(gStagingBuffer, GX_BUFFER_DIM(TEXTURE_WIDTH, TEXTURE_HEIGHT), (u32*)texture.data, GX_BUFFER_DIM(TEXTURE_WIDTH, TEXTURE_HEIGHT), TEXTURE_TRANSFER_FLAGS);
 
 			// Draw the frame as one quad, 1:1 with nearest sampling, so each screen pixel gets exactly one frame pixel
-			C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
+			//  -> No C3D_FRAME_SYNCDRAW: that waits for the next screen refresh (i.e. V-Sync), which locks the frame rate to 30 FPS
+			//     as soon as a frame takes slightly longer than 16.7 ms. Instead, only wait for the GPU to be finished with the previous frame.
+			C3D_FrameBegin(0);
+			const u32 refreshCounterAtFrameStart = C3D_FrameCounter(0);
 			C3D_RenderTargetClear(gTarget, C3D_CLEAR_ALL, 0x000000FF, 0);
 			C3D_FrameDrawOn(gTarget);
 			setupRenderState(texture);
 
-			// Due to the vertical flip, the frame's first line is at the texture's top (v = 1)
+			// With the vertical flip of the texture transfer, the frame's first line ends up at v = 1 - height / TEXTURE_HEIGHT,
+			// and its last line at the texture's top (v = 1)
 			const float u0 = 0.0f;
 			const float u1 = (float)width / (float)TEXTURE_WIDTH;
-			const float vTop = 1.0f;
-			const float vBottom = 1.0f - (float)height / (float)TEXTURE_HEIGHT;
+			const float vTop = 1.0f - (float)height / (float)TEXTURE_HEIGHT;
+			const float vBottom = 1.0f;
 			const float yTop = (float)SCREEN_HEIGHT;
 			const float yBottom = (float)(SCREEN_HEIGHT - height);
 
@@ -205,7 +209,18 @@ namespace n3ds
 			addVertex((float)width, yBottom, u1, vBottom);
 			C3D_ImmDrawEnd();
 
-			C3D_FrameEnd(0);
+			// The buffer swap for the previous frame was requested when the GPU finished it (at the latest when "C3D_FrameBegin" returned),
+			// and only takes effect at the next screen refresh. Before this frame gets transferred into the framebuffer, make sure that
+			// refresh has happened, so that the buffer still on screen never gets overwritten. This doesn't cost anything as long as
+			// frames take longer than one screen refresh, and unlike V-Sync it doesn't lock the frame rate to 60 / 30 FPS.
+			if (C3D_FrameCounter(0) == refreshCounterAtFrameStart)
+			{
+				gspWaitForVBlank();
+			}
+
+			// GX_CMDLIST_FLUSH: only flush the command list, instead of the CPU cache for the entire linear memory (citro3d's default).
+			// The only CPU-written linear memory used for drawing is the staging buffer, which got flushed above already.
+			C3D_FrameEnd(GX_CMDLIST_FLUSH);
 			return true;
 		}
 	}
