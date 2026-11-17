@@ -18,6 +18,11 @@ your own copy of the game's ROM, and the data files from the official A.I.R. PC 
 | `dspfirm.cdc` (needed for sound) | Dumped from your own console (see step 1) |
 
 
+> **`3ds` is not the same folder as `Nintendo 3DS`.** All paths in this guide are in the folder named `3ds`
+> (lowercase) in the top level of the SD card. `Nintendo 3DS` is the console's own system data: leave it alone.
+> If there's no `3ds` folder yet, create it next to `Nintendo 3DS`.
+
+
 ## Step 1: Sound firmware (one time only)
 
 Homebrew needs a dump of the console's sound firmware, otherwise the game has no audio.
