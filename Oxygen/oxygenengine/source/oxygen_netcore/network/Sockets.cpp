@@ -302,6 +302,16 @@ void TCPSocket::close()
 	if (!isValid())
 		return;
 
+#if defined(PLATFORM_3DS)
+	// If the socket service is already shut down (e.g. when everything gets destroyed after an error), libctru's socket
+	// table is gone and any socket call would crash: just forget the socket then, the system closes it with the process
+	if (!Sockets::isInitialized())
+	{
+		*mInternal = Internal();
+		return;
+	}
+#endif
+
 #ifdef _WIN32
 	int status = ::shutdown(mInternal->mSocket, SD_BOTH);
 	if (status == 0)
@@ -655,6 +665,16 @@ void UDPSocket::close()
 {
 	if (!isValid())
 		return;
+
+#if defined(PLATFORM_3DS)
+	// If the socket service is already shut down (e.g. when everything gets destroyed after an error), libctru's socket
+	// table is gone and any socket call would crash: just forget the socket then, the system closes it with the process
+	if (!Sockets::isInitialized())
+	{
+		*mInternal = Internal();
+		return;
+	}
+#endif
 
 #ifdef _WIN32
 	int result = shutdown(mInternal->mSocket, SD_BOTH);

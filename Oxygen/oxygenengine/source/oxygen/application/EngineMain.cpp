@@ -337,7 +337,26 @@ void EngineMain::run()
 	RMX_LOG_INFO("Starting main application loop");
 
 	Application application;
+#if defined(PLATFORM_3DS)
+	// An error (C++ exception) during the game would otherwise tear everything down without any message.
+	// Instead, log it, show it, and exit the normal way below.
+	try
+	{
+		FTX::System->run(application);
+	}
+	catch (const std::exception& e)
+	{
+		RMX_LOG_INFO("Unhandled error in the main loop: " << e.what());
+		RMX_ERROR("The game stopped because of an error:\n" << e.what() << "\n\nPlease send savedata/logfile.txt to the 3DS port's developer.", );
+	}
+	catch (...)
+	{
+		RMX_LOG_INFO("Unhandled unknown error in the main loop");
+		RMX_ERROR("The game stopped because of an unknown error.\n\nPlease send savedata/logfile.txt to the 3DS port's developer.", );
+	}
+#else
 	FTX::System->run(application);
+#endif
 
 #if defined(PLATFORM_3DS)
 	// The main loop ended, the game exits: save the settings right away, before anything gets destroyed, and make sure the
