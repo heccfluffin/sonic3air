@@ -16,6 +16,17 @@ namespace
 	//  -> At least that's how OpenGL handles things, so we mimic that behavior
 	constexpr float PIXEL_OFFSET_CORRECTION = 0.5f;
 
+	// Same result as std::floor, but without a library call for the values this rasterizer deals with:
+	// on CPUs without a rounding instruction (like the 3DS's ARM11 with VFPv2), std::floor compiles to a call of floorf,
+	// which is costly when done several times per pixel.
+	FORCE_INLINE float floorFast(float x)
+	{
+		if (!(x > -1.0e9f && x < 1.0e9f))	// Outside the int range (or NaN): use the regular implementation
+			return std::floor(x);
+		const float truncated = (float)(int)x;
+		return (truncated > x) ? (truncated - 1.0f) : truncated;
+	}
+
 	template<typename VERTEX>
 	void sortThreeVerticesByY(const VERTEX* inVertices, int* outSortedIndices)
 	{
@@ -61,8 +72,8 @@ namespace
 
 		for (int i = 0; i < numPixels; ++i)
 		{
-			const float u = currentUV.x - std::floor(currentUV.x);
-			const float v = currentUV.y - std::floor(currentUV.y);
+			const float u = currentUV.x - floorFast(currentUV.x);
+			const float v = currentUV.y - floorFast(currentUV.y);
 
 			if constexpr (BILINEAR_SAMPLING)
 			{
@@ -70,8 +81,8 @@ namespace
 				// TODO: There's certainly room for optimizations here
 				const float sampleFloatX = u * scaleUV.x;
 				const float sampleFloatY = v * scaleUV.y;
-				const float factorX = sampleFloatX - std::floor(sampleFloatX);
-				const float factorY = sampleFloatY - std::floor(sampleFloatY);
+				const float factorX = sampleFloatX - floorFast(sampleFloatX);
+				const float factorY = sampleFloatY - floorFast(sampleFloatY);
 				const int sampleX0 = (int)(sampleFloatX);
 				const int sampleY0 = (int)(sampleFloatY);
 				const int sampleX1 = ((sampleX0 + 1) < texture.getSize().x) ? (sampleX0 + 1) : 0;
@@ -118,8 +129,8 @@ namespace
 			else
 			{
 				// Point sampling
-				const int sampleX = (int)std::floor(u * scaleUV.x);
-				const int sampleY = (int)std::floor(v * scaleUV.y);
+				const int sampleX = (int)floorFast(u * scaleUV.x);
+				const int sampleY = (int)floorFast(v * scaleUV.y);
 
 				if constexpr (ALPHA_BLENDING)
 				{
