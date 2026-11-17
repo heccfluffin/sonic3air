@@ -3574,6 +3574,11 @@ private:
 		uint8 VoicesHigh;			// S&K: 2Bh		; High byte of pointer to track's voices, used only if zUpdatingSFX is set
 		uint32 Stack_top;			// S&K: 2Ch-2Fh	; Track stack; can be used by LoopCounters
 	};
+#if defined(PLATFORM_3DS)
+	// End the 1-byte packing here: otherwise it also applies to all members below, putting e.g. the std::vector members
+	// at odd addresses, and the 3DS CPU faults on their (multi-register) loads
+	#pragma pack()
+#endif
 
 private:
 	uint8 mRegisters[0x20] = { 0 };
