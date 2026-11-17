@@ -728,6 +728,7 @@ void Application::render()
 		}
 
 		drawer.presentScreen();
+		N3DS_PROFILE_TARGET_STEP_RATE(mSimulation->getSimulationFrequency());
 		N3DS_PROFILE_END_FRAME();
 
 	#if 0

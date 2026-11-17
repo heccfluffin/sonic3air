@@ -180,23 +180,27 @@ namespace n3ds
 			//  -> The frame gets placed vertically centered in the texture: the texture coordinates below then address the same rows
 			//     no matter in which vertical direction the texture rows are counted (see there)
 			const int firstRow = (TEXTURE_HEIGHT - height) / 2;
+			N3DS_PROFILE_BEGIN(PRESENT_COPY);
 			const u8* source = (const u8*)pixels;
 			for (int y = 0; y < height; ++y)
 			{
 				memcpy(&gStagingBuffer[(firstRow + y) * TEXTURE_WIDTH], source + y * pitchBytes, width * 4);
 			}
 			GSPGPU_FlushDataCache(gStagingBuffer, TEXTURE_WIDTH * TEXTURE_HEIGHT * 4);
+			N3DS_PROFILE_END(PRESENT_COPY);
 
 			gCurrentTexture = 1 - gCurrentTexture;
 			C3D_Tex& texture = gTextures[gCurrentTexture];
+			N3DS_PROFILE_BEGIN(PRESENT_UPLOAD);
 			C3D_SyncDisplayTransfer(gStagingBuffer, GX_BUFFER_DIM(TEXTURE_WIDTH, TEXTURE_HEIGHT), (u32*)texture.data, GX_BUFFER_DIM(TEXTURE_WIDTH, TEXTURE_HEIGHT), TEXTURE_TRANSFER_FLAGS);
+			N3DS_PROFILE_END(PRESENT_UPLOAD);
 
 			// Draw the frame as one quad, 1:1 with nearest sampling, so each screen pixel gets exactly one frame pixel
 			//  -> No C3D_FRAME_SYNCDRAW: that waits for the next screen refresh (i.e. V-Sync), which locks the frame rate to 30 FPS
 			//     as soon as a frame takes slightly longer than 16.7 ms. Instead, only wait for the GPU to be finished with the previous frame.
-			N3DS_PROFILE_BEGIN(PRESENT_WAIT);
+			N3DS_PROFILE_BEGIN(PRESENT_GPU_WAIT);
 			C3D_FrameBegin(0);
-			N3DS_PROFILE_END(PRESENT_WAIT);
+			N3DS_PROFILE_END(PRESENT_GPU_WAIT);
 			C3D_RenderTargetClear(gTarget, C3D_CLEAR_ALL, 0x000000FF, 0);
 			C3D_FrameDrawOn(gTarget);
 			setupRenderState(texture);
@@ -235,12 +239,12 @@ namespace n3ds
 			// and only takes effect at the next screen refresh. Before this frame gets transferred into the framebuffer, make sure it was
 			// applied, so that the buffer still on screen never gets overwritten. GSP tells whether a requested swap is still pending,
 			// so this only waits when really needed - unlike V-Sync, it doesn't lock the frame rate to 60 / 30 FPS.
-			N3DS_PROFILE_BEGIN(PRESENT_WAIT);
+			N3DS_PROFILE_BEGIN(PRESENT_SWAP_WAIT);
 			while (gspIsPresentPending(GSP_SCREEN_TOP))
 			{
 				gspWaitForVBlank();
 			}
-			N3DS_PROFILE_END(PRESENT_WAIT);
+			N3DS_PROFILE_END(PRESENT_SWAP_WAIT);
 
 			// GX_CMDLIST_FLUSH: only flush the command list, instead of the CPU cache for the entire linear memory (citro3d's default).
 			// The only CPU-written linear memory used for drawing is the staging buffer, which got flushed above already.

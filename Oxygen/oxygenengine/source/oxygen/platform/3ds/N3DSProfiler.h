@@ -43,15 +43,20 @@ namespace n3ds
 			DRAW_OTHER,		//    - Other drawing (meshes)
 			STILL_BLUR,		//  - Blurring the game screen behind menus
 			PRESENT_REV,	// Presenting: byte order conversion of the window surface (twice)
-			PRESENT_SDL,	// Presenting: SDL_UpdateWindowSurface (rotated copy to the 3DS framebuffer), or the GPU presenter
-			PRESENT_WAIT,	//  - GPU presenter: waiting for the GPU / the previous frame's buffer swap
+			PRESENT_SDL,	// Presenting: SDL_UpdateWindowSurface (rotated copy to the 3DS framebuffer), or the GPU presenter:
+			PRESENT_COPY,	//  - CPU: copying the frame into GPU-readable memory, and flushing the CPU cache
+			PRESENT_UPLOAD,	//  - GPU upload: DMA transfer of the frame into the texture (waits until done)
+			PRESENT_GPU_WAIT,	//  - Waiting for the GPU to finish drawing the previous frame
+			PRESENT_SWAP_WAIT,	//  - Waiting for the previous frame's buffer swap (applied at the next screen refresh)
 			WAIT,			// Frame cap wait
+			PROFILER,		// The profiler's own reporting (bottom screen output, log file)
 			_NUM
 		};
 
 		void beginSection(Section section);
 		void endSection(Section section);
 		void addSimulationStep();
+		void setTargetStepRate(float stepsPerSecond);	// Simulation frequency, for the "game speed" display
 		void addWorkerTicks(uint32_t ticks);	// Thread-safe, for audio job worker threads
 		uint64_t getTicks();
 		void endFrame();						// Call once per frame, right after presenting
@@ -77,6 +82,7 @@ namespace n3ds
 #define N3DS_PROFILE_SCOPE(section)		n3ds::profiler::Scope n3dsProfilerScope(n3ds::profiler::section)
 #define N3DS_PROFILE_WORKER_SCOPE()		n3ds::profiler::WorkerScope n3dsProfilerWorkerScope
 #define N3DS_PROFILE_SIMULATION_STEP()	n3ds::profiler::addSimulationStep()
+#define N3DS_PROFILE_TARGET_STEP_RATE(x)	n3ds::profiler::setTargetStepRate(x)
 #define N3DS_PROFILE_END_FRAME()		n3ds::profiler::endFrame()
 
 #else
@@ -86,6 +92,7 @@ namespace n3ds
 #define N3DS_PROFILE_SCOPE(section)
 #define N3DS_PROFILE_WORKER_SCOPE()
 #define N3DS_PROFILE_SIMULATION_STEP()
+#define N3DS_PROFILE_TARGET_STEP_RATE(x)
 #define N3DS_PROFILE_END_FRAME()
 
 #endif
