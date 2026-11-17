@@ -450,14 +450,17 @@ namespace softwaredrawer
 		void printText(Font& font, const StringReader& text, const Recti& rect, const DrawerPrintOptions& printOptions)
 		{
 			// Rendering text glyph by glyph is expensive in software, but menus draw mostly the same texts frame after frame.
-			// So the rendered text bitmaps get cached, keyed by everything that goes into "Font::printBitmap" - the output is identical.
-			TextCacheEntry& entry = getCachedText(font, text, rect, printOptions);
+			// So the rendered text bitmaps get cached, keyed by everything that goes into rendering the text bitmap - the output is identical.
+			// The position is not part of the key: like in "Font::printBitmap", it gets applied separately via "Font::applyAlignment",
+			// so that moving texts (e.g. in scrolling menus) can still use the cache.
+			TextCacheEntry& entry = getCachedText(font, text, printOptions);
+			const Vec2i drawPosition = Font::applyAlignment(rect, entry.mInnerRect, printOptions.mAlignment);
 
 			Blitter::Options blitterOptions;
 			blitterOptions.mBlendMode = BlendMode::ALPHA;
 			blitterOptions.mTintColor = (printOptions.mTintColor != Color::WHITE) ? &printOptions.mTintColor : nullptr;
 			blitterOptions.mSwapRedBlueChannels = needSwapRedBlueChannels();
-			mBlitter.blitSprite(Blitter::OutputWrapper(getOutputWrapper(), getScissorRect()), Blitter::SpriteWrapper(entry.mBitmap, Vec2i()), entry.mDrawPosition, blitterOptions);
+			mBlitter.blitSprite(Blitter::OutputWrapper(getOutputWrapper(), getScissorRect()), Blitter::SpriteWrapper(entry.mBitmap, Vec2i()), drawPosition, blitterOptions);
 		}
 
 		struct TextCacheEntry
@@ -468,16 +471,14 @@ namespace softwaredrawer
 			String mFontName;
 			float mFontSize = 0.0f;
 			std::string mTextBytes;		// Raw text bytes, prefixed with a marker for narrow / wide strings
-			Recti mRect;
-			int mAlignment = 0;
 			int mSpacing = 0;
 
 			Bitmap mBitmap;
-			Vec2i mDrawPosition;
+			Recti mInnerRect;
 			uint32 mLastUsedFrame = 0;
 		};
 
-		TextCacheEntry& getCachedText(Font& font, const StringReader& text, const Recti& rect, const DrawerPrintOptions& printOptions)
+		TextCacheEntry& getCachedText(Font& font, const StringReader& text, const DrawerPrintOptions& printOptions)
 		{
 			// Build the key
 			mTextCacheKeyBytes.clear();
@@ -495,18 +496,13 @@ namespace softwaredrawer
 			uint64 hash = rmx::getMurmur2_64(mTextCacheKeyBytes);
 			hash = hash * 31 + (uint64)(size_t)&font;
 			hash = hash * 31 + font.getChangeCounter();
-			hash = hash * 31 + (uint64)(uint32)rect.x;
-			hash = hash * 31 + (uint64)(uint32)rect.y;
-			hash = hash * 31 + (uint64)(uint32)rect.width;
-			hash = hash * 31 + (uint64)(uint32)rect.height;
-			hash = hash * 31 + (uint64)(uint32)printOptions.mAlignment;
 			hash = hash * 31 + (uint64)(uint32)printOptions.mSpacing;
 
 			// Look for an exactly matching entry
 			for (TextCacheEntry& entry : mTextCache)
 			{
 				if (entry.mHash == hash && entry.mFont == &font && entry.mFontChangeCounter == font.getChangeCounter() &&
-					entry.mRect == rect && entry.mAlignment == printOptions.mAlignment && entry.mSpacing == printOptions.mSpacing &&
+					entry.mSpacing == printOptions.mSpacing &&
 					entry.mFontSize == fontKey.mSize && entry.mTextBytes == mTextCacheKeyBytes && entry.mFontName == fontKey.mName)
 				{
 					entry.mLastUsedFrame = mFrameCounter;
@@ -536,11 +532,9 @@ namespace softwaredrawer
 			entry->mFontName = fontKey.mName;
 			entry->mFontSize = fontKey.mSize;
 			entry->mTextBytes = mTextCacheKeyBytes;
-			entry->mRect = rect;
-			entry->mAlignment = printOptions.mAlignment;
 			entry->mSpacing = printOptions.mSpacing;
 			entry->mLastUsedFrame = mFrameCounter;
-			font.printBitmap(entry->mBitmap, entry->mDrawPosition, rect, text, printOptions.mAlignment, printOptions.mSpacing);
+			font.printBitmap(entry->mBitmap, entry->mInnerRect, text, printOptions.mSpacing);
 			return *entry;
 		}
 
