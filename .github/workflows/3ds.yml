@@ -1,5 +1,7 @@
 # Builds the Nintendo 3DS port: sonic3air.3dsx (Homebrew Launcher) and sonic3air.cia (install with FBI).
 # Download the results from the "Actions" tab -> latest run -> "Artifacts" -> sonic3air-3ds.
+# Pushing a version tag (e.g. "git tag v0.1.0 && git push origin v0.1.0") also publishes a GitHub Release
+# with the CIA, 3DSX and the Universal-Updater store file (see Oxygen/sonic3air/build/_3ds/universal-updater/).
 #
 # The game data and the ROM are NOT part of the build; see Oxygen/sonic3air/build/_3ds/how-to-build.md
 
@@ -8,6 +10,7 @@ name: 3DS build
 on:
   push:
     branches: [ 3ds-port, 3ds-gpu-drawer ]
+    tags: [ 'v*' ]
   workflow_dispatch:
 
 permissions:
@@ -40,7 +43,9 @@ jobs:
       - name: Build sonic3air.3dsx
         working-directory: Oxygen/sonic3air/build/_3ds
         run: |
-          /opt/devkitpro/portlibs/3ds/bin/arm-none-eabi-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DS3AIR_3DS_BUILD_ID="$(echo "$GITHUB_SHA" | cut -c1-7)"
+          # Build id shown by the profiler: the version tag for releases, otherwise the commit
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then BUILD_ID="$GITHUB_REF_NAME"; else BUILD_ID="$(echo "$GITHUB_SHA" | cut -c1-7)"; fi
+          /opt/devkitpro/portlibs/3ds/bin/arm-none-eabi-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DS3AIR_3DS_BUILD_ID="$BUILD_ID"
           cmake --build build -j"$(nproc)"
 
       - name: Build makerom
@@ -66,6 +71,10 @@ jobs:
         working-directory: Oxygen/sonic3air/build/_3ds
         run: TOOLS_DIR="$RUNNER_TEMP/tools" ./build-cia.sh
 
+      - name: Build Universal-Updater icon sheet
+        working-directory: Oxygen/sonic3air/build/_3ds
+        run: /opt/devkitpro/tools/bin/tex3ds --atlas -f rgba8888 -z auto -o build/sonic3air-3ds.t3x icon.png
+
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
@@ -73,7 +82,54 @@ jobs:
           path: |
             Oxygen/sonic3air/build/_3ds/build/sonic3air.3dsx
             Oxygen/sonic3air/build/_3ds/build/sonic3air.cia
+            Oxygen/sonic3air/build/_3ds/build/sonic3air-3ds.t3x
             Oxygen/sonic3air/build/_3ds/modpatcher/s3air_3ds_modpatcher.py
             Oxygen/sonic3air/build/_3ds/INSTALL.md
             Oxygen/sonic3air/build/_3ds/how-to-build.md
           if-no-files-found: error
+
+  # Publishes a GitHub Release for version tags. Universal-Updater installs from the latest release.
+  release:
+    needs: build-3ds
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: sonic3air-3ds
+          path: dist
+
+      - name: Create Universal-Updater store file
+        run: |
+          python3 Oxygen/sonic3air/build/_3ds/universal-updater/make_unistore.py --repo "$GITHUB_REPOSITORY" \
+            --version "$GITHUB_REF_NAME" --revision "$GITHUB_RUN_NUMBER" --sheet --output dist/sonic3air-3ds.unistore
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<EOF
+          Unofficial New 3DS / New 2DS XL port of Sonic 3 - Angel Island Revisited.
+
+          **Before playing**, see INSTALL.md below: you need the \`data\` folder of A.I.R. **26.03.28.0** from sonic3air.org
+          and your own Sonic 3 & Knuckles ROM from Steam, named exactly \`Sonic_Knuckles_wSonic3.bin\`,
+          both in \`sdmc:/3ds/sonic3air/\`. No game content is included here.
+
+          - \`sonic3air.cia\`: install with FBI (recommended)
+          - \`sonic3air.3dsx\`: for the Homebrew Launcher
+          - \`sonic3air-3ds.unistore\`: Universal-Updater store, add it via
+            https://github.com/$GITHUB_REPOSITORY/releases/latest/download/sonic3air-3ds.unistore
+          EOF
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --title "Sonic 3 A.I.R. for New 3DS $GITHUB_REF_NAME" --notes-file notes.md \
+            dist/build/sonic3air.cia dist/build/sonic3air.3dsx dist/build/sonic3air-3ds.t3x \
+            dist/sonic3air-3ds.unistore dist/INSTALL.md dist/modpatcher/s3air_3ds_modpatcher.py

@@ -108,7 +108,26 @@ The game creates `savedata/` itself. Your settings, save games, the log file and
 
 ## Step 5: Install and start
 
-**CIA (recommended):**
+**With Universal-Updater (easiest, and gets you updates):**
+
+1. Open **Universal-Updater** on the 3DS (get it from [its releases](https://github.com/Universal-Team/Universal-Updater/releases) if you don't have it).
+2. Open the store list (the "UniStore" menu) and add a new UniStore, either by scanning this QR code with the camera:
+
+   ![Sonic 3 A.I.R. store QR code](universal-updater/store-qr.png)
+
+   or by entering this URL:
+
+   ```
+   https://github.com/heccfluffin/sonic3air/releases/latest/download/sonic3air-3ds.unistore
+   ```
+3. Select the new store "Sonic 3 A.I.R. for New 3DS", pick **sonic3air.cia (recommended)** and install it.
+4. Start **Sonic 3 A.I.R.** from the HOME Menu.
+
+To update later: open the store in Universal-Updater. When a new version is out, it shows up there;
+install it the same way. Your saves and settings are kept.
+Universal-Updater only installs the app: the `data` folder and the ROM (steps 2 and 3) stay your job.
+
+**CIA with FBI:**
 
 1. Copy `sonic3air.cia` anywhere on the SD card, for example to `sdmc:/cias/`.
 2. Open **FBI** on the 3DS → SD → find the file → "Install and delete CIA" (or "Install CIA").
@@ -119,7 +138,7 @@ The CIA is recommended because it gets the New 3DS's full memory and CPU speed.
 **3dsx (alternative):** copy `sonic3air.3dsx` to `sdmc:/3ds/sonic3air/` and start it from the Homebrew Launcher.
 When started this way, the game may not get as much memory, so the CIA is the better choice.
 
-**Updating:** install the new CIA the same way. It replaces the old version, and your saves and settings
+**Updating:** use Universal-Updater (see above), or install the new CIA the same way. It replaces the old version, and your saves and settings
 in `savedata/` are kept.
 
 
