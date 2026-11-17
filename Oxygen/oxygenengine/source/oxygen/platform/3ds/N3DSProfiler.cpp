@@ -11,6 +11,7 @@
 #if defined(PLATFORM_3DS) && defined(N3DS_PROFILER)
 
 #include "oxygen/platform/3ds/N3DSProfiler.h"
+#include "oxygen/simulation/EmulatorInterface.h"
 
 #include <3ds.h>
 #include <atomic>
@@ -111,6 +112,71 @@ namespace n3ds
 
 			inline double toMs(uint64_t ticks)	{ return (double)ticks / TICKS_PER_MS; }
 
+			// --- Current area of the game, for telling apart profiler results ---
+			//  -> Read from the emulated game memory: game mode at 0xfffff600 and zone/act at 0xfffffe10 (see scripts/_defines/defines_global.lemon)
+
+			struct ZoneName { const char* mShort; const char* mLong; };
+			const ZoneName ZONE_NAMES[] =
+			{
+				{ "AIZ", "Angel Island" },		{ "HCZ", "Hydrocity" },			{ "MGZ", "Marble Garden" },		{ "CNZ", "Carnival Night" },
+				{ "FBZ", "Flying Battery" },	{ "ICZ", "IceCap" },			{ "LBZ", "Launch Base" },		{ "MHZ", "Mushroom Hill" },
+				{ "SOZ", "Sandopolis" },		{ "LRZ", "Lava Reef" },			{ "SSZ", "Sky Sanctuary" },		{ "DEZ", "Death Egg" },
+				{ "DDZ", "The Doomsday" },		{ "END", "Ending" },			{ "ALZ", "Azure Lake" },		{ "BPZ", "Balloon Park" },
+				{ "DPZ", "Desert Palace" },		{ "CGZ", "Chrome Gadget" },		{ "EMZ", "Endless Mine" },		{ "GUM", "Gumball bonus stage" },
+				{ "PAC", "Glowing Spheres bonus stage" },	{ "SLT", "Slot Machine bonus stage" },
+			};
+
+			char gAreaShort[12] = "-";
+			char gAreaLong[48] = "starting up";
+			uint32_t gLastAreaKey = 0xffffffff;
+
+			void updateArea()
+			{
+				if (!EmulatorInterface::hasInstance())
+					return;
+
+				EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+				const uint8 gameMode = emulatorInterface.readMemory8(0xfffff600);
+				const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
+				const uint32_t key = ((uint32_t)gameMode << 16) | zoneAct;
+				if (key == gLastAreaKey)
+					return;
+				gLastAreaKey = key;
+
+				switch (gameMode)
+				{
+					case 0x00:  snprintf(gAreaShort, sizeof(gAreaShort), "SEGA");  snprintf(gAreaLong, sizeof(gAreaLong), "SEGA screen");  break;
+					case 0x04:  snprintf(gAreaShort, sizeof(gAreaShort), "Title"); snprintf(gAreaLong, sizeof(gAreaLong), "Title screen / menu background");  break;
+					case 0x08:  snprintf(gAreaShort, sizeof(gAreaShort), "Demo");  snprintf(gAreaLong, sizeof(gAreaLong), "Demo");  break;
+					case 0x2c:  snprintf(gAreaShort, sizeof(gAreaShort), "BSmenu"); snprintf(gAreaLong, sizeof(gAreaLong), "Blue Sphere menu");  break;
+					case 0x30:  snprintf(gAreaShort, sizeof(gAreaShort), "BSres"); snprintf(gAreaLong, sizeof(gAreaLong), "Blue Sphere results");  break;
+					case 0x34:  snprintf(gAreaShort, sizeof(gAreaShort), "SS");    snprintf(gAreaLong, sizeof(gAreaLong), "Special stage");  break;
+					case 0x0c:
+					{
+						// In a level: zone and act
+						const uint8 zone = (uint8)(zoneAct >> 8);
+						const uint8 act = (uint8)(zoneAct & 0xff) + 1;
+						if (zone < sizeof(ZONE_NAMES) / sizeof(ZONE_NAMES[0]))
+						{
+							const bool isBonusStage = (zone >= 0x13);
+							snprintf(gAreaShort, sizeof(gAreaShort), isBonusStage ? "%s" : "%s%u", ZONE_NAMES[zone].mShort, (unsigned)act);
+							snprintf(gAreaLong, sizeof(gAreaLong), isBonusStage ? "%s" : "%s Act %u", ZONE_NAMES[zone].mLong, (unsigned)act);
+						}
+						else
+						{
+							snprintf(gAreaShort, sizeof(gAreaShort), "Z%02X-%u", zone, (unsigned)act);
+							snprintf(gAreaLong, sizeof(gAreaLong), "Zone 0x%02x Act %u", zone, (unsigned)act);
+						}
+						break;
+					}
+					default:
+						snprintf(gAreaShort, sizeof(gAreaShort), "M%02X", gameMode);
+						snprintf(gAreaLong, sizeof(gAreaLong), "Game mode 0x%02x", gameMode);
+						break;
+				}
+				RMX_LOG_INFO("PROFILER area -> " << gAreaLong << " (game mode " << rmx::hexString(gameMode, 2) << ", zone/act " << rmx::hexString(zoneAct, 4) << ")");
+			}
+
 			void getLineValues(const Line& line, double& outAverage, double& outMax)
 			{
 				const double frames = (gWindowFrames > 0) ? (double)gWindowFrames : 1.0;
@@ -179,7 +245,9 @@ namespace n3ds
 						}
 					};
 
-					addLine("%-20.20s %8s %7s", "Build " S3AIR_3DS_BUILD_ID, "avg ms", "max");
+					char areaAndBuild[32];
+					snprintf(areaAndBuild, sizeof(areaAndBuild), "%s %s", gAreaShort, S3AIR_3DS_BUILD_ID);
+					addLine("%-20.20s %8s %7s", areaAndBuild, "avg ms", "max");
 					addLine("Shown FPS %5.1f   missed refreshes %u", shownFps, (unsigned)gWindowMissedRefreshes);
 					if (gWindowSimSteps > 0)
 						addLine("Game speed %5.1f%%  %5.1f steps/s, max %u", gameSpeedPercent, stepsPerSecond, (unsigned)gWindowSimStepsMax);
@@ -200,8 +268,8 @@ namespace n3ds
 				// Log file: one compact line per report, "average/max" in milliseconds
 				{
 					char buffer[1280];
-					int length = snprintf(buffer, sizeof(buffer), "PROFILER build=%s shown_fps=%.1f missed_refreshes=%u game_speed=%.1f%% steps_per_s=%.1f steps_per_frame=%.2f/%u",
-										  S3AIR_3DS_BUILD_ID, shownFps, (unsigned)gWindowMissedRefreshes, gameSpeedPercent, stepsPerSecond, stepsPerFrame, (unsigned)gWindowSimStepsMax);
+					int length = snprintf(buffer, sizeof(buffer), "PROFILER area=%s build=%s shown_fps=%.1f missed_refreshes=%u game_speed=%.1f%% steps_per_s=%.1f steps_per_frame=%.2f/%u",
+										  gAreaLong, S3AIR_3DS_BUILD_ID, shownFps, (unsigned)gWindowMissedRefreshes, gameSpeedPercent, stepsPerSecond, stepsPerFrame, (unsigned)gWindowSimStepsMax);
 					for (const Line& line : LINES)
 					{
 						double average, maximum;
@@ -383,6 +451,7 @@ namespace n3ds
 
 			// The profiler's own work: counted as part of the next frame, in its own section, so it's not hidden in "Unaccounted"
 			beginSection(PROFILER);
+			updateArea();
 			if (now - gWindowStart >= REPORT_INTERVAL_TICKS)
 			{
 				prepareReport(now);
