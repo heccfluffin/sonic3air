@@ -101,7 +101,14 @@ bool WebSocketWrapper::processReceivedClientPacket(std::vector<uint8>& data)
 		}
 		else
 		{
+		#if defined(PLATFORM_3DS)
+			// Unaligned: the 3DS faults on unaligned 64-bit loads
+			uint64 rawLength;
+			memcpy(&rawLength, &data[offset], 8);
+			payloadLength = swapBytes64(rawLength);
+		#else
 			payloadLength = swapBytes64(*(uint64*)&data[offset]);
+		#endif
 			offset += 8;
 			// TODO: Limit length to some reasonable value
 		}
@@ -143,7 +150,13 @@ void WebSocketWrapper::wrapDataToSendToClient(const std::vector<uint8>& data, st
 	else
 	{
 		headerContent[1] += 127;
+	#if defined(PLATFORM_3DS)
+		// Unaligned: the 3DS faults on unaligned 64-bit stores
+		const uint64 size64 = (uint64)data.size();
+		memcpy(&headerContent[2], &size64, 8);
+	#else
 		*(uint64*)&headerContent[2] = (uint64)data.size();
+	#endif
 		headerSize += 8;
 	}
 

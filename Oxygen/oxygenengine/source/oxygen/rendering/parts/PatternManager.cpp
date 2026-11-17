@@ -33,9 +33,14 @@ void PatternManager::refresh()
 
 					// Check for actual changes
 					//  -> This code is slightly optimized compared to a memcmp
+				#if defined(PLATFORM_3DS)
+					// Neither of the two is guaranteed to be aligned, and the 3DS faults on unaligned 64-bit loads
+					const bool changed = (memcmp(cacheItem.mOriginalDataBackup, src, 32) != 0);
+				#else
 					const uint64* cache = (uint64*)cacheItem.mOriginalDataBackup;
 					const uint64* source = (uint64*)src;
 					const bool changed = ((cache[0] != source[0]) | (cache[1] != source[1]) | (cache[2] != source[2]) | (cache[3] != source[3])) != 0;
+				#endif
 
 					if (changed)
 					{

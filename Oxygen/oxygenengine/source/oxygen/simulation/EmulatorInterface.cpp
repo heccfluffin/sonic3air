@@ -259,7 +259,13 @@ void EmulatorInterface::writeMemory64(uint32 address, uint64 value)
 {
 	// TODO: Check if the ARM byte alignment issue an Android (see "readMemory64") can happen here as well
 	uint64* mem = (uint64*)mInternal.accessMemory<MEMORY_MODE_WRITE>(address, 8);
+#if defined(PLATFORM_3DS)
+	// The address is not necessarily aligned, and the 3DS faults on unaligned 64-bit stores
+	const uint64 swapped = swapBytes64(value);
+	memcpy(mem, &swapped, 8);
+#else
 	*mem = swapBytes64(value);
+#endif
 }
 
 void EmulatorInterface::writeMemory8_dev(uint32 address, uint8 value)
@@ -282,7 +288,12 @@ void EmulatorInterface::writeMemory32_dev(uint32 address, uint32 value)
 void EmulatorInterface::writeMemory64_dev(uint32 address, uint64 value)
 {
 	uint64* mem = (uint64*)mInternal.accessMemory<MEMORY_MODE_WRITE_DEV>(address, 8);
+#if defined(PLATFORM_3DS)
+	const uint64 swapped = swapBytes64(value);
+	memcpy(mem, &swapped, 8);
+#else
 	*mem = swapBytes64(value);
+#endif
 }
 
 uint32& EmulatorInterface::getRegister(size_t index)

@@ -74,7 +74,10 @@ namespace detail
 			uint64* dst = (uint64*)&mContent[mPosition + x];
 			const uint64* srcPatternPixels = (uint64*)&pattern.mPixels[mPatternPixelOffset];
 
-		#if !defined(PLATFORM_VITA)
+		#if defined(PLATFORM_3DS)
+			// Like on Vita: the destination is usually not aligned, and the 3DS faults on unaligned 64-bit loads / stores
+			memcpy(dst, srcPatternPixels, sizeof(*dst));
+		#elif !defined(PLATFORM_VITA)
 			*dst = *srcPatternPixels;
 		#else
 			// This fixes a crash
