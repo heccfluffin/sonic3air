@@ -364,6 +364,7 @@ void EngineMain::run()
 	RMX_LOG_INFO("Main loop ended, exiting");
 	//  -> The watchdog starts only after saving: writing to the SD card can take several seconds on the 3DS, and the watchdog
 	//     must never end the process while a file is still being written
+	n3ds::exitguard::showExitMessage();
 	n3ds::exitguard::step("saving settings");
 	mInternal.mModManager.copyModSettingsToConfig();
 	Configuration::instance().saveSettings();

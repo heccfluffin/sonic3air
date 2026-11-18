@@ -21,5 +21,8 @@ namespace n3ds
 
 		// Records (and logs) the shutdown step that starts now
 		void step(const char* name);
+
+		// Shows "Saving..." on the bottom screen, so the exit doesn't look frozen while settings get written to the SD card
+		void showExitMessage();
 	}
 }

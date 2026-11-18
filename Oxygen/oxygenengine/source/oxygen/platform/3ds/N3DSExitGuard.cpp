@@ -58,6 +58,30 @@ namespace n3ds
 			RMX_LOG_INFO("Exit: watchdog started (" << seconds << " s)");
 		}
 
+		void showExitMessage()
+		{
+			// When the app gets closed from the HOME Menu, the screens belong to the system
+			if (!aptIsActive() || aptShouldClose())
+				return;
+
+			static PrintConsole console;
+			consoleInit(GFX_BOTTOM, &console);	// Clears the bottom screen (and replaces the profiler output)
+			consoleSelect(&console);
+			console.cursorX = 1;
+			console.cursorY = 13;
+			printf("          Sonic 3 A.I.R.\n\n");
+			printf("     Saving settings, please wait...");
+
+			u16 width = 0;
+			u16 height = 0;
+			u8* framebuffer = gfxGetFramebuffer(GFX_BOTTOM, GFX_LEFT, &width, &height);
+			if (nullptr != framebuffer)
+			{
+				GSPGPU_FlushDataCache(framebuffer, (u32)width * (u32)height * 2);
+				gfxScreenSwapBuffers(GFX_BOTTOM, false);
+			}
+		}
+
 		void step(const char* name)
 		{
 			gCurrentStep = name;
