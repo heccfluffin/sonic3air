@@ -7,6 +7,10 @@
 */
 
 #include "rmxbase.h"
+
+#if defined(PLATFORM_3DS)
+	#include <3ds.h>
+#endif
 #include <fstream>
 
 #ifdef PLATFORM_WINDOWS
@@ -346,12 +350,21 @@ namespace rmx
 
 	bool FileIO::saveFile(std::wstring_view filename, const void* data, size_t size)
 	{
+	#if defined(PLATFORM_3DS)
+		// Writing files to the SD card turned out to be very slow on the 3DS (seconds for the settings), so measure each step
+		const uint64 ticksStart = svcGetSystemTick();
+	#endif
+
 		// Create directory if needed
 		const size_t slashPosition = filename.find_last_of(L"/\\");
 		if (slashPosition != std::string::npos)
 		{
 			createDirectory(filename.substr(0, slashPosition));
 		}
+
+	#if defined(PLATFORM_3DS)
+		const uint64 ticksDirectory = svcGetSystemTick();
+	#endif
 
 	#ifdef USE_UTF8_PATHS
 		std::ofstream stream(rmx::convertToUTF8(filename).c_str(), std::ios::binary);
@@ -361,11 +374,35 @@ namespace rmx
 		if (!stream.good())
 			return false;
 
+	#if defined(PLATFORM_3DS)
+		const uint64 ticksOpen = svcGetSystemTick();
+	#endif
+
 		if (size != 0 && nullptr != data)
 		{
 			stream.write((char*)data, size);
 		}
+
+	#if defined(PLATFORM_3DS)
+		const uint64 ticksWrite = svcGetSystemTick();
+	#endif
+
 		stream.close();
+
+	#if defined(PLATFORM_3DS)
+		{
+			const uint64 ticksClose = svcGetSystemTick();
+			const auto ms = [](uint64 ticks)  { return (double)ticks * 1000.0 / (double)SYSCLOCK_ARM11; };
+			const double totalMs = ms(ticksClose - ticksStart);
+			if (totalMs >= 20.0)
+			{
+				char text[160];
+				snprintf(text, sizeof(text), "Slow file save: %.0f ms (directory %.0f, open %.0f, write %.0f, close %.0f) for %u bytes: ",
+						 totalMs, ms(ticksDirectory - ticksStart), ms(ticksOpen - ticksDirectory), ms(ticksWrite - ticksOpen), ms(ticksClose - ticksWrite), (unsigned)size);
+				RMX_LOG_INFO(text << rmx::convertToUTF8(filename));
+			}
+		}
+	#endif
 
 		#if defined(PLATFORM_WEB)
 			EM_ASM({
