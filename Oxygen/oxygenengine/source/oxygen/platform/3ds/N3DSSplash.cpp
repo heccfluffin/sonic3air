@@ -18,6 +18,7 @@
 #include <3ds.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <zlib.h>
 
 #include "s3air_splash_bin.h"		// The picture: 400 x 240 RGBA, zlib-compressed (see build/_3ds/splash/make_splash.py)
@@ -100,6 +101,23 @@ namespace n3ds
 		{
 			if (gOwnGraphics)
 			{
+				// Clear the framebuffers before releasing them: SDL's graphics setup reuses this memory without clearing it, and would
+				// otherwise show the loading screen's BGR8 pixels interpreted as RGBA8 - a glitched mess - until the first frame
+				for (gfxScreen_t screen : { GFX_TOP, GFX_BOTTOM })
+				{
+					u16 width = 0;
+					u16 height = 0;
+					u8* framebuffer = gfxGetFramebuffer(screen, GFX_LEFT, &width, &height);
+					if (nullptr != framebuffer)
+					{
+						memset(framebuffer, 0, (size_t)width * height * 3);
+						GSPGPU_FlushDataCache(framebuffer, (u32)width * height * 3);
+					}
+				}
+				gfxScreenSwapBuffers(GFX_TOP, false);
+				gfxScreenSwapBuffers(GFX_BOTTOM, false);
+				gspWaitForVBlank();
+
 				gfxExit();
 				gOwnGraphics = false;
 			}
@@ -110,7 +128,12 @@ namespace n3ds
 			if (nullptr == gPixels)
 				return;
 		#if defined(N3DS_GPU_PRESENT)
-			n3ds::gpu::present(gPixels, WIDTH, HEIGHT, WIDTH * 4, 0, 0, WIDTH, HEIGHT);
+			// Twice: the top screen alternates between two framebuffers, both should show the loading screen until the first game frame
+			for (int k = 0; k < 2; ++k)
+			{
+				n3ds::gpu::present(gPixels, WIDTH, HEIGHT, WIDTH * 4, 0, 0, WIDTH, HEIGHT);
+				gspWaitForVBlank();
+			}
 		#endif
 			free(gPixels);
 			gPixels = nullptr;
