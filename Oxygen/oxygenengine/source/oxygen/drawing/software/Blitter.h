@@ -94,6 +94,7 @@ private:
 	BitmapViewMutable<uint32> makeTempBitmap(Vec2i size);
 	BitmapViewMutable<uint32> makeTempBitmapAsCopy(const BitmapView<uint32>& input, Vec2i size, Vec2i innerIndent);
 	BitmapViewMutable<uint32> makeTempBitmapAsCopy(const BitmapView<uint8>& input, const PaletteWrapper& palette, Vec2i size, Vec2i innerIndent);
+	BitmapViewMutable<uint32> makeTempBitmapAsProcessedCopy(const BitmapView<uint8>& input, const PaletteWrapper& palette, Vec2i size, Vec2i innerIndent, Options& options);
 	BitmapViewMutable<uint32> makeTempBitmapAsTransformedCopy(Recti outputBoundingBox, const SpriteWrapper& sprite, Vec2i position, const Options& options);
 	BitmapViewMutable<uint32> makeTempBitmapAsTransformedCopy(Recti outputBoundingBox, const IndexedSpriteWrapper& sprite, const PaletteWrapper& palette, Vec2i position, const Options& options);
 
@@ -103,5 +104,6 @@ private:
 
 private:
 	std::vector<uint32> mTempBitmapData;		// Defined here so its reserved memory can be reused for multiple blitting calls
+	std::vector<uint32> mProcessedPaletteData;	// See "makeTempBitmapAsProcessedCopy"
 	std::vector<PixelSegment> mPixelSegments;
 };
