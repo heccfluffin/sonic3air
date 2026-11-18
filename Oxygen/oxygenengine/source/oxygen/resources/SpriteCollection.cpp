@@ -384,8 +384,55 @@ SpriteCollection::Item& SpriteCollection::createItem(uint64 key)
 	return item;
 }
 
+#if defined(PLATFORM_3DS)
+	#include <3ds.h>
+
+	namespace
+	{
+		// Loading time breakdown on 3DS (sprite loading takes several seconds there), written to the log per sprite folder
+		struct N3dsSpriteLoadTiming
+		{
+			std::wstring mPath;
+			uint64 mStart = svcGetSystemTick();
+			uint64 mListTicks = 0;
+			uint64 mJsonTicks = 0;
+			uint64 mBitmapTicks = 0;
+			uint32 mNumJsonFiles = 0;
+			uint32 mNumBitmaps = 0;
+
+			~N3dsSpriteLoadTiming()
+			{
+				const auto ms = [](uint64 ticks)  { return (double)ticks * 1000.0 / (double)SYSCLOCK_ARM11; };
+				const uint64 total = svcGetSystemTick() - mStart;
+				if (ms(total) < 20.0)
+					return;
+				char text[200];
+				snprintf(text, sizeof(text), "Sprite loading: %.0f ms total (listing files %.0f, reading definitions %.0f in %u files, loading pictures %.0f for %u pictures, other %.0f) in ",
+						 ms(total), ms(mListTicks), ms(mJsonTicks), (unsigned)mNumJsonFiles, ms(mBitmapTicks), (unsigned)mNumBitmaps, ms(total - mListTicks - mJsonTicks - mBitmapTicks));
+				RMX_LOG_INFO(text << WString(mPath).toStdString());
+			}
+		};
+
+		struct N3dsTickScope
+		{
+			uint64& mTarget;
+			uint64 mStart = svcGetSystemTick();
+			explicit N3dsTickScope(uint64& target) : mTarget(target) {}
+			~N3dsTickScope()  { mTarget += svcGetSystemTick() - mStart; }
+		};
+	}
+	#define N3DS_SPRITE_TIMING_BEGIN(path)		N3dsSpriteLoadTiming n3dsTiming; n3dsTiming.mPath = path
+	#define N3DS_SPRITE_TIMER(field)			N3dsTickScope n3dsTickScope(n3dsTiming.field)
+	#define N3DS_SPRITE_COUNT(field)			++n3dsTiming.field
+#else
+	#define N3DS_SPRITE_TIMING_BEGIN(path)
+	#define N3DS_SPRITE_TIMER(field)
+	#define N3DS_SPRITE_COUNT(field)
+#endif
+
 void SpriteCollection::loadSpriteDefinitions(const std::wstring& path, const Mod* mod)
 {
+	N3DS_SPRITE_TIMING_BEGIN(path);
 	struct PaletteSpriteSheet
 	{
 		PaletteBitmap mBitmap;
@@ -400,7 +447,10 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path, const Mod
 
 	std::vector<rmx::FileIO::FileEntry> fileEntries;
 	fileEntries.reserve(8);
-	FTX::FileSystem->listFilesByMask(path + L"/*.json", true, fileEntries);
+	{
+		N3DS_SPRITE_TIMER(mListTicks);
+		FTX::FileSystem->listFilesByMask(path + L"/*.json", true, fileEntries);
+	}
 	if (fileEntries.empty())
 		return;
 
@@ -409,7 +459,12 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path, const Mod
 	++mGlobalChangeCounter;
 	for (const rmx::FileIO::FileEntry& fileEntry : fileEntries)
 	{
-		const Json::Value spritesJson = JsonHelper::loadFile(fileEntry.mPath + fileEntry.mFilename);
+		Json::Value spritesJson;
+		{
+			N3DS_SPRITE_TIMER(mJsonTicks);
+			N3DS_SPRITE_COUNT(mNumJsonFiles);
+			spritesJson = JsonHelper::loadFile(fileEntry.mPath + fileEntry.mFilename);
+		}
 		for (auto iterator = spritesJson.begin(); iterator != spritesJson.end(); ++iterator)
 		{
 			const String identifier(iterator.key().asString());
@@ -478,7 +533,7 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path, const Mod
 						PaletteSpriteSheet& sheet = sheetCache.mPaletteSpriteSheets[sheetKey];
 						if (sheet.mBitmap.empty())
 						{
-							success = FileHelper::loadPaletteBitmap(sheet.mBitmap, fullpath, &palette);
+							{ N3DS_SPRITE_TIMER(mBitmapTicks); N3DS_SPRITE_COUNT(mNumBitmaps); success = FileHelper::loadPaletteBitmap(sheet.mBitmap, fullpath, &palette); }
 							if (success)
 							{
 								sheet.mFirstSpritePaletteKey = paletteKey;
@@ -500,7 +555,7 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path, const Mod
 					{
 						// The sprite is the whole bitmap
 						PaletteBitmap bitmap;
-						success = FileHelper::loadPaletteBitmap(bitmap, fullpath, &palette);
+						{ N3DS_SPRITE_TIMER(mBitmapTicks); N3DS_SPRITE_COUNT(mNumBitmaps); success = FileHelper::loadPaletteBitmap(bitmap, fullpath, &palette); }
 						if (success)
 						{
 							sprite->createFromBitmap(std::move(bitmap), -center);
@@ -520,7 +575,7 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path, const Mod
 						Bitmap& bitmap = sheetCache.mComponentSpriteSheets[sheetKey];
 						if (bitmap.empty())
 						{
-							success = FileHelper::loadBitmap(bitmap, fullpath);
+							{ N3DS_SPRITE_TIMER(mBitmapTicks); N3DS_SPRITE_COUNT(mNumBitmaps); success = FileHelper::loadBitmap(bitmap, fullpath); }
 						}
 						else
 						{
@@ -535,7 +590,7 @@ void SpriteCollection::loadSpriteDefinitions(const std::wstring& path, const Mod
 					else
 					{
 						// The sprite is the whole bitmap
-						success = FileHelper::loadBitmap(static_cast<ComponentSprite*>(item.mSprite)->accessBitmap(), fullpath);
+						{ N3DS_SPRITE_TIMER(mBitmapTicks); N3DS_SPRITE_COUNT(mNumBitmaps); success = FileHelper::loadBitmap(static_cast<ComponentSprite*>(item.mSprite)->accessBitmap(), fullpath); }
 					}
 					item.mSprite->mOffset = -center;
 				}
