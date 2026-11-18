@@ -21,5 +21,18 @@ namespace n3ds
 
 		// Right after SDL's video is up: shows the loading screen again (via the GPU presenter) until the first game frame
 		void showAfterVideoInit();
+
+		// Startup timing: system clock ticks of the early startup stages, to find out what happens before the loading screen
+		enum StartupStage
+		{
+			STAGE_MEMORY_SETUP,		// Start of the heap setup (very first code of the game)
+			STAGE_STATIC_INIT,		// Start of the C++ static initialization
+			STAGE_MAIN,				// Start of "main"
+			STAGE_LOADING_SCREEN,	// The early loading screen is visible
+			STAGE_LOGGING,			// Logging started
+			_NUM_STAGES
+		};
+		void markStartup(StartupStage stage);	// Safe to call before any C++ object exists
+		void logStartupTimes();
 	}
 }

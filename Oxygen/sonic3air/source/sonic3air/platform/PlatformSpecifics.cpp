@@ -35,6 +35,7 @@
 		// Here, the application heap (used by malloc / new) is capped to the heap address range, and the rest goes to the linear heap.
 		void __system_allocateHeaps(void)
 		{
+			n3ds::splash::markStartup(n3ds::splash::STAGE_MEMORY_SETUP);
 			Handle reslimit = 0;
 			if (R_FAILED(svcGetResourceLimit(&reslimit, CUR_PROCESS_HANDLE)))
 				svcBreak(USERBREAK_PANIC);

@@ -273,6 +273,9 @@ bool EngineMain::startupEngine()
 	// Startup logging
 	{
 		oxygen::Logging::startup(config.mAppDataPath + L"logfile.txt");
+	#if defined(PLATFORM_3DS)
+		n3ds::splash::logStartupTimes();
+	#endif
 		RMX_LOG_INFO("--- STARTUP ---");
 		RMX_LOG_INFO("Logging started");
 		RMX_LOG_INFO("Application version: " << appMetaData.mBuildVersionString);

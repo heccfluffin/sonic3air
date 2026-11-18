@@ -33,6 +33,14 @@ namespace n3ds
 			const constexpr int WIDTH = 400;
 			const constexpr int HEIGHT = 240;
 
+			uint64_t gStartupTicks[_NUM_STAGES];	// Zero-initialized (no constructor), so usable before static initialization
+
+			// Runs at the very start of the C++ static initialization (lowest allowed priority number = first)
+			__attribute__((constructor(101))) void markStaticInitStart()
+			{
+				gStartupTicks[STAGE_STATIC_INIT] = svcGetSystemTick();
+			}
+
 			uint8* gPixels = nullptr;		// RGBA, i.e. the software drawer's ABGR8888 format
 			bool gOwnGraphics = false;
 			PrintConsole gConsole;
@@ -95,6 +103,27 @@ namespace n3ds
 			gfxScreenSwapBuffers(GFX_TOP, false);
 			gfxScreenSwapBuffers(GFX_BOTTOM, false);
 			gspWaitForVBlank();
+			markStartup(STAGE_LOADING_SCREEN);
+		}
+
+		void markStartup(StartupStage stage)
+		{
+			gStartupTicks[stage] = svcGetSystemTick();
+		}
+
+		void logStartupTimes()
+		{
+			markStartup(STAGE_LOGGING);
+			const auto ms = [](StartupStage from, StartupStage to) -> double
+			{
+				if (gStartupTicks[from] == 0 || gStartupTicks[to] == 0)
+					return -1.0;
+				return (double)(gStartupTicks[to] - gStartupTicks[from]) * 1000.0 / (double)SYSCLOCK_ARM11;
+			};
+			char text[256];
+			snprintf(text, sizeof(text), "Startup timing (ms): memory setup -> static init %.0f, static init -> main %.0f, main -> loading screen visible %.0f, loading screen -> logging %.0f",
+					 ms(STAGE_MEMORY_SETUP, STAGE_STATIC_INIT), ms(STAGE_STATIC_INIT, STAGE_MAIN), ms(STAGE_MAIN, STAGE_LOADING_SCREEN), ms(STAGE_LOADING_SCREEN, STAGE_LOGGING));
+			RMX_LOG_INFO(text);
 		}
 
 		void endEarly()

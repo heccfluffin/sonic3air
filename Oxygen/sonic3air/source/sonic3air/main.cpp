@@ -13,6 +13,9 @@
 #include "sonic3air/platform/PlatformSpecifics.h"
 
 #include "oxygen/platform/PlatformFunctions.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSSplash.h"
+#endif
 
 
 // [Added for Switch platform] HJW: I know it's sloppy to put this here... it'll get moved afterwards
@@ -54,6 +57,9 @@ extern "C"
 
 int main(int argc, char** argv)
 {
+#if defined(PLATFORM_3DS)
+	n3ds::splash::markStartup(n3ds::splash::STAGE_MAIN);
+#endif
 	EngineMain::earlySetup();
 	PlatformSpecifics::platformStartup();
 
