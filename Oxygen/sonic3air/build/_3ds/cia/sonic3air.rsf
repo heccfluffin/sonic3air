@@ -15,7 +15,7 @@ Option:
   FreeProductCode         : true
   MediaFootPadding        : false
   EnableCrypt             : false
-  EnableCompress          : true
+  EnableCompress          : false   # Uncompressed code starts faster: the system doesn't have to unpack ~5 MB on every launch
 
 AccessControlInfo:
   CoreVersion             : 2
