@@ -657,6 +657,12 @@ void SoftwareRenderer::renderSprite(const SpriteGeometry& geometry)
 			const int maxX = rect.x + rect.width;
 			const int minY = rect.y;
 			const int maxY = rect.y + rect.height;
+			if (rect.width > 0 && rect.height > 0)
+			{
+				N3DS_PROFILE_COUNT_N(COUNT_SPR_VDP_PIXELS, rect.width * rect.height);
+				if (useTintColor)
+					N3DS_PROFILE_COUNT(COUNT_SPR_VDP_TINTED);
+			}
 
 			// Per row, the sprite is processed in segments of up to 8 pixels that lie in the same pattern (tile): the pattern lookup,
 			// flipping and palette offset are the same for all pixels of a segment, so they're done once per segment instead of per pixel.
@@ -754,6 +760,8 @@ void SoftwareRenderer::renderSprite(const SpriteGeometry& geometry)
 				}
 
 				const bool hasTransform = !spriteBase.mTransformation.isIdentity();
+				if (hasTransform && isPaletteSprite)
+					N3DS_PROFILE_COUNT(COUNT_SPR_PALETTE_TRANSFORMED);
 				blitterOptions.mTransform = hasTransform ? *spriteBase.mTransformation.mMatrix : nullptr;
 				blitterOptions.mInvTransform = hasTransform ? *spriteBase.mTransformation.mInverse : nullptr;
 				blitterOptions.mSamplingMode = SamplingMode::POINT;

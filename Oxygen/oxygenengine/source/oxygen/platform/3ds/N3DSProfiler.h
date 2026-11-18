@@ -65,9 +65,12 @@ namespace n3ds
 			COUNT_SPR_VDP,
 			COUNT_SPR_PALETTE,
 			COUNT_SPR_COMPONENT,
+			COUNT_SPR_VDP_PIXELS,			// Pixels covered by VDP sprites (after clipping)
+			COUNT_SPR_VDP_TINTED,			// VDP sprites drawn with tint / added color (slow per-pixel color math)
+			COUNT_SPR_PALETTE_TRANSFORMED,	// Palette sprites with a transformation (scaled / rotated)
 			_NUM_COUNTERS
 		};
-		void addCount(Counter counter);
+		void addCount(Counter counter, uint32_t amount = 1);
 		void setTargetStepRate(float stepsPerSecond);	// Simulation frequency, for the "game speed" display
 		void addWorkerTicks(uint32_t ticks);	// Thread-safe, for audio job worker threads
 		uint64_t getTicks();
@@ -97,6 +100,7 @@ namespace n3ds
 #define N3DS_PROFILE_WORKER_SCOPE()		n3ds::profiler::WorkerScope n3dsProfilerWorkerScope
 #define N3DS_PROFILE_SIMULATION_STEP()	n3ds::profiler::addSimulationStep()
 #define N3DS_PROFILE_COUNT(counter)		n3ds::profiler::addCount(n3ds::profiler::counter)
+#define N3DS_PROFILE_COUNT_N(counter, n)	n3ds::profiler::addCount(n3ds::profiler::counter, (uint32_t)(n))
 #define N3DS_PROFILE_TARGET_STEP_RATE(x)	n3ds::profiler::setTargetStepRate(x)
 #define N3DS_PROFILE_END_FRAME()		n3ds::profiler::endFrame()
 #define N3DS_PROFILE_STARTUP_INFO()		n3ds::profiler::showStartupInfo()
@@ -110,6 +114,7 @@ namespace n3ds
 #define N3DS_PROFILE_WORKER_SCOPE()
 #define N3DS_PROFILE_SIMULATION_STEP()
 #define N3DS_PROFILE_COUNT(counter)
+#define N3DS_PROFILE_COUNT_N(counter, n)
 #define N3DS_PROFILE_TARGET_STEP_RATE(x)
 #define N3DS_PROFILE_END_FRAME()
 #define N3DS_PROFILE_STARTUP_INFO()

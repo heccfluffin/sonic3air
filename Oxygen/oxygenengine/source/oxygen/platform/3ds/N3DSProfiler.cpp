@@ -279,7 +279,7 @@ namespace n3ds
 				appendFormat(text, "All visits of each area in this session combined; empty rows: not visited. Times in ms per frame.\n\n");
 				appendFormat(text, "%-32s %7s %6s %6s %7s %6s %6s %6s %6s %6s %6s %7s  %s\n",
 						"Area", "Time s", "FPS", "Missed", "Speed%", "Frame", "Max", "Logic", "Render", "Planes", "Sprite", "Present",
-						"Sprites: VDP ms (count) / palette ms (count) / component ms (count)");
+						"Sprites: VDP ms (count) / palette ms (count) / component ms (count) | VDP pixels, tinted VDP, transformed palette (per frame)");
 				for (const std::string& row : rows)
 				{
 					const auto it = gAreaAggregates.find(row);
@@ -294,11 +294,12 @@ namespace n3ds
 					const auto avg = [&](Section section)  { return (double)totals.mSection[section] / TICKS_PER_MS / frames; };
 					const double speed = (seconds > 0.0 && gAreaTargetStepRate > 0.0f) ? (double)totals.mSimSteps / seconds * 100.0 / (double)gAreaTargetStepRate : 0.0;
 					const auto count = [&](Counter counter)  { return (double)totals.mCounts[counter] / frames; };
-					appendFormat(text, "%-32s %7.1f %6.1f %6u %7.1f %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f %7.2f  %.2f (%.0f) / %.2f (%.0f) / %.2f (%.0f)\n",
+					appendFormat(text, "%-32s %7.1f %6.1f %6u %7.1f %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f %7.2f  %.2f (%.0f) / %.2f (%.0f) / %.2f (%.0f) | %.0f, %.1f, %.1f\n",
 							row.c_str(), seconds, (seconds > 0.0) ? frames / seconds : 0.0, (unsigned)totals.mMissedRefreshes, speed,
 							(double)totals.mFrameTicks / TICKS_PER_MS / frames, (double)totals.mFrameMax / TICKS_PER_MS,
 							avg(SIMULATION), avg(RENDER), avg(SW_PLANES), avg(SW_SPRITES), avg(PRESENT_SDL),
-							avg(SW_SPR_VDP), count(COUNT_SPR_VDP), avg(SW_SPR_PALETTE), count(COUNT_SPR_PALETTE), avg(SW_SPR_COMPONENT), count(COUNT_SPR_COMPONENT));
+							avg(SW_SPR_VDP), count(COUNT_SPR_VDP), avg(SW_SPR_PALETTE), count(COUNT_SPR_PALETTE), avg(SW_SPR_COMPONENT), count(COUNT_SPR_COMPONENT),
+							count(COUNT_SPR_VDP_PIXELS), count(COUNT_SPR_VDP_TINTED), count(COUNT_SPR_PALETTE_TRANSFORMED));
 				}
 
 				if (synchronous || nullptr == gWriterThread)
@@ -553,8 +554,9 @@ namespace n3ds
 					if (length > 0 && length < (int)sizeof(buffer))
 						length += snprintf(buffer + length, sizeof(buffer) - length, " | Profiler timing %.3f ms/frame (%.0f sections), reports %.3f ms/frame", timingOverheadMs, sectionCallsPerFrame, reportMs);
 					if (length > 0 && length < (int)sizeof(buffer))
-						snprintf(buffer + length, sizeof(buffer) - length, " | Sprites per frame: VDP %.0f, palette %.0f, component %.0f",
-								 (double)gWindowCounts[COUNT_SPR_VDP] / frames, (double)gWindowCounts[COUNT_SPR_PALETTE] / frames, (double)gWindowCounts[COUNT_SPR_COMPONENT] / frames);
+						snprintf(buffer + length, sizeof(buffer) - length, " | Sprites per frame: VDP %.0f (%.0f pixels, %.1f tinted), palette %.0f (%.1f transformed), component %.0f",
+								 (double)gWindowCounts[COUNT_SPR_VDP] / frames, (double)gWindowCounts[COUNT_SPR_VDP_PIXELS] / frames, (double)gWindowCounts[COUNT_SPR_VDP_TINTED] / frames,
+								 (double)gWindowCounts[COUNT_SPR_PALETTE] / frames, (double)gWindowCounts[COUNT_SPR_PALETTE_TRANSFORMED] / frames, (double)gWindowCounts[COUNT_SPR_COMPONENT] / frames);
 					logLine(buffer);
 				}
 			}
@@ -664,9 +666,9 @@ namespace n3ds
 			gFrameAccum[section] += svcGetSystemTick() - gSectionStart[section];
 		}
 
-		void addCount(Counter counter)
+		void addCount(Counter counter, uint32_t amount)
 		{
-			++gFrameCounts[counter];
+			gFrameCounts[counter] += amount;
 		}
 
 		void addSimulationStep()

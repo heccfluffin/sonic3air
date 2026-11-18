@@ -155,7 +155,8 @@ namespace rmx
 					timeoutMilliseconds = mNextDelayedJobTicks - currentTicks;
 			}
 			SDL_CondWaitTimeout(mConditionVariable, mConditionLock, timeoutMilliseconds);
-			job = getNextJobInternal();
+			// Once stopping, don't start any more jobs (see "stopAllThreads")
+			job = mSearchforJobs ? getNextJobInternal() : nullptr;
 		}
 		SDL_UnlockMutex(mConditionLock);
 		return job;
@@ -219,11 +220,16 @@ namespace rmx
 
 	void JobManager::stopAllThreads()
 	{
+		SDL_LockMutex(mConditionLock);
 		mSearchforJobs = false;
 		for (JobWorkerThread* thread : mThreads)
 		{
 			thread->signalStopThread(false);
 		}
+		// Wake up all workers waiting for a job: otherwise they only notice the stop when their wait times out, which can take
+		// very long when a delayed job is scheduled (e.g. on 3DS, joining hung the exit for more than 5 seconds)
+		SDL_CondBroadcast(mConditionVariable);
+		SDL_UnlockMutex(mConditionLock);
 		for (JobWorkerThread* thread : mThreads)
 		{
 			thread->joinThread();

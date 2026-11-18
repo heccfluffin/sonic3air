@@ -31,13 +31,16 @@ namespace n3ds
 				svcSleepThread((s64)gTimeoutSeconds * 1000000000LL);
 
 				// Still running: a shutdown step hangs. Note which one (with plain C file functions, independent of the engine),
-				// then end the process, which returns to the HOME Menu.
+				// then end the process.
 				FILE* file = fopen("sdmc:/3ds/sonic3air/savedata/exit_hang.txt", "w");
 				if (nullptr != file)
 				{
 					fprintf(file, "Exiting took longer than %u seconds, ended by the exit watchdog.\nHanging step: %s\n", gTimeoutSeconds, (const char*)gCurrentStep);
 					fclose(file);
 				}
+				// Close the application properly towards the system first (like libctru's normal exit does), otherwise the
+				// system shows "An error has occurred, forcing the software to close" instead of just returning to the HOME Menu
+				aptExit();
 				svcExitProcess();
 			}
 		}
