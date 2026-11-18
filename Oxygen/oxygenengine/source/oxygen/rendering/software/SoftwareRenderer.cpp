@@ -368,6 +368,7 @@ void SoftwareRenderer::renderGeometry(const Geometry& geometry)
 		{
 			const RectGeometry& rg = static_cast<const RectGeometry&>(geometry);
 			const Recti rect = Recti::getIntersection(rg.mRect, mCurrentViewport);
+			N3DS_PROFILE_SCOPE(SW_RECTS);
 			mBlitter.blitColor(Blitter::OutputWrapper(mGameScreenTexture.accessBitmap(), rect), rg.mColor, BlendMode::ALPHA);
 			break;
 		}
@@ -382,6 +383,7 @@ void SoftwareRenderer::renderGeometry(const Geometry& geometry)
 			blitterOptions.mTintColor = &tg.mTintColor;
 			blitterOptions.mAddedColor = &tg.mAddedColor;
 
+			N3DS_PROFILE_SCOPE(SW_TEXTURED);
 			mBlitter.blitSprite(Blitter::OutputWrapper(mGameScreenTexture.accessBitmap(), mCurrentViewport), Blitter::SpriteWrapper(tg.mDrawerTexture.accessBitmap(), Vec2i()), tg.mRect.getPos(), blitterOptions);
 			break;
 		}

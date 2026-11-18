@@ -38,6 +38,8 @@ namespace n3ds
 			SW_SPR_PALETTE,	//      - Palette sprites (A.I.R.'s own indexed-color sprites)
 			SW_SPR_COMPONENT,	//      - Component sprites (A.I.R.'s own true-color sprites)
 			SW_BLUR,		//    - Blur effect
+			SW_RECTS,		//    - Color rects (alpha-blended)
+			SW_TEXTURED,	//    - Textured rects
 			DRAWER,			//  - Software drawer: compositing, UI, text, scaling to the window
 			DRAW_TEXT,		//    - Text
 			DRAW_SPRITE,	//    - Sprites (UI graphics)

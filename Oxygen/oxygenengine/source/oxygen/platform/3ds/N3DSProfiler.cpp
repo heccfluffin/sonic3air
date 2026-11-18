@@ -12,6 +12,7 @@
 
 #include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/simulation/EmulatorInterface.h"
+#include <lemon/runtime/provider/NativizedOpcodeProvider.h>
 
 #include <3ds.h>
 #include <atomic>
@@ -102,6 +103,8 @@ namespace n3ds
 				{ "       Palette spr", SW_SPR_PALETTE, false },
 				{ "       Component spr", SW_SPR_COMPONENT, false },
 				{ "     Blur",          SW_BLUR,      true },
+				{ "     Color rects",   SW_RECTS,     false },	// Log & report only
+				{ "     Textured rects", SW_TEXTURED, false },
 				{ "   Drawer/UI",       DRAWER,       true },
 				{ "     Text",          DRAW_TEXT,    true },
 				{ "     Sprites",       DRAW_SPRITE,  true },
@@ -553,6 +556,10 @@ namespace n3ds
 						length += snprintf(buffer + length, sizeof(buffer) - length, " | Audio workers %.2f ms/frame %.1f%%", workerMsPerFrame, workerCorePercent);
 					if (length > 0 && length < (int)sizeof(buffer))
 						length += snprintf(buffer + length, sizeof(buffer) - length, " | Profiler timing %.3f ms/frame (%.0f sections), reports %.3f ms/frame", timingOverheadMs, sectionCallsPerFrame, reportMs);
+					if (length > 0 && length < (int)sizeof(buffer))
+						length += snprintf(buffer + length, sizeof(buffer) - length, " | Nativized script code: %u of %u lookups (%u opcodes), dictionary %u entries",
+										   (unsigned)lemon::NativizedOpcodeProvider::sNumHits, (unsigned)lemon::NativizedOpcodeProvider::sNumAttempts,
+										   (unsigned)lemon::NativizedOpcodeProvider::sNumOpcodesNativized, (unsigned)lemon::NativizedOpcodeProvider::sLookupSize);
 					if (length > 0 && length < (int)sizeof(buffer))
 						snprintf(buffer + length, sizeof(buffer) - length, " | Sprites per frame: VDP %.0f (%.0f pixels, %.1f tinted), palette %.0f (%.1f transformed), component %.0f",
 								 (double)gWindowCounts[COUNT_SPR_VDP] / frames, (double)gWindowCounts[COUNT_SPR_VDP_PIXELS] / frames, (double)gWindowCounts[COUNT_SPR_VDP_TINTED] / frames,

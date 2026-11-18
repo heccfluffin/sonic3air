@@ -20,12 +20,14 @@ namespace lemon
 	{
 		mLookupDictionary.mEntries.clear();
 		(*buildFunction)(mLookupDictionary);
+		sLookupSize = (uint32)mLookupDictionary.mEntries.size();
 	}
 
 	bool NativizedOpcodeProvider::buildRuntimeOpcode(RuntimeOpcodeBuffer& buffer, const Opcode* opcodes, int numOpcodesAvailable, int firstOpcodeIndex, int& outNumOpcodesConsumed, const Runtime& runtime, const ScriptFunction& function)
 	{
 		if (mLookupDictionary.mEntries.empty() || numOpcodesAvailable < (int)Nativizer::MIN_OPCODES)
 			return false;
+		++sNumAttempts;
 
 		Nativizer::LookupEntry* bestEntry = nullptr;
 		uint64 bestEntryHash = 0;		// Variable exists only for debugging
@@ -127,6 +129,8 @@ namespace lemon
 					}
 				}
 			}
+			++sNumHits;
+			sNumOpcodesNativized += (uint32)outNumOpcodesConsumed;
 			return true;
 		}
 		return false;

@@ -29,5 +29,12 @@ namespace lemon
 
 	protected:
 		Nativizer::LookupDictionary mLookupDictionary;	// This needs to be filled by either a sub-class implementation or a call to the buildLookup method
+
+	public:
+		// Statistics (for profiling): how often precompiled code was found for the script code that got prepared to run
+		static inline uint32 sNumAttempts = 0;
+		static inline uint32 sNumHits = 0;
+		static inline uint32 sNumOpcodesNativized = 0;
+		static inline uint32 sLookupSize = 0;
 	};
 }
