@@ -362,11 +362,13 @@ void EngineMain::run()
 	// The main loop ended, the game exits: save the settings right away, before anything gets destroyed, and make sure the
 	// 3DS gets back to the HOME Menu even if a shutdown step should hang
 	RMX_LOG_INFO("Main loop ended, exiting");
-	n3ds::exitguard::start(5);
+	//  -> The watchdog starts only after saving: writing to the SD card can take several seconds on the 3DS, and the watchdog
+	//     must never end the process while a file is still being written
 	n3ds::exitguard::step("saving settings");
 	mInternal.mModManager.copyModSettingsToConfig();
 	Configuration::instance().saveSettings();
 	N3DS_PROFILE_FINISH();
+	n3ds::exitguard::start(5);
 	n3ds::exitguard::step("application cleanup");
 #endif
 }

@@ -34,6 +34,9 @@ namespace n3ds
 			SW_RENDER,		//  - Software renderer: game screen
 			SW_PLANES,		//    - Planes (background layers)
 			SW_SPRITES,		//    - Sprites
+			SW_SPR_VDP,		//      - Classic (VDP) sprites
+			SW_SPR_PALETTE,	//      - Palette sprites (A.I.R.'s own indexed-color sprites)
+			SW_SPR_COMPONENT,	//      - Component sprites (A.I.R.'s own true-color sprites)
 			SW_BLUR,		//    - Blur effect
 			DRAWER,			//  - Software drawer: compositing, UI, text, scaling to the window
 			DRAW_TEXT,		//    - Text
@@ -56,6 +59,15 @@ namespace n3ds
 		void beginSection(Section section);
 		void endSection(Section section);
 		void addSimulationStep();
+
+		enum Counter
+		{
+			COUNT_SPR_VDP,
+			COUNT_SPR_PALETTE,
+			COUNT_SPR_COMPONENT,
+			_NUM_COUNTERS
+		};
+		void addCount(Counter counter);
 		void setTargetStepRate(float stepsPerSecond);	// Simulation frequency, for the "game speed" display
 		void addWorkerTicks(uint32_t ticks);	// Thread-safe, for audio job worker threads
 		uint64_t getTicks();
@@ -84,6 +96,7 @@ namespace n3ds
 #define N3DS_PROFILE_SCOPE(section)		n3ds::profiler::Scope n3dsProfilerScope(n3ds::profiler::section)
 #define N3DS_PROFILE_WORKER_SCOPE()		n3ds::profiler::WorkerScope n3dsProfilerWorkerScope
 #define N3DS_PROFILE_SIMULATION_STEP()	n3ds::profiler::addSimulationStep()
+#define N3DS_PROFILE_COUNT(counter)		n3ds::profiler::addCount(n3ds::profiler::counter)
 #define N3DS_PROFILE_TARGET_STEP_RATE(x)	n3ds::profiler::setTargetStepRate(x)
 #define N3DS_PROFILE_END_FRAME()		n3ds::profiler::endFrame()
 #define N3DS_PROFILE_STARTUP_INFO()		n3ds::profiler::showStartupInfo()
@@ -96,6 +109,7 @@ namespace n3ds
 #define N3DS_PROFILE_SCOPE(section)
 #define N3DS_PROFILE_WORKER_SCOPE()
 #define N3DS_PROFILE_SIMULATION_STEP()
+#define N3DS_PROFILE_COUNT(counter)
 #define N3DS_PROFILE_TARGET_STEP_RATE(x)
 #define N3DS_PROFILE_END_FRAME()
 #define N3DS_PROFILE_STARTUP_INFO()

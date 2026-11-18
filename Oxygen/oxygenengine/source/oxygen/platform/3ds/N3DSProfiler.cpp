@@ -47,6 +47,8 @@ namespace n3ds
 			uint64_t gSectionStart[_NUM] = { 0 };
 			uint64_t gFrameAccum[_NUM] = { 0 };
 			uint32_t gFrameSimSteps = 0;
+			uint32_t gFrameCounts[_NUM_COUNTERS] = { 0 };
+			uint64_t gWindowCounts[_NUM_COUNTERS] = { 0 };
 			uint32_t gFrameSectionCalls = 0;
 
 			// Current report window
@@ -96,6 +98,9 @@ namespace n3ds
 				{ "   SW game screen",  SW_RENDER,    true },
 				{ "     Planes",        SW_PLANES,    true },
 				{ "     Sprites",       SW_SPRITES,   true },
+				{ "       VDP sprites", SW_SPR_VDP,   false },	// Log & report only (bottom screen is full)
+				{ "       Palette spr", SW_SPR_PALETTE, false },
+				{ "       Component spr", SW_SPR_COMPONENT, false },
 				{ "     Blur",          SW_BLUR,      true },
 				{ "   Drawer/UI",       DRAWER,       true },
 				{ "     Text",          DRAW_TEXT,    true },
@@ -142,6 +147,7 @@ namespace n3ds
 			struct AreaTotals
 			{
 				uint64_t mSection[_NUM] = { 0 };
+				uint64_t mCounts[_NUM_COUNTERS] = { 0 };
 				uint64_t mFrameTicks = 0;
 				uint64_t mFrameMax = 0;
 				uint32_t mFrames = 0;
@@ -167,6 +173,8 @@ namespace n3ds
 				AreaTotals& totals = aggregate.mTotals;
 				for (int i = 0; i < _NUM; ++i)
 					totals.mSection[i] += gArea.mSection[i];
+				for (int i = 0; i < _NUM_COUNTERS; ++i)
+					totals.mCounts[i] += gArea.mCounts[i];
 				totals.mFrameTicks += gArea.mFrameTicks;
 				totals.mFrameMax = std::max(totals.mFrameMax, gArea.mFrameMax);
 				totals.mFrames += gArea.mFrames;
@@ -269,8 +277,9 @@ namespace n3ds
 				text.reserve(6000);
 				appendFormat(text, "Sonic 3 A.I.R. 3DS profiling report - build %s\n", S3AIR_3DS_BUILD_ID);
 				appendFormat(text, "All visits of each area in this session combined; empty rows: not visited. Times in ms per frame.\n\n");
-				appendFormat(text, "%-32s %7s %6s %6s %7s %6s %6s %6s %6s %6s %6s %7s\n",
-						"Area", "Time s", "FPS", "Missed", "Speed%", "Frame", "Max", "Logic", "Render", "Planes", "Sprite", "Present");
+				appendFormat(text, "%-32s %7s %6s %6s %7s %6s %6s %6s %6s %6s %6s %7s  %s\n",
+						"Area", "Time s", "FPS", "Missed", "Speed%", "Frame", "Max", "Logic", "Render", "Planes", "Sprite", "Present",
+						"Sprites: VDP ms (count) / palette ms (count) / component ms (count)");
 				for (const std::string& row : rows)
 				{
 					const auto it = gAreaAggregates.find(row);
@@ -284,10 +293,12 @@ namespace n3ds
 					const double frames = (totals.mFrames > 0) ? (double)totals.mFrames : 1.0;
 					const auto avg = [&](Section section)  { return (double)totals.mSection[section] / TICKS_PER_MS / frames; };
 					const double speed = (seconds > 0.0 && gAreaTargetStepRate > 0.0f) ? (double)totals.mSimSteps / seconds * 100.0 / (double)gAreaTargetStepRate : 0.0;
-					appendFormat(text, "%-32s %7.1f %6.1f %6u %7.1f %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f %7.2f\n",
+					const auto count = [&](Counter counter)  { return (double)totals.mCounts[counter] / frames; };
+					appendFormat(text, "%-32s %7.1f %6.1f %6u %7.1f %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f %7.2f  %.2f (%.0f) / %.2f (%.0f) / %.2f (%.0f)\n",
 							row.c_str(), seconds, (seconds > 0.0) ? frames / seconds : 0.0, (unsigned)totals.mMissedRefreshes, speed,
 							(double)totals.mFrameTicks / TICKS_PER_MS / frames, (double)totals.mFrameMax / TICKS_PER_MS,
-							avg(SIMULATION), avg(RENDER), avg(SW_PLANES), avg(SW_SPRITES), avg(PRESENT_SDL));
+							avg(SIMULATION), avg(RENDER), avg(SW_PLANES), avg(SW_SPRITES), avg(PRESENT_SDL),
+							avg(SW_SPR_VDP), count(COUNT_SPR_VDP), avg(SW_SPR_PALETTE), count(COUNT_SPR_PALETTE), avg(SW_SPR_COMPONENT), count(COUNT_SPR_COMPONENT));
 				}
 
 				if (synchronous || nullptr == gWriterThread)
@@ -540,7 +551,10 @@ namespace n3ds
 					if (length > 0 && length < (int)sizeof(buffer))
 						length += snprintf(buffer + length, sizeof(buffer) - length, " | Audio workers %.2f ms/frame %.1f%%", workerMsPerFrame, workerCorePercent);
 					if (length > 0 && length < (int)sizeof(buffer))
-						snprintf(buffer + length, sizeof(buffer) - length, " | Profiler timing %.3f ms/frame (%.0f sections), reports %.3f ms/frame", timingOverheadMs, sectionCallsPerFrame, reportMs);
+						length += snprintf(buffer + length, sizeof(buffer) - length, " | Profiler timing %.3f ms/frame (%.0f sections), reports %.3f ms/frame", timingOverheadMs, sectionCallsPerFrame, reportMs);
+					if (length > 0 && length < (int)sizeof(buffer))
+						snprintf(buffer + length, sizeof(buffer) - length, " | Sprites per frame: VDP %.0f, palette %.0f, component %.0f",
+								 (double)gWindowCounts[COUNT_SPR_VDP] / frames, (double)gWindowCounts[COUNT_SPR_PALETTE] / frames, (double)gWindowCounts[COUNT_SPR_COMPONENT] / frames);
 					logLine(buffer);
 				}
 			}
@@ -608,6 +622,8 @@ namespace n3ds
 				gWindowSimStepsMax = 0;
 				gWindowMissedRefreshes = 0;
 				gWindowSectionCalls = 0;
+				for (int i = 0; i < _NUM_COUNTERS; ++i)
+					gWindowCounts[i] = 0;
 				gWindowStart = now;
 			}
 		}
@@ -646,6 +662,11 @@ namespace n3ds
 		void endSection(Section section)
 		{
 			gFrameAccum[section] += svcGetSystemTick() - gSectionStart[section];
+		}
+
+		void addCount(Counter counter)
+		{
+			++gFrameCounts[counter];
 		}
 
 		void addSimulationStep()
@@ -704,6 +725,12 @@ namespace n3ds
 			gArea.mFrameMax = std::max(gArea.mFrameMax, frameTicks);
 			++gArea.mFrames;
 			gArea.mSimSteps += gFrameSimSteps;
+			for (int i = 0; i < _NUM_COUNTERS; ++i)
+			{
+				gArea.mCounts[i] += gFrameCounts[i];
+				gWindowCounts[i] += gFrameCounts[i];
+				gFrameCounts[i] = 0;
+			}
 			gAreaTargetStepRate = gTargetStepRate;
 			if (frameTicks > gWindowFrameMax)
 				gWindowFrameMax = frameTicks;

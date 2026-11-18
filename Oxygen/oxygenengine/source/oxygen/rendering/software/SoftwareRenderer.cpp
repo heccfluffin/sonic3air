@@ -342,7 +342,25 @@ void SoftwareRenderer::renderGeometry(const Geometry& geometry)
 		case Geometry::Type::SPRITE:
 		{
 			N3DS_PROFILE_SCOPE(SW_SPRITES);
-			renderSprite(static_cast<const SpriteGeometry&>(geometry));
+		#if defined(PLATFORM_3DS) && defined(N3DS_PROFILER)
+			// Time and count per sprite type, to see which kind of sprites the time goes to
+			const SpriteGeometry& spriteGeometry = static_cast<const SpriteGeometry&>(geometry);
+			const RenderItem::Type spriteType = spriteGeometry.mSpriteInfo.getType();
+			const n3ds::profiler::Section typeSection = (spriteType == RenderItem::Type::VDP_SPRITE) ? n3ds::profiler::SW_SPR_VDP :
+														(spriteType == RenderItem::Type::PALETTE_SPRITE) ? n3ds::profiler::SW_SPR_PALETTE :
+														(spriteType == RenderItem::Type::COMPONENT_SPRITE) ? n3ds::profiler::SW_SPR_COMPONENT : n3ds::profiler::_NUM;
+			if (typeSection != n3ds::profiler::_NUM)
+			{
+				n3ds::profiler::addCount((typeSection == n3ds::profiler::SW_SPR_VDP) ? n3ds::profiler::COUNT_SPR_VDP :
+										 (typeSection == n3ds::profiler::SW_SPR_PALETTE) ? n3ds::profiler::COUNT_SPR_PALETTE : n3ds::profiler::COUNT_SPR_COMPONENT);
+				n3ds::profiler::Scope typeScope(typeSection);
+				renderSprite(spriteGeometry);
+			}
+			else
+		#endif
+			{
+				renderSprite(static_cast<const SpriteGeometry&>(geometry));
+			}
 			break;
 		}
 
