@@ -7,6 +7,9 @@
 */
 
 #include "oxygen/pch.h"
+#if defined(PLATFORM_3DS)
+	#include <3ds.h>
+#endif
 #include "oxygen/simulation/LemonScriptProgram.h"
 #include "oxygen/simulation/EmulatorInterface.h"
 #include "oxygen/simulation/LogDisplay.h"
@@ -438,8 +441,14 @@ bool LemonScriptProgram::loadBaseScriptFromSource(lemon::GlobalsLookup& globalsL
 bool LemonScriptProgram::loadBaseScriptFromBinary(lemon::GlobalsLookup& globalsLookup, std::wstring_view filename, uint32 coreModuleDependencyHash, const LoadOptions& loadOptions)
 {
 	// Deserialize from compiled scripts
+#if defined(PLATFORM_3DS)
+	const uint64 ticksStart = svcGetSystemTick();
+#endif
 	std::vector<uint8> buffer;
 	bool loaded = FTX::FileSystem->readFile(filename, buffer);
+#if defined(PLATFORM_3DS)
+	const uint64 ticksRead = svcGetSystemTick();
+#endif
 
 	Configuration& config = Configuration::instance();
 	if (!loaded && !config.mCompiledScriptSavePath.empty())
@@ -452,6 +461,15 @@ bool LemonScriptProgram::loadBaseScriptFromBinary(lemon::GlobalsLookup& globalsL
 
 	VectorBinarySerializer serializer(true, buffer);
 	loaded = mInternal.mScriptModule.serialize(serializer, globalsLookup, coreModuleDependencyHash, loadOptions.mAppVersion);
+#if defined(PLATFORM_3DS)
+	{
+		const auto ms = [](uint64 ticks)  { return (double)ticks * 1000.0 / (double)SYSCLOCK_ARM11; };
+		char text[160];
+		snprintf(text, sizeof(text), "Script loading: reading scripts.bin %.0f ms (%u bytes), deserializing %.0f ms",
+				 ms(ticksRead - ticksStart), (unsigned)buffer.size(), ms(svcGetSystemTick() - ticksRead));
+		RMX_LOG_INFO(text);
+	}
+#endif
 	RMX_CHECK(loaded, "Failed to load 'scripts.bin'", );
 	return loaded;
 }

@@ -7,6 +7,9 @@
 */
 
 #include "oxygen/pch.h"
+#if defined(PLATFORM_3DS)
+	#include <3ds.h>
+#endif
 #include "oxygen/platform/3ds/N3DSProfiler.h"
 #include "oxygen/simulation/Simulation.h"
 #include "oxygen/simulation/CodeExec.h"
@@ -74,11 +77,26 @@ bool Simulation::startup()
 
 	// Load scripts
 	RMX_LOG_INFO("Loading scripts");
+#if defined(PLATFORM_3DS)
+	const uint64 ticksScriptsStart = svcGetSystemTick();
+#endif
 	bool success = mCodeExec.reloadScripts(true, false);	// Note: First parameter could just as well be set to false
+#if defined(PLATFORM_3DS)
+	const uint64 ticksScriptsLoaded = svcGetSystemTick();
+#endif
 	if (success)
 	{
 		mCodeExec.reinitRuntime(nullptr, CodeExec::CallStackInitPolicy::RESET);
 	}
+#if defined(PLATFORM_3DS)
+	{
+		const auto ms = [](uint64 ticks)  { return (double)ticks * 1000.0 / (double)SYSCLOCK_ARM11; };
+		char text[128];
+		snprintf(text, sizeof(text), "Script loading total: loading scripts %.0f ms, runtime setup %.0f ms",
+				 ms(ticksScriptsLoaded - ticksScriptsStart), ms(svcGetSystemTick() - ticksScriptsLoaded));
+		RMX_LOG_INFO(text);
+	}
+#endif
 
 	// Optionally load save state
 	mStateLoaded.clear();
