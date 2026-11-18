@@ -32,6 +32,7 @@
 #include "oxygen/platform/3ds/N3DSProfiler.h"
 #if defined(PLATFORM_3DS)
 	#include "oxygen/platform/3ds/N3DSExitGuard.h"
+	#include "oxygen/platform/3ds/N3DSSplash.h"
 #endif
 #if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
 	#include "oxygen/platform/3ds/N3DSGpuPresenter.h"
@@ -290,6 +291,9 @@ bool EngineMain::startupEngine()
 
 	// System
 	RMX_LOG_INFO("System initialization...");
+#if defined(PLATFORM_3DS)
+	n3ds::splash::endEarly();		// SDL's video initialization sets up the graphics itself
+#endif
 	if (!FTX::System->initialize())
 	{
 		RMX_ERROR("System initialization failed", );
@@ -887,6 +891,9 @@ bool EngineMain::createWindow()
 
 	// Tell FTX video manager that everything is okay
 	FTX::Video->setInitialized(videoConfig, mSDLWindow);
+#if defined(PLATFORM_3DS)
+	n3ds::splash::showAfterVideoInit();		// Keep the loading screen visible until the first game frame
+#endif
 	N3DS_PROFILE_STARTUP_INFO();
 
 #if defined(PLATFORM_WINDOWS)

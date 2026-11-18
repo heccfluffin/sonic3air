@@ -16,6 +16,7 @@
 #endif
 
 #if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSSplash.h"
 	#include <3ds.h>
 	#include <sys/stat.h>
 	#include <unistd.h>
@@ -148,6 +149,9 @@ void PlatformSpecifics::platformStartup()
 #if defined(PLATFORM_3DS)
 	// New 3DS / New 2DS XL: switch to 804 MHz and enable the L2 cache (no effect on Old 3DS models)
 	osSetSpeedupEnable(true);
+
+	// Loading screen right away, the game takes several seconds to start
+	n3ds::splash::showEarly();
 
 	// SDL ignores joystick button presses while no window has keyboard focus, which on 3DS can happen e.g. after switching to fullscreen,
 	// leaving the built-in buttons without any effect. The game is always the foreground app on 3DS, so accept joystick input regardless.

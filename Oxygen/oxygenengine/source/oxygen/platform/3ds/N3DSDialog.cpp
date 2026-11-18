@@ -12,6 +12,7 @@
 
 #include "oxygen/platform/3ds/N3DSDialog.h"
 
+#include "oxygen/platform/3ds/N3DSSplash.h"
 #include <3ds.h>
 #include <SDL.h>
 #include <stdio.h>
@@ -27,7 +28,10 @@ namespace n3ds
 		//  - Otherwise use the bottom screen, which the game doesn't use, so the game's top screen stays intact
 		const bool ownGraphics = (SDL_WasInit(SDL_INIT_VIDEO) == 0);
 		if (ownGraphics)
+		{
+			n3ds::splash::endEarly();		// In case the loading screen still owns the graphics
 			gfxInitDefault();
+		}
 
 		PrintConsole console;
 		consoleInit(ownGraphics ? GFX_TOP : GFX_BOTTOM, &console);
