@@ -133,11 +133,21 @@ void Blitter::blitIndexed(const OutputWrapper& output, const IndexedSpriteWrappe
 	{
 		const Vec2i innerIndent = outputBoundingBox.getPos() - position + sprite.mPivot;
 
-		// Copy only the actually used part from the input sprite into an intermediate bitmap
-		BitmapViewMutable<uint32> intermediate = makeTempBitmapAsCopy(sprite.mBitmapView, palette, outputBoundingBox.getSize(), innerIndent);
+		BitmapViewMutable<uint32> intermediate;
+		const Vec2i size = outputBoundingBox.getSize();
+		if (needsIntermediateProcessing(options) && (size_t)size.x * (size_t)size.y > palette.mNumEntries + 1)
+		{
+			// Copy with the intermediate processing (like tint color / added color) applied to the palette instead of every pixel - see "makeTempBitmapAsProcessedCopy"
+			intermediate = makeTempBitmapAsProcessedCopy(sprite.mBitmapView, palette, size, innerIndent, options);
+		}
+		else
+		{
+			// Copy only the actually used part from the input sprite into an intermediate bitmap
+			intermediate = makeTempBitmapAsCopy(sprite.mBitmapView, palette, size, innerIndent);
 
-		// Intermediate processing (like tint color / added color)
-		processIntermediateBitmap(intermediate, options);
+			// Intermediate processing (like tint color / added color)
+			processIntermediateBitmap(intermediate, options);
+		}
 
 		// Merge into output (incl. blending and depth test)
 		BlitterHelper::mergeIntoOutput(output, outputBoundingBox, intermediate, mPixelSegments, options);
@@ -251,6 +261,37 @@ BitmapViewMutable<uint32> Blitter::makeTempBitmapAsCopy(const BitmapView<uint8>&
 			*dst = (index < palette.mNumEntries) ? palette.mPalette[index] : 0;
 			++dst;
 			++src;
+		}
+	}
+	return result;
+}
+
+BitmapViewMutable<uint32> Blitter::makeTempBitmapAsProcessedCopy(const BitmapView<uint8>& input, const PaletteWrapper& palette, Vec2i size, Vec2i innerIndent, Options& options)
+{
+	// The intermediate processing changes each pixel depending only on its own color value (and the options), so applying it to the
+	// palette's colors once gives exactly the same result as applying it to every pixel copied from the palette.
+	//  -> Pixels with an index outside of the palette are 0 before the processing, which can turn into something else (e.g. with an
+	//     added color), so the processed value of 0 is stored as an additional entry and used for those.
+	//  -> "processIntermediateBitmap" may also change the options (blend mode), which happens here just the same.
+	const size_t numEntries = palette.mNumEntries;
+	mProcessedPaletteData.resize(numEntries + 1);
+	if (numEntries > 0)
+		memcpy(mProcessedPaletteData.data(), palette.mPalette, numEntries * sizeof(uint32));
+	mProcessedPaletteData[numEntries] = 0;
+	BitmapViewMutable<uint32> processedPalette(mProcessedPaletteData.data(), Vec2i((int)numEntries + 1, 1));
+	processIntermediateBitmap(processedPalette, options);
+
+	const uint32* colors = mProcessedPaletteData.data();
+	const uint32 outOfRangeColor = colors[numEntries];
+	BitmapViewMutable<uint32> result = makeTempBitmap(size);
+	for (int y = 0; y < size.y; ++y)
+	{
+		uint32* dst = result.getLinePointer(y);
+		const uint8* src = input.getPixelPointer(innerIndent.x, innerIndent.y + y);
+		for (int x = 0; x < size.x; ++x)
+		{
+			const uint8 index = src[x];
+			dst[x] = (index < numEntries) ? colors[index] : outOfRangeColor;
 		}
 	}
 	return result;
