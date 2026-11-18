@@ -51,6 +51,7 @@ namespace n3ds
 				return;
 
 			gTimeoutSeconds = seconds;
+			remove("sdmc:/3ds/sonic3air/savedata/exit_hang.txt");	// Only keep a note of the most recent exit
 			// Higher priority (lower value) than the main thread, so it gets to run even if the main thread is busy
 			s32 mainPriority = 0x30;
 			svcGetThreadPriority(&mainPriority, CUR_THREAD_HANDLE);

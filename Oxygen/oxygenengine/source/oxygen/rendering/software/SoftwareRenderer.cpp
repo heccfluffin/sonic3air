@@ -676,9 +676,31 @@ void SoftwareRenderer::renderSprite(const SpriteGeometry& geometry)
 			const int sizeX = sprite.mSize.x;
 			const int sizeY = sprite.mSize.y;
 
+			// Tinted sprites: the tint is the same for the whole sprite, and a pixel's color index can only be 0x00..0x3f (pattern pixels
+			// are 0..15, plus the palette offset of up to 0x30), so the tinted colors of both palettes get calculated once per sprite here,
+			// with exactly the same calculation as before, instead of again for every single pixel
+			uint32 tintedColors[2][0x40];
+			if (useTintColor)
+			{
+				for (int paletteIndex = 0; paletteIndex < 2; ++paletteIndex)
+				{
+					for (int colorIndex = 0; colorIndex < 0x40; ++colorIndex)
+					{
+						Color color = Color::fromABGR32(palettes[paletteIndex][colorIndex]);
+						color.r = saturate(sprite.mAddedColor.r + color.r * sprite.mTintColor.r);
+						color.g = saturate(sprite.mAddedColor.g + color.g * sprite.mTintColor.g);
+						color.b = saturate(sprite.mAddedColor.b + color.b * sprite.mTintColor.b);
+						color.a = saturate(sprite.mAddedColor.a + color.a * sprite.mTintColor.a);
+						tintedColors[paletteIndex][colorIndex] = color.getABGR32();
+					}
+				}
+			}
+
 			for (int y = minY; y < maxY; ++y)
 			{
-				const uint32* palette = (y < paletteManager.mSplitPositionY) ? palettes[0] : palettes[1];
+				const int paletteIndex = (y < paletteManager.mSplitPositionY) ? 0 : 1;
+				const uint32* palette = palettes[paletteIndex];
+				const uint32* tintedPalette = tintedColors[paletteIndex];
 				const uint8* depthRow = &mDepthBuffer[y * 0x200];
 				uint32* dstRow = gameScreenBitmap.getPixelPointer(0, y);
 
@@ -717,13 +739,8 @@ void SoftwareRenderer::renderSprite(const SpriteGeometry& geometry)
 							uint32& dst = dstRow[x];
 							if (useTintColor)
 							{
-								Color color = Color::fromABGR32(palette[colorIndex]);
-								color.r = saturate(sprite.mAddedColor.r + color.r * sprite.mTintColor.r);
-								color.g = saturate(sprite.mAddedColor.g + color.g * sprite.mTintColor.g);
-								color.b = saturate(sprite.mAddedColor.b + color.b * sprite.mTintColor.b);
-								color.a = saturate(sprite.mAddedColor.a + color.a * sprite.mTintColor.a);
-								uint32 src = color.getABGR32();
-								BlitterHelper::blendPixelAlpha((uint8*)&dst, (uint8*)&src);
+								const uint32 src = tintedPalette[colorIndex];
+								BlitterHelper::blendPixelAlpha((uint8*)&dst, (const uint8*)&src);
 							}
 							else
 							{
