@@ -16,6 +16,7 @@
 
 #include <3ds.h>
 #include <atomic>
+#include <malloc.h>
 #include <map>
 #include <stdarg.h>
 #include <stdio.h>
@@ -539,7 +540,7 @@ namespace n3ds
 
 				// Log file: one compact line per report, "average/max" in milliseconds
 				{
-					char buffer[1280];
+					char buffer[2560];
 					int length = snprintf(buffer, sizeof(buffer), "PROFILER area=%s build=%s shown_fps=%.1f missed_refreshes=%u game_speed=%.1f%% steps_per_s=%.1f steps_per_frame=%.2f/%u",
 										  gAreaLong, S3AIR_3DS_BUILD_ID, shownFps, (unsigned)gWindowMissedRefreshes, gameSpeedPercent, stepsPerSecond, stepsPerFrame, (unsigned)gWindowSimStepsMax);
 					for (const Line& line : LINES)
@@ -556,6 +557,14 @@ namespace n3ds
 						length += snprintf(buffer + length, sizeof(buffer) - length, " | Audio workers %.2f ms/frame %.1f%%", workerMsPerFrame, workerCorePercent);
 					if (length > 0 && length < (int)sizeof(buffer))
 						length += snprintf(buffer + length, sizeof(buffer) - length, " | Profiler timing %.3f ms/frame (%.0f sections), reports %.3f ms/frame", timingOverheadMs, sectionCallsPerFrame, reportMs);
+					if (length > 0 && length < (int)sizeof(buffer))
+					{
+						// Memory: heap in use (malloc), free linear memory, and what's left of the application memory region
+						const struct mallinfo info = mallinfo();
+						length += snprintf(buffer + length, sizeof(buffer) - length, " | Memory: heap used %.1f MB (peak arena %.1f MB), linear free %.1f MB, app region free %.1f MB of %.1f MB",
+										   (double)info.uordblks / 1048576.0, (double)info.arena / 1048576.0, (double)linearSpaceFree() / 1048576.0,
+										   (double)osGetMemRegionFree(MEMREGION_APPLICATION) / 1048576.0, (double)osGetMemRegionSize(MEMREGION_APPLICATION) / 1048576.0);
+					}
 					if (length > 0 && length < (int)sizeof(buffer))
 						length += snprintf(buffer + length, sizeof(buffer) - length, " | Nativized script code: %u of %u lookups (%u opcodes), dictionary %u entries",
 										   (unsigned)lemon::NativizedOpcodeProvider::sNumHits, (unsigned)lemon::NativizedOpcodeProvider::sNumAttempts,
