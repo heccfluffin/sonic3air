@@ -139,13 +139,20 @@ LemonScriptProgram::LoadScriptsResult LemonScriptProgram::loadScripts(std::wstri
 	}
 
 	// Check if there's anything to do at all
-	const bool mainScriptReloadNeeded = (mInternal.mProgram.getModules().empty() || loadOptions.mEnforceFullReload || mInternal.mBaseScriptOpcodesReleased);
+	bool mainScriptReloadNeeded = (mInternal.mProgram.getModules().empty() || loadOptions.mEnforceFullReload);
 	if (!mainScriptReloadNeeded)
 	{
 		if (modsToLoad == mInternal.mLastModSelection)
 		{
 			// No change
 			return LoadScriptsResult::NO_CHANGE;
+		}
+
+		// The program changes: if the game scripts' opcodes were released to save memory, the game scripts need to be loaded anew as well
+		if (mInternal.mBaseScriptOpcodesReleased)
+		{
+			RMX_LOG_INFO("Script mods changed, loading the game scripts anew (their opcodes were released to save memory)");
+			mainScriptReloadNeeded = true;
 		}
 	}
 
