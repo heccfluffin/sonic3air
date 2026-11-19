@@ -11,6 +11,7 @@
 #if defined(PLATFORM_3DS)
 
 #include "sonic3air/menu/GameMenuBase.h"
+#include "oxygen/drawing/DrawerTexture.h"
 
 class MenuBackground;
 
@@ -69,6 +70,7 @@ private:
 	bool getItem(size_t tabIndex, uint32 data, Item& outItem) const;
 	void showMessage(const std::string& text, bool isError);
 	void renderConfirmation(float alpha);
+	void createIcons();
 
 private:
 	MenuBackground* mMenuBackground = nullptr;
@@ -88,6 +90,12 @@ private:
 	std::string mMessage;			// Short feedback at the bottom, like "Not enough Play Coins"
 	bool mMessageIsError = false;
 	float mMessageTimeout = 0.0f;
+
+	// Pixel art icons of the themes (in each theme's two colors), and the game's monitors for the shields
+	bool mIconsCreated = false;
+	DrawerTexture mThemeIcons[6];
+	DrawerTexture mShieldIcons[5];
+	bool mHasShieldIcons = false;
 };
 
 #endif
