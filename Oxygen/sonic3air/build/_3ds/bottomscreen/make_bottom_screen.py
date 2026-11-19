@@ -590,24 +590,41 @@ def city_background():
 			d.line((ax, top - rng.randint(5, 10), ax, top), fill=blues[0] + (255,))
 		x += w + rng.randint(-3, 4)
 
-	# Ground: leafy green clumps in three tones, with grey stone blocks in rows
-	greens = [(30, 100, 20), (60, 150, 30), (110, 200, 50)]
-	d.rectangle((0, horizon, W, H), fill=greens[0] + (255,))
-	for _ in range(900):
-		lx, ly = rng.randint(-4, W + 4), rng.randint(horizon - 3, H)
-		r = rng.randint(2, 4)
-		tone = greens[1] if rng.random() < 0.6 else greens[2]
-		d.ellipse((lx - r, ly - r, lx + r, ly + r // 2), fill=tone + (255,))
-	for y in range(ground, H, 22):
-		for x0 in range(-10 + (y // 22 % 2) * 30, W, 60):
-			bx = x0 + rng.randint(0, 14)
-			bw = rng.randint(18, 30)
-			d.rectangle((bx, y, bx + bw, y + 7), fill=(150, 156, 170, 255))
-			d.line((bx, y, bx + bw, y), fill=(200, 205, 215, 255))
-			d.line((bx, y + 7, bx + bw, y + 7), fill=(80, 84, 100, 255))
-			d.line((bx + bw, y, bx + bw, y + 7), fill=(80, 84, 100, 255))
-			for k in range(bx + 4, bx + bw - 2, 6):		# Panel lines
-				d.line((k, y + 2, k, y + 5), fill=(110, 115, 130, 255))
+	# Ground: rows of rounded bush clumps in a 16-bit sprite style (dark outline, mid body, light highlights on top),
+	# drawn from the back to the front so each row overlaps the one behind; stone blocks set neatly between the rows
+	outline_green, body_green, light_green, shine_green = (16, 70, 16), (52, 140, 28), (100, 190, 44), (160, 225, 90)
+	d.rectangle((0, horizon, W, H), fill=outline_green + (255,))
+
+	def stone_block(bx, by):
+		bw, bh = 28, 8
+		d.rectangle((bx, by, bx + bw, by + bh), fill=(150, 156, 172, 255))
+		d.line((bx, by, bx + bw, by), fill=(206, 210, 222, 255))							# Light top edge
+		d.line((bx, by, bx, by + bh), fill=(186, 190, 204, 255))
+		d.line((bx, by + bh, bx + bw, by + bh), fill=(70, 74, 92, 255))					# Dark bottom / right edge
+		d.line((bx + bw, by, bx + bw, by + bh), fill=(70, 74, 92, 255))
+		for k in range(bx + 7, bx + bw - 1, 7):												# Panel lines
+			d.line((k, by + 2, k, by + bh - 2), fill=(108, 112, 128, 255))
+			d.point((k + 1, by + 2), fill=(196, 200, 212, 255))
+
+	row_height = 12
+	clump_rng = random.Random(3)
+	for row, base in enumerate(range(horizon - 2, H + row_height, row_height)):
+		offset = (row % 2) * 8
+		for cx in range(-12 + offset, W + 12, 16):
+			radius = clump_rng.choice((8, 9, 9, 10, 11))		# Some variety, like hand-placed clumps
+			cx += clump_rng.randint(-2, 2)
+			top = base - radius + clump_rng.randint(-1, 1)
+			d.ellipse((cx - radius - 1, top - 1, cx + radius + 1, top + 2 * radius + 1), fill=outline_green + (255,))	# Outline
+			d.ellipse((cx - radius, top, cx + radius, top + 2 * radius), fill=body_green + (255,))
+			d.ellipse((cx - radius + 2, top + 1, cx + radius - 4, top + radius - 1), fill=light_green + (255,))		# Lit upper part
+			d.ellipse((cx - radius + 4, top + 2, cx - 1, top + 5), fill=shine_green + (255,))					# Shine
+			for (lx, ly) in ((cx + 3, base - 2), (cx - 4, base + 1), (cx + 6, base + 3)):					# Leaf shadows
+				d.point((lx, ly), fill=outline_green + (255,))
+		# Stone blocks on every second row: a regular pattern with alternating offset, sitting on top of this row; the next
+		# row (drawn after) covers their lower edge, so they look set into the bushes
+		if row % 2 == 1:
+			for bx in range(-14 + (row // 2 % 2) * 40, W, 80):
+				stone_block(bx, base - 6)
 	return img.resize((W * S, H * S), Image.NEAREST)
 
 
