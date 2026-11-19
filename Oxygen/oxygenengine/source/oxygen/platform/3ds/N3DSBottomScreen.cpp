@@ -24,7 +24,6 @@
 
 // The artwork, one per theme, see build/_3ds/bottomscreen/make_bottom_screen.py
 #include "s3air_bottom_screen_blue_bin.h"
-#include "s3air_bottom_screen_aero_bin.h"
 #include "s3air_bottom_screen_crimson_bin.h"
 #include "s3air_bottom_screen_gold_bin.h"
 #include "s3air_bottom_screen_emerald_bin.h"
@@ -130,7 +129,7 @@ namespace n3ds
 			const ThemeData THEMES[n3ds::shop::_NUM_THEMES] =
 			{
 				{ s3air_bottom_screen_blue_bin,    s3air_bottom_screen_blue_bin_size },
-				{ s3air_bottom_screen_aero_bin,    s3air_bottom_screen_aero_bin_size },
+				{ nullptr, 0 },		// "Sky Aero", removed
 				{ s3air_bottom_screen_crimson_bin, s3air_bottom_screen_crimson_bin_size },
 				{ s3air_bottom_screen_gold_bin,    s3air_bottom_screen_gold_bin_size },
 				{ s3air_bottom_screen_emerald_bin, s3air_bottom_screen_emerald_bin_size },
@@ -173,7 +172,7 @@ namespace n3ds
 			// Unpacks the artwork of a theme (only one is kept in memory). Falls back to the default theme if that fails.
 			bool loadArtwork(int theme)
 			{
-				if (theme < 0 || theme >= n3ds::shop::_NUM_THEMES)
+				if (theme < 0 || theme >= n3ds::shop::_NUM_THEMES || nullptr == THEMES[theme].mCompressed)
 					theme = n3ds::shop::THEME_BLUE;
 				if (theme == gTheme && nullptr != gData)
 					return true;

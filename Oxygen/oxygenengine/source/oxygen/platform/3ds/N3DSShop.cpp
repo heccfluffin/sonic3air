@@ -62,7 +62,7 @@ namespace n3ds
 				fclose(file);
 
 				// Only allow what was bought
-				if (gData.mSelectedTheme < 0 || gData.mSelectedTheme >= _NUM_THEMES || (gData.mOwnedThemes & (1 << gData.mSelectedTheme)) == 0)
+				if (gData.mSelectedTheme < 0 || gData.mSelectedTheme >= _NUM_THEMES || (gData.mOwnedThemes & (1 << gData.mSelectedTheme)) == 0 || gData.mSelectedTheme == THEME_AERO)
 					gData.mSelectedTheme = THEME_BLUE;
 				if (!gData.mOwnsShield || gData.mSelectedShield < 0 || gData.mSelectedShield >= _NUM_SHIELDS)
 					gData.mSelectedShield = SHIELD_OFF;

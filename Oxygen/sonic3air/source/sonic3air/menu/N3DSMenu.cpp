@@ -53,7 +53,7 @@ namespace
 	const ThemeInfo THEMES[n3ds::shop::_NUM_THEMES] =
 	{
 		{ "Blue Zig-Zag",	 "The classic look of the bottom screen.",					0,  rgb(34, 104, 214), rgb(12, 38, 122), rgb(50, 175, 70),   rgb(30, 165, 235) },
-		{ "Sky Aero",		 "Glossy sky, light rays and a green hill.",				30, rgb(140, 230, 250), rgb(20, 90, 200), rgb(110, 200, 40), rgb(30, 105, 215) },
+		{ nullptr,			 nullptr,													0,  rgb(0, 0, 0),       rgb(0, 0, 0),     rgb(0, 0, 0),      rgb(0, 0, 0) },		// "Sky Aero", removed
 		{ "Crimson Zig-Zag", "Bold red stripes with fiery buttons.",					30, rgb(205, 45, 55),  rgb(95, 12, 28),  rgb(230, 110, 20), rgb(205, 45, 45) },
 		{ "Golden Zig-Zag",	 "Shiny gold stripes, fit for a super form.",				40, rgb(240, 170, 30), rgb(160, 80, 10), rgb(235, 175, 25), rgb(150, 160, 180) },
 		{ "Emerald Zig-Zag", "Green stripes, as precious as the Master Emerald.",		30, rgb(40, 175, 95),  rgb(10, 85, 45),  rgb(190, 205, 30), rgb(20, 150, 150) },
@@ -201,9 +201,12 @@ void N3DSMenu::createIcons()
 	mIconsCreated = true;
 
 	// Theme icons: 2 bits per pixel, 0 = the theme's dark color, 1 = its light color, 2 = transparent
-	static_assert(sizeof(THEME_ICONS) / sizeof(THEME_ICONS[0]) == n3ds::shop::_NUM_THEMES, "Theme icons don't match the themes");
+	static_assert(sizeof(THEME_ICON_FOR_THEME) / sizeof(THEME_ICON_FOR_THEME[0]) == n3ds::shop::_NUM_THEMES, "Theme icons don't match the themes");
 	for (int theme = 0; theme < n3ds::shop::_NUM_THEMES; ++theme)
 	{
+		const int iconIndex = THEME_ICON_FOR_THEME[theme];
+		if (iconIndex < 0)
+			continue;
 		const uint32 colors[3] = { THEMES[theme].mDark.getABGR32() | 0xff000000, THEMES[theme].mLight.getABGR32() | 0xff000000, 0 };
 		Bitmap& bitmap = mThemeIcons[theme].accessBitmap();
 		bitmap.create(THEME_ICON_WIDTH, THEME_ICON_HEIGHT);
@@ -212,7 +215,7 @@ void N3DSMenu::createIcons()
 			for (int x = 0; x < THEME_ICON_WIDTH; ++x)
 			{
 				const int index = y * THEME_ICON_WIDTH + x;
-				const int value = (THEME_ICONS[theme][index / 4] >> ((index % 4) * 2)) & 3;
+				const int value = (THEME_ICONS[iconIndex][index / 4] >> ((index % 4) * 2)) & 3;
 				*bitmap.getPixelPointer(x, y) = colors[std::min(value, 2)];
 			}
 		}
@@ -302,7 +305,10 @@ void N3DSMenu::rebuildTabs()
 		const int selected = entries.mSelectedEntryIndex;
 		entries.resize(1);
 		for (int theme = 0; theme < n3ds::shop::_NUM_THEMES; ++theme)
-			entries.addEntry(THEMES[theme].mName, theme);
+		{
+			if (nullptr != THEMES[theme].mName)		// Skip removed themes
+				entries.addEntry(THEMES[theme].mName, theme);
+		}
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -347,7 +353,7 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 	switch (tabIndex)
 	{
 		case Tab::Id::THEMES:
-			if (data >= (uint32)n3ds::shop::_NUM_THEMES)
+			if (data >= (uint32)n3ds::shop::_NUM_THEMES || nullptr == THEMES[data].mName)
 				return false;
 			outItem.mName = THEMES[data].mName;
 			outItem.mPrice = THEMES[data].mPrice;

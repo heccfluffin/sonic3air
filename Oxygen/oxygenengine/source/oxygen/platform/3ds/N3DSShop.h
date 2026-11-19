@@ -20,7 +20,7 @@ namespace n3ds
 		enum Theme
 		{
 			THEME_BLUE = 0,		// Default, free
-			THEME_AERO,
+			THEME_AERO,			// Removed ("Sky Aero"), the number stays reserved so saved choices keep pointing at the right themes
 			THEME_CRIMSON,
 			THEME_GOLD,
 			THEME_EMERALD,

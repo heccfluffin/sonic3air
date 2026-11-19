@@ -21,15 +21,16 @@ OUT_INC = os.path.normpath(os.path.join(HERE, '..', '..', '..', 'source', 'sonic
 W, H = 64, 48
 DARK, LIGHT, CLEAR = 0, 1, 2
 
-# Same order and colors as THEMES in make_bottom_screen.py (light, dark)
+# Same themes and colors as THEMES in make_bottom_screen.py (light, dark), with their numbers in n3ds::shop::Theme
+# (number 1 was "Sky Aero", removed)
 THEMES = [
-	('blue',    (34, 104, 214),  (12, 38, 122)),
-	('aero',    (140, 230, 250), (20, 90, 200)),
-	('crimson', (205, 45, 55),   (95, 12, 28)),
-	('gold',    (240, 170, 30),  (160, 80, 10)),
-	('emerald', (40, 175, 95),   (10, 85, 45)),
-	('night',   (175, 190, 215), (8, 12, 40)),
+	('blue',    0, (34, 104, 214),  (12, 38, 122)),
+	('crimson', 2, (205, 45, 55),   (95, 12, 28)),
+	('gold',    3, (240, 170, 30),  (160, 80, 10)),
+	('emerald', 4, (40, 175, 95),   (10, 85, 45)),
+	('night',   5, (175, 190, 215), (8, 12, 40)),
 ]
+NUM_THEME_NUMBERS = 6
 
 
 def new_icon(fill):
@@ -105,46 +106,6 @@ def icon_zigzag(emblem=None):
 	return img
 
 
-def outlined_shape(img, inside, fill=LIGHT, outline=DARK):
-	"""Fills the pixels where inside(x, y) is true, and gives the shape a clean 1 pixel outline all around."""
-	px = img.load()
-	mask = [[inside(x, y) for x in range(W)] for y in range(H)]
-	for y in range(H):
-		for x in range(W):
-			if not mask[y][x]:
-				continue
-			edge = any(not (0 <= x + dx < W and 0 <= y + dy < H and mask[y + dy][x + dx]) for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)))
-			px[x, y] = outline if edge else fill
-
-
-def icon_aero():
-	img, d = new_icon(LIGHT)		# Sky
-	px = img.load()
-
-	# Hill: a smooth dome over the whole width
-	def hill_top(x):
-		return 31 + int(round(((x - 34) / 30.0) ** 2 * 5))
-	for x in range(W):
-		for y in range(hill_top(x), H):
-			px[x, y] = DARK
-
-	# Cloud: three round puffs on a flat base, filled light with a closed dark outline
-	puffs = ((16, 18, 6), (26, 14, 8), (37, 18, 6))
-	def in_cloud(x, y):
-		if 10 <= x <= 43 and 18 <= y <= 23:
-			return True
-		return any((x - cx) ** 2 + (y - cy) ** 2 <= r * r + r for cx, cy, r in puffs) and y <= 23		# "+ r" avoids single pixel bumps
-	outlined_shape(img, in_cloud)
-
-	# Bubbles: outlined circles with a little highlight, in the open sky
-	for (cx, cy, r) in ((53, 9, 4), (57, 21, 2), (48, 25, 3)):
-		outlined_shape(img, lambda x, y, cx=cx, cy=cy, r=r: (x - cx) ** 2 + (y - cy) ** 2 <= r * r + r, fill=LIGHT)
-		px[cx - r // 2, cy - r // 2] = DARK if r > 2 else LIGHT
-
-	frame(img)
-	return img
-
-
 def icon_night():
 	img, d = new_icon(DARK)
 	# Crescent moon
@@ -171,7 +132,6 @@ def icon_night():
 
 ICONS = {
 	'blue': lambda: icon_zigzag(),
-	'aero': icon_aero,
 	'crimson': lambda: icon_zigzag(emblem_flame),
 	'gold': lambda: icon_zigzag(emblem_ring),
 	'emerald': lambda: icon_zigzag(emblem_gem),
@@ -187,8 +147,11 @@ def main():
 			 f'// {len(icons)} icons of {W} x {H} pixels, 2 bits per pixel (0 = dark, 1 = light, 2 = transparent), 4 pixels per byte',
 			 f'static const int THEME_ICON_WIDTH = {W};',
 			 f'static const int THEME_ICON_HEIGHT = {H};',
+			 '// Icon for each theme number (n3ds::shop::Theme), -1 if there is none',
+			 'static const int THEME_ICON_FOR_THEME[' + str(NUM_THEME_NUMBERS) + '] = { ' +
+			 ', '.join(str(next((k for k, t in enumerate(THEMES) if t[1] == n), -1)) for n in range(NUM_THEME_NUMBERS)) + ' };',
 			 f'static const unsigned char THEME_ICONS[{len(icons)}][{W * H // 4}] =', '{']
-	for (name, _, _), img in zip(THEMES, icons):
+	for (name, _, _, _), img in zip(THEMES, icons):
 		px = img.load()
 		data = []
 		for y in range(H):
@@ -209,7 +172,7 @@ def main():
 	# Preview in the theme colors, 3x enlarged
 	scale = 3
 	preview = Image.new('RGB', (len(icons) * (W + 6) * scale, (H + 6) * scale), (40, 40, 40))
-	for i, ((name, light, dark), img) in enumerate(zip(THEMES, icons)):
+	for i, ((name, _, light, dark), img) in enumerate(zip(THEMES, icons)):
 		colored = Image.new('RGB', (W, H), (40, 40, 40))
 		cp, ip = colored.load(), img.load()
 		for y in range(H):

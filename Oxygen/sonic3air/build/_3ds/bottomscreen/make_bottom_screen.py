@@ -252,11 +252,11 @@ def glass_panel(img, box, radius=10, alpha=70):
 
 # --- Composition ---
 
-# Bottom screen themes - the order must match "Theme" in N3DSBottomScreen.cpp. The first one is the default (free);
-# the others can be bought with Play Coins in the game's "3DS" menu.
+# Bottom screen themes, each with its fixed number in "n3ds::shop::Theme" (N3DSShop.h); the game finds the artwork by the
+# theme's id. The first one is the default (free); the others can be bought with Play Coins in the game's "3DS" menu.
+# (Number 1 was "Sky Aero", removed; the number stays reserved so saved choices keep pointing at the right themes.)
 THEMES = [
 	{ 'id': 'blue',    'name': 'Blue Zig-Zag',    'style': 'zigzag', 'light': (34, 104, 214), 'dark': (12, 38, 122), 'shade': (0, 8, 40),   'save': (50, 175, 70), 'load': (30, 165, 235), 'outline': (20, 70, 140) },
-	{ 'id': 'aero',    'name': 'Sky Aero',        'style': 'aero',                                                                        'save': (110, 200, 40), 'load': (30, 105, 215), 'outline': (20, 70, 140) },
 	{ 'id': 'crimson', 'name': 'Crimson Zig-Zag', 'style': 'zigzag', 'light': (205, 45, 55),  'dark': (95, 12, 28),  'shade': (30, 0, 8),   'save': (230, 110, 20), 'load': (205, 45, 45), 'outline': (110, 15, 30) },
 	{ 'id': 'gold',    'name': 'Golden Zig-Zag',  'style': 'zigzag', 'light': (240, 170, 30), 'dark': (160, 80, 10), 'shade': (50, 20, 0),  'save': (235, 175, 25), 'load': (150, 160, 180), 'outline': (130, 60, 0) },
 	{ 'id': 'emerald', 'name': 'Emerald Zig-Zag', 'style': 'zigzag', 'light': (40, 175, 95),  'dark': (10, 85, 45),  'shade': (0, 30, 10),  'save': (190, 205, 30), 'load': (20, 150, 150), 'outline': (10, 90, 45) },
@@ -301,48 +301,6 @@ def zigzag_background(light, dark, shade_color):
 	return img
 
 
-def aero_background():
-	"""Frutiger Aero style like the loading screen: glossy sky, light rays, a green hill and bubbles."""
-	img = Image.new('RGBA', (W * S, H * S), (0, 0, 0, 255))
-	d = ImageDraw.Draw(img)
-	for y in range(H * S):
-		t = y / (H * S - 1)
-		d.line((0, y, W * S, y), fill=(int(20 + 120 * t), int(90 + 140 * t), int(200 + 50 * t), 255))
-
-	# Soft light rays from the top left
-	rays = new_layer()
-	rd = ImageDraw.Draw(rays)
-	origin = (-40 * S, -60 * S)
-	for i in range(6):
-		angle = math.radians(20 + i * 10)
-		spread = math.radians(2.2)
-		far = 700 * S
-		rd.polygon([origin, (origin[0] + far * math.cos(angle - spread), origin[1] + far * math.sin(angle - spread)),
-					(origin[0] + far * math.cos(angle + spread), origin[1] + far * math.sin(angle + spread))], fill=(255, 255, 255, 34))
-	img.alpha_composite(rays.filter(ImageFilter.GaussianBlur(6 * S)))
-
-	# Green glossy hill at the bottom
-	hill = new_layer()
-	hd = ImageDraw.Draw(hill)
-	hd.ellipse((-120 * S, 214 * S, 440 * S, 400 * S), fill=(70, 185, 40, 255))
-	hd.ellipse((-60 * S, 220 * S, 240 * S, 320 * S), fill=(110, 215, 60, 255))
-	img.alpha_composite(hill)
-
-	# Bubbles
-	rng = random.Random(7)
-	bubbles = new_layer()
-	bd = ImageDraw.Draw(bubbles)
-	for _ in range(14):
-		r = rng.randint(4, 12) * S
-		cx = rng.randint(0, W) * S
-		cy = rng.randint(30, 225) * S
-		bd.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 255, 255, 25), outline=(255, 255, 255, 120), width=S)
-		hr = max(S, r // 3)
-		bd.ellipse((cx - r // 2 - hr // 2, cy - r // 2 - hr // 2, cx - r // 2 + hr, cy - r // 2 + hr), fill=(255, 255, 255, 180))
-	img.alpha_composite(bubbles)
-	return img
-
-
 def night_background(light, dark, shade_color):
 	"""Deep indigo zig-zag stripes with twinkling stars."""
 	img = zigzag_background(light, dark, shade_color)
@@ -364,9 +322,7 @@ def night_background(light, dark, shade_color):
 def background():
 	key = THEME['id']
 	if key not in _background_cache:
-		if THEME['style'] == 'aero':
-			_background_cache[key] = aero_background()
-		elif THEME['style'] == 'night':
+		if THEME['style'] == 'night':
 			_background_cache[key] = night_background(THEME['light'], THEME['dark'], THEME['shade'])
 		else:
 			_background_cache[key] = zigzag_background(THEME['light'], THEME['dark'], THEME['shade'])
