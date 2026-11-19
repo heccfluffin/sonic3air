@@ -76,12 +76,15 @@ def main():
 	peak = max(abs(v) for v in buffer) or 1.0
 	samples = [int(max(-1.0, min(1.0, v / peak * PEAK)) * 32767) for v in buffer]
 
+	# The HOME Menu needs the banner sound in stereo (2 channels) and at most 3 seconds long, otherwise it plays
+	# beeping / clicking or nothing (see https://www.3dbrew.org/wiki/CBMD)
+	stereo = [v for v in samples for _ in range(2)]
 	with wave.open(output, "wb") as file:
-		file.setnchannels(1)
+		file.setnchannels(2)
 		file.setsampwidth(2)
 		file.setframerate(SAMPLE_RATE)
-		file.writeframes(struct.pack("<%dh" % len(samples), *samples))
-	print(f"Wrote {output}: {DURATION:.2f} s, {SAMPLE_RATE} Hz, 16-bit mono")
+		file.writeframes(struct.pack("<%dh" % len(stereo), *stereo))
+	print(f"Wrote {output}: {DURATION:.2f} s, {SAMPLE_RATE} Hz, 16-bit stereo")
 
 
 if __name__ == "__main__":
