@@ -31,6 +31,9 @@
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
 #include "oxygen/simulation/Simulation.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSShop.h"
+#endif
 
 #include <lemon/program/function/FunctionWrapper.h>
 #include <lemon/program/Module.h>
@@ -571,6 +574,8 @@ void Game::onUpdateControls()
 	}
 
 #if defined(PLATFORM_3DS)
+	updateStartingShield();
+
 	// 3DS: on the SEGA logo, intro and title screen (game mode 0x04), A works like Start, as Start is small and out of the way.
 	// Only while the title is actually running (not behind the A.I.R. menus), so A keeps its usual meaning everywhere else.
 	if (GameApp::hasInstance() && GameApp::instance().isOnTitleScreen() && EmulatorInterface::instance().readMemory8(0xfffff600) == 0x04)
@@ -988,6 +993,11 @@ void Game::allowRestartInGamePause(uint8 canRestart)
 void Game::onLevelStart()
 {
 	mRestartingTimeAttack = false;
+
+#if defined(PLATFORM_3DS)
+	if (isStartingShieldAllowed())
+		mStartingShieldState = StartingShieldState::PENDING;
+#endif
 }
 
 void Game::onZoneActCompleted(uint16 zoneAndAct)
@@ -1013,6 +1023,11 @@ uint16 Game::onFadedOutLoadingZone(uint16 zoneAndAct)
 
 bool Game::onCharacterDied(uint8 playerIndex)
 {
+#if defined(PLATFORM_3DS)
+	if (playerIndex == 0 && isStartingShieldAllowed())
+		mStartingShieldState = StartingShieldState::WAIT_FOR_RESTART;
+#endif
+
 	// Death in time attack means level restart
 	if (isInTimeAttackMode())
 	{
@@ -1026,6 +1041,77 @@ bool Game::onCharacterDied(uint8 playerIndex)
 	}
 	return true;
 }
+
+#if defined(PLATFORM_3DS)
+bool Game::isStartingShieldAllowed() const
+{
+	// Only in a normal game or Act Select (mode is "undefined" after loading a save state), not in Time Attack, Competition, Blue Sphere
+	if (mMode != Mode::NORMAL_GAME && mMode != Mode::ACT_SELECT && mMode != Mode::UNDEFINED)
+		return false;
+	const n3ds::shop::Data& shop = n3ds::shop::get();
+	return shop.mOwnsShield && shop.mSelectedShield != n3ds::shop::SHIELD_OFF;
+}
+
+void Game::updateStartingShield()
+{
+	if (mStartingShieldState == StartingShieldState::NONE)
+		return;
+	if (!isStartingShieldAllowed())
+	{
+		mStartingShieldState = StartingShieldState::NONE;
+		return;
+	}
+
+	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+	const uint8 gameMode = emulatorInterface.readMemory8(0xfffff600);
+	const bool levelRunning = (gameMode == 0x0c) && ((int8)emulatorInterface.readMemory8(0xfffff711) != 0);		// global.level_started
+	if (mStartingShieldState == StartingShieldState::WAIT_FOR_RESTART)
+	{
+		// Wait until the level gets reloaded after the death
+		if (!levelRunning)
+			mStartingShieldState = StartingShieldState::PENDING;
+		return;
+	}
+
+	// Wait until the level runs and the character is in its normal state (base state 0x02)
+	if (!levelRunning || emulatorInterface.readMemory8(0xffffb000 + 0x05) != 0x02)
+		return;
+	mStartingShieldState = StartingShieldState::NONE;
+
+	// Same rules as the game's own "RestoreShield": no shields in the outro, in special / bonus stages or in Competition Mode
+	const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
+	if (zoneAct == 0x0d01 || (zoneAct >> 8) >= 0x0e || emulatorInterface.readMemory8(0xfffffe48) != 0 || emulatorInterface.readMemory16(0xffffffe8) != 0)
+		return;
+
+	// Only if the character doesn't have a shield already (e.g. one kept from a checkpoint)
+	const uint32 bonusAddress = 0xffffb000 + 0x2b;
+	const uint8 bonus = emulatorInterface.readMemory8(bonusAddress);
+	if (bonus & 0x71)		// char.bonus.ALL_SHIELDS
+		return;
+
+	const int shield = n3ds::shop::get().mSelectedShield;
+	uint32 updateRoutine = 0;
+	switch (shield)
+	{
+		case n3ds::shop::SHIELD_FIRE:		updateRoutine = 0x0195a6;  break;	// FireShield.Init
+		case n3ds::shop::SHIELD_LIGHTNING:	updateRoutine = 0x0196c2;  break;	// LightningShield.Init
+		case n3ds::shop::SHIELD_BUBBLE:		updateRoutine = 0x0198be;  break;	// BubbleShield.Init
+		case n3ds::shop::SHIELD_CLASSIC:
+			// The classic shield needs the "Shield Types" setting to include it (like in the game's "RestoreShield")
+			if (getSetting(SharedDatabase::Setting::SETTING_SHIELD_TYPES, false) == 1)
+				return;
+			updateRoutine = 0x0194ce;	// InstaShield.Init, which also serves as the classic shield
+			break;
+		default:
+			return;
+	}
+
+	// Like the game's own "RestoreShield": set the flags and start the shield object in the shield slot
+	emulatorInterface.writeMemory8(bonusAddress, (uint8)((bonus & ~0x71) | 0x01 | n3ds::shop::getShieldFlags(shield)));
+	emulatorInterface.writeMemory32(0xffffcce8, updateRoutine);
+	emulatorInterface.writeMemory16(0xffffcce8 + 0x42, 0xb000);
+}
+#endif
 
 void Game::returnToMainMenu()
 {

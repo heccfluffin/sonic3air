@@ -35,6 +35,9 @@ namespace n3ds
 		Request update(bool saveStatesAllowed, int slot, bool slotHasState);
 		void showResult(Result result);
 
+		// Switches to another bottom screen theme (see n3ds::shop::Theme), also for previews in the "3DS" menu
+		void setTheme(int theme);
+
 		// Whether the bottom screen shows the profiler's statistics (otherwise the profiler only writes its log file)
 		bool isShowingStats();
 	}

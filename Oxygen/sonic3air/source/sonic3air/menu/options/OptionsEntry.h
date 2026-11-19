@@ -144,6 +144,8 @@ namespace option
 		//HCZ_WATERPIPE,		// Left out of options as it's just too minor
 		//LBZ_CUPELEVATOR,		// Left out of options as it's just too minor
 
+		SHOW_3DS_MENU,			// 3DS only: the "3DS" entry in the main menu
+
 		_CHECK_FOR_UPDATE,
 		RELEASE_CHANNEL,
 		_OPEN_FILE_BROWSER,

@@ -18,6 +18,9 @@
 #include "sonic3air/ConfigurationImpl.h"
 #include "sonic3air/Game.h"
 
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSShop.h"
+#endif
 #include "oxygen/application/Application.h"
 #include "oxygen/application/EngineMain.h"
 #include "oxygen/application/gameview/GameView.h"
@@ -110,6 +113,9 @@ OptionsMenu::OptionsMenu(MenuBackground& menuBackground) :
 		setupOptionEntryBool(option::GHOST_SYNC,				&config.mGameServerImpl.mGhostSync.mEnabled);
 		setupOptionEntryInt(option::GHOST_SYNC_RENDERING,		&config.mGameServerImpl.mGhostSync.mGhostRendering);
 		setupOptionEntryBool(option::SHOW_CONTROLS_DISPLAY,		&config.mShowControlsDisplay);
+	#if defined(PLATFORM_3DS)
+		setupOptionEntryBool(option::SHOW_3DS_MENU,				&n3ds::shop::get().mShowMenu);
+	#endif
 		setupOptionEntryInt(option::SCRIPT_OPTIMIZATION,		&config.mScriptOptimizationLevel);
 		setupOptionEntryBool(option::DEV_MODE,					&config.mDevMode.mEnableAtStartup);
 		setupOptionEntryInt(option::GAME_RECORDING_MODE,		&config.mGameRecorder.mRecordingMode);
@@ -1437,6 +1443,9 @@ void OptionsMenu::goBack()
 	// Save changes
 	ModManager::instance().copyModSettingsToConfig();
 	Configuration::instance().saveSettings();
+#if defined(PLATFORM_3DS)
+	n3ds::shop::save();		// For the "3DS Menu" option (only written if changed)
+#endif
 
 	// Apply script optimization level if it got changed
 	if (mOriginalScriptOptimizationLevel != Configuration::instance().mScriptOptimizationLevel)

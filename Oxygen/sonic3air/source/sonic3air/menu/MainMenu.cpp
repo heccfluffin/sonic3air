@@ -17,6 +17,9 @@
 #include "sonic3air/Game.h"
 #include "sonic3air/version.inc"
 
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSShop.h"
+#endif
 #include "oxygen/application/Application.h"
 #include "oxygen/application/EngineMain.h"
 #include "oxygen/application/gameview/GameView.h"
@@ -35,6 +38,7 @@ namespace mainmenu
 		OPTIONS		= 0x10,
 		EXTRAS		= 0x11,
 		MODS		= 0x12,
+		MENU_3DS	= 0x13,		// 3DS only: Play Coin shop
 		EXIT		= 0xff
 	};
 }
@@ -43,15 +47,28 @@ namespace mainmenu
 MainMenu::MainMenu(MenuBackground& menuBackground) :
 	mMenuBackground(&menuBackground)
 {
+	buildMenuEntries();
+}
+
+void MainMenu::buildMenuEntries()
+{
 	// Build up menu structure
 	{
-		mMenuEntries.reserve(6);
+		mMenuEntries.clear();
+		mMenuEntries.reserve(8);
 		mMenuEntries.addEntry("NORMAL GAME", mainmenu::NORMAL_GAME);
 		mMenuEntries.addEntry("ACT SELECT",  mainmenu::ACT_SELECT);
 		mMenuEntries.addEntry("TIME ATTACK", mainmenu::TIME_ATTACK);
 		mMenuEntries.addEntry("OPTIONS",	 mainmenu::OPTIONS);
 		mMenuEntries.addEntry("EXTRAS",		 mainmenu::EXTRAS);
 		mMenuEntries.addEntry("MODS",		 mainmenu::MODS);
+
+	#if defined(PLATFORM_3DS)
+		// Can be hidden in the options
+		mShowing3DSMenu = n3ds::shop::get().mShowMenu;
+		if (mShowing3DSMenu)
+			mMenuEntries.addEntry("3DS",	 mainmenu::MENU_3DS);
+	#endif
 
 	#if !defined(PLATFORM_ANDROID) && !defined(PLATFORM_IOS) && !defined(PLATFORM_WEB)
 		mMenuEntries.addEntry("EXIT",		 mainmenu::EXIT);
@@ -93,6 +110,21 @@ void MainMenu::setBaseState(BaseState baseState)
 void MainMenu::onFadeIn()
 {
 	mState = State::APPEAR;
+
+#if defined(PLATFORM_3DS)
+	// The "3DS" entry may have been switched on or off in the options
+	if (mShowing3DSMenu != n3ds::shop::get().mShowMenu)
+	{
+		const uint32 selectedData = mMenuEntries.selected().mData;
+		buildMenuEntries();
+		mMenuEntries.mSelectedEntryIndex = 0;
+		for (size_t i = 0; i < mMenuEntries.size(); ++i)
+		{
+			if (mMenuEntries[i].mData == selectedData)
+				mMenuEntries.mSelectedEntryIndex = (int)i;
+		}
+	}
+#endif
 
 	mMenuBackground->showPreview(false);
 	mMenuBackground->startTransition(MenuBackground::Target::SPLIT);
@@ -175,6 +207,12 @@ void MainMenu::update(float timeElapsed)
 						openMods();
 						break;
 
+				#if defined(PLATFORM_3DS)
+					case mainmenu::MENU_3DS:
+						open3DSMenu();
+						break;
+				#endif
+
 					case mainmenu::EXIT:
 						exitGame();
 						break;
@@ -242,8 +280,10 @@ void MainMenu::render()
 
 	Drawer& drawer = EngineMain::instance().getDrawer();
 
-	const int positionY[] = { 31, 58, 85,  125, 146, 167,  195 };
-	for (size_t line = 0; line < mMenuEntries.size(); ++line)
+	const int positionYDefault[] = { 31, 58, 85,  125, 146, 167,  195 };
+	const int positionYWith3DS[] = { 31, 58, 85,  125, 144, 163, 182,  206 };		// 3DS: one more entry
+	const int* positionY = (mMenuEntries.size() > 7) ? positionYWith3DS : positionYDefault;
+	for (size_t line = 0; line < mMenuEntries.size() && line < 8; ++line)
 	{
 		bool isMainEntry = (line < 3);
 
@@ -360,6 +400,15 @@ void MainMenu::openMods()
 	mMenuBackground->openMods();
 	mState = State::FADE_TO_SUBMENU;
 }
+
+#if defined(PLATFORM_3DS)
+void MainMenu::open3DSMenu()
+{
+	playMenuSound(0x63);
+	mMenuBackground->open3DSMenu();
+	mState = State::FADE_TO_SUBMENU;
+}
+#endif
 
 void MainMenu::exitGame()
 {

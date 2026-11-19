@@ -44,6 +44,7 @@ private:
 	};
 
 private:
+	void buildMenuEntries();
 	void triggerStartNormalGame();
 	void triggerStartActSelect();
 	void startNormalGame();
@@ -52,6 +53,9 @@ private:
 	void openOptions();
 	void openExtras();
 	void openMods();
+#if defined(PLATFORM_3DS)
+	void open3DSMenu();
+#endif
 	void exitGame();
 
 private:
@@ -59,4 +63,7 @@ private:
 	GameMenuEntries mMenuEntries;
 
 	State mState = State::INACTIVE;
+#if defined(PLATFORM_3DS)
+	bool mShowing3DSMenu = false;
+#endif
 };

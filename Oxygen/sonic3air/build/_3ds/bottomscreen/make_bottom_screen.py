@@ -4,11 +4,12 @@ Generates the 3DS bottom screen for the Sonic 3 A.I.R. 3DS port: a controls over
 save state: glossy buttons on a blue zig-zag stripe backdrop. All artwork is drawn from scratch here (no game art).
 
 Output, next to this script:
-  s3air_bottom_screen.bin          Embedded into the game by CMakeLists.txt (format below)
+  s3air_bottom_screen_<theme>.bin  One per theme (see THEMES), embedded into the game by CMakeLists.txt (format below)
   bottom_screen_preview.png  The screen as it looks by default
   bottom_screen_parts.png    All the parts that get swapped in at runtime (pressed / greyed-out buttons, status messages)
+  bottom_screen_themes.png   All themes side by side
 
-Format of s3air_bottom_screen.bin (zlib-compressed as a whole), all numbers little endian:
+Format of s3air_bottom_screen_<theme>.bin (zlib-compressed as a whole), all numbers little endian:
   4 bytes  "S3BS"
   u16      version (1)
   u16      number of parts
@@ -251,16 +252,22 @@ def glass_panel(img, box, radius=10, alpha=70):
 
 # --- Composition ---
 
-_background_cache = None
+# Bottom screen themes - the order must match "Theme" in N3DSBottomScreen.cpp. The first one is the default (free);
+# the others can be bought with Play Coins in the game's "3DS" menu.
+THEMES = [
+	{ 'id': 'blue',    'name': 'Blue Zig-Zag',    'style': 'zigzag', 'light': (34, 104, 214), 'dark': (12, 38, 122), 'shade': (0, 8, 40),   'save': (50, 175, 70), 'load': (30, 165, 235), 'outline': (20, 70, 140) },
+	{ 'id': 'aero',    'name': 'Sky Aero',        'style': 'aero',                                                                        'save': (110, 200, 40), 'load': (30, 105, 215), 'outline': (20, 70, 140) },
+	{ 'id': 'crimson', 'name': 'Crimson Zig-Zag', 'style': 'zigzag', 'light': (205, 45, 55),  'dark': (95, 12, 28),  'shade': (30, 0, 8),   'save': (230, 110, 20), 'load': (205, 45, 45), 'outline': (110, 15, 30) },
+	{ 'id': 'gold',    'name': 'Golden Zig-Zag',  'style': 'zigzag', 'light': (240, 170, 30), 'dark': (160, 80, 10), 'shade': (50, 20, 0),  'save': (235, 175, 25), 'load': (150, 160, 180), 'outline': (130, 60, 0) },
+	{ 'id': 'emerald', 'name': 'Emerald Zig-Zag', 'style': 'zigzag', 'light': (40, 175, 95),  'dark': (10, 85, 45),  'shade': (0, 30, 10),  'save': (190, 205, 30), 'load': (20, 150, 150), 'outline': (10, 90, 45) },
+	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
+]
+THEME = THEMES[0]		# The theme being generated
+_background_cache = {}
 
 
-def background():
-	"""Zig-zag stripes in blue and dark blue, like a handheld game's menu backdrop."""
-	global _background_cache
-	if _background_cache is not None:
-		return _background_cache.copy()
-
-	light, dark = (34, 104, 214), (12, 38, 122)
+def zigzag_background(light, dark, shade_color):
+	"""Zig-zag stripes in a light and a dark tone, like a handheld game's menu backdrop."""
 	stripe = 16				# Height of each stripe, in screen pixels
 	half_period = 16		# Horizontal distance between a zig and a zag
 	amplitude = 6			# How far the zig-zag goes up and down
@@ -289,15 +296,83 @@ def background():
 	for y in range(H * S):
 		t = y / (H * S - 1)
 		alpha = int(110 * (abs(t - 0.45) / 0.55) ** 1.5)
-		sd.line((0, y, W * S, y), fill=(0, 8, 40, alpha))
+		sd.line((0, y, W * S, y), fill=shade_color + (alpha,))
 	img.alpha_composite(shade)
-
-	_background_cache = img
-	return img.copy()
+	return img
 
 
-SAVE_COLOR = (50, 175, 70)
-LOAD_COLOR = (30, 165, 235)
+def aero_background():
+	"""Frutiger Aero style like the loading screen: glossy sky, light rays, a green hill and bubbles."""
+	img = Image.new('RGBA', (W * S, H * S), (0, 0, 0, 255))
+	d = ImageDraw.Draw(img)
+	for y in range(H * S):
+		t = y / (H * S - 1)
+		d.line((0, y, W * S, y), fill=(int(20 + 120 * t), int(90 + 140 * t), int(200 + 50 * t), 255))
+
+	# Soft light rays from the top left
+	rays = new_layer()
+	rd = ImageDraw.Draw(rays)
+	origin = (-40 * S, -60 * S)
+	for i in range(6):
+		angle = math.radians(20 + i * 10)
+		spread = math.radians(2.2)
+		far = 700 * S
+		rd.polygon([origin, (origin[0] + far * math.cos(angle - spread), origin[1] + far * math.sin(angle - spread)),
+					(origin[0] + far * math.cos(angle + spread), origin[1] + far * math.sin(angle + spread))], fill=(255, 255, 255, 34))
+	img.alpha_composite(rays.filter(ImageFilter.GaussianBlur(6 * S)))
+
+	# Green glossy hill at the bottom
+	hill = new_layer()
+	hd = ImageDraw.Draw(hill)
+	hd.ellipse((-120 * S, 214 * S, 440 * S, 400 * S), fill=(70, 185, 40, 255))
+	hd.ellipse((-60 * S, 220 * S, 240 * S, 320 * S), fill=(110, 215, 60, 255))
+	img.alpha_composite(hill)
+
+	# Bubbles
+	rng = random.Random(7)
+	bubbles = new_layer()
+	bd = ImageDraw.Draw(bubbles)
+	for _ in range(14):
+		r = rng.randint(4, 12) * S
+		cx = rng.randint(0, W) * S
+		cy = rng.randint(30, 225) * S
+		bd.ellipse((cx - r, cy - r, cx + r, cy + r), fill=(255, 255, 255, 25), outline=(255, 255, 255, 120), width=S)
+		hr = max(S, r // 3)
+		bd.ellipse((cx - r // 2 - hr // 2, cy - r // 2 - hr // 2, cx - r // 2 + hr, cy - r // 2 + hr), fill=(255, 255, 255, 180))
+	img.alpha_composite(bubbles)
+	return img
+
+
+def night_background(light, dark, shade_color):
+	"""Deep indigo zig-zag stripes with twinkling stars."""
+	img = zigzag_background(light, dark, shade_color)
+	rng = random.Random(11)
+	stars = new_layer()
+	sd = ImageDraw.Draw(stars)
+	for _ in range(40):
+		x, y = rng.randint(0, W) * S, rng.randint(0, H) * S
+		r = rng.choice([1, 1, 1, 2]) * S * 0.6
+		sd.ellipse((x - r, y - r, x + r, y + r), fill=(255, 250, 220, rng.randint(150, 255)))
+	for _ in range(7):		# A few bigger four-pointed sparkles
+		x, y = rng.randint(0, W) * S, rng.randint(0, H) * S
+		a, b = rng.randint(4, 7) * S, S * 0.9
+		sd.polygon([(x, y - a), (x + b, y - b), (x + a, y), (x + b, y + b), (x, y + a), (x - b, y + b), (x - a, y), (x - b, y - b)], fill=(255, 245, 200, 230))
+	img.alpha_composite(stars.filter(ImageFilter.GaussianBlur(0.4 * S)))
+	return img
+
+
+def background():
+	key = THEME['id']
+	if key not in _background_cache:
+		if THEME['style'] == 'aero':
+			_background_cache[key] = aero_background()
+		elif THEME['style'] == 'night':
+			_background_cache[key] = night_background(THEME['light'], THEME['dark'], THEME['shade'])
+		else:
+			_background_cache[key] = zigzag_background(THEME['light'], THEME['dark'], THEME['shade'])
+	return _background_cache[key].copy()
+
+
 STATS_COLOR = (95, 105, 130)
 
 
@@ -323,10 +398,10 @@ def status_text(img, lines):
 	cy = (STATUS_BOX[1] + STATUS_BOX[3]) / 2
 	first, second = lines
 	if second:
-		text(img, (cx, cy - 6), first, 9, (255, 255, 255), (20, 70, 140), anchor='mm')
-		text(img, (cx, cy + 7), second, 9, (255, 255, 255), (20, 70, 140), anchor='mm')
+		text(img, (cx, cy - 6), first, 9, (255, 255, 255), THEME['outline'], anchor='mm')
+		text(img, (cx, cy + 7), second, 9, (255, 255, 255), THEME['outline'], anchor='mm')
 	else:
-		text(img, (cx, cy + 0.5), first, 10, (255, 255, 255), (20, 70, 140), anchor='mm')
+		text(img, (cx, cy + 0.5), first, 10, (255, 255, 255), THEME['outline'], anchor='mm')
 
 
 def build(save='normal', load='normal', stats='normal', status=0):
@@ -334,14 +409,14 @@ def build(save='normal', load='normal', stats='normal', status=0):
 
 	# Header: title on a glass bar, and the STATS button on the right
 	glass_panel(img, (6, 4, 314, 30), radius=9, alpha=60)
-	text(img, (16, 17.5), 'CONTROLS', 14, (255, 255, 255), (20, 70, 140), width=1.4)
+	text(img, (16, 17.5), 'CONTROLS', 14, (255, 255, 255), THEME['outline'], width=1.4)
 	stats_button(img, stats)
 
 	# Controls list on a glass panel: icons on the left, action on the right
 	glass_panel(img, (6, 38, 198, 232), radius=10, alpha=55)
 	label_x = 108
 	rows_y = [55, 86, 117, 148, 179, 210]
-	label = lambda y, s: text(img, (label_x, y), s, 12, (255, 255, 255), (20, 70, 140), width=1.2)
+	label = lambda y, s: text(img, (label_x, y), s, 12, (255, 255, 255), THEME['outline'], width=1.2)
 
 	y = rows_y[0]
 	circle_pad(img, 30, y, 11)
@@ -355,7 +430,7 @@ def build(save='normal', load='normal', stats='normal', status=0):
 
 	y = rows_y[2]
 	dpad(img, 28, y, 22, highlight='down')
-	text(img, (49, y), '+', 13, (255, 255, 255), (20, 70, 140), anchor='mm')
+	text(img, (49, y), '+', 13, (255, 255, 255), THEME['outline'], anchor='mm')
 	face_button(img, 70, y, 10, (225, 38, 46), 'A', 10)
 	label(y, 'SPIN DASH')
 
@@ -369,14 +444,14 @@ def build(save='normal', load='normal', stats='normal', status=0):
 
 	y = rows_y[5]
 	face_button(img, 22, y, 10, (225, 38, 46), 'A', 10)
-	text(img, (35, y), 'OK', 8, (255, 255, 255), (20, 70, 140))
+	text(img, (35, y), 'OK', 8, (255, 255, 255), THEME['outline'])
 	face_button(img, 64, y, 10, (240, 185, 20), 'B', 10)
-	text(img, (77, y), 'BACK', 8, (255, 255, 255), (20, 70, 140))
+	text(img, (77, y), 'BACK', 8, (255, 255, 255), THEME['outline'])
 	label(y, 'MENUS')
 
 	# Save state touch buttons and the status message below them
-	big_button(img, SAVE_BOX, SAVE_COLOR, 'SAVE', save)
-	big_button(img, LOAD_BOX, LOAD_COLOR, 'LOAD', load)
+	big_button(img, SAVE_BOX, THEME['save'], 'SAVE', save)
+	big_button(img, LOAD_BOX, THEME['load'], 'LOAD', load)
 	glass_panel(img, STATUS_BOX, radius=9, alpha=60)
 	status_text(img, STATUS_MESSAGES[status])
 
@@ -405,7 +480,7 @@ def to_rgb565(img, box):
 	return bytes(out)
 
 
-def main():
+def build_theme():
 	base = build(status=0)		# What the screen looks like before the game is running
 
 	# Parts that get swapped in at runtime - order must match "Part" in N3DSBottomScreen.cpp
@@ -434,8 +509,10 @@ def main():
 		table += struct.pack('<HHHHI', box[0], box[1], box[2] - box[0], box[3] - box[1], data_offset + len(pixels))
 		pixels += to_rgb565(img, box)
 	raw = bytes(header + table + pixels)
-	with open(os.path.join(HERE, 's3air_bottom_screen.bin'), 'wb') as f:
+	with open(os.path.join(HERE, f"s3air_bottom_screen_{THEME['id']}.bin"), 'wb') as f:
 		f.write(zlib.compress(raw, 9))
+	if THEME is not THEMES[0]:
+		return base
 
 	base.save(os.path.join(HERE, 'bottom_screen_preview.png'))
 
@@ -451,7 +528,27 @@ def main():
 		sheet.paste(crop, (x, y))
 		x += crop.width + 4
 	sheet.save(os.path.join(HERE, 'bottom_screen_parts.png'))
-	print(f'Wrote s3air_bottom_screen.bin ({len(raw)} bytes uncompressed), bottom_screen_preview.png and bottom_screen_parts.png')
+	return base
+
+
+def main():
+	global THEME
+	previews = []
+	for theme in THEMES:
+		THEME = theme
+		previews.append(build_theme())
+		print(f"Wrote s3air_bottom_screen_{theme['id']}.bin")
+
+	# All themes side by side
+	sheet = Image.new('RGB', (2 * W + 12, 3 * (H + 22) + 4), (30, 30, 30))
+	d = ImageDraw.Draw(sheet)
+	label_font = ImageFont.truetype(FONT_CANDIDATES[0], 13) if os.path.exists(FONT_CANDIDATES[0]) else None
+	for i, (theme, img) in enumerate(zip(THEMES, previews)):
+		x, y = 4 + (i % 2) * (W + 4), 4 + (i // 2) * (H + 22)
+		d.text((x, y), theme['name'], fill=(255, 255, 255), font=label_font)
+		sheet.paste(img, (x, y + 18))
+	sheet.save(os.path.join(HERE, 'bottom_screen_themes.png'))
+	print('Wrote bottom_screen_preview.png, bottom_screen_parts.png and bottom_screen_themes.png')
 
 
 if __name__ == '__main__':

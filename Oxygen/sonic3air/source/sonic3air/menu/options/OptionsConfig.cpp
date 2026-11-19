@@ -110,6 +110,15 @@ void OptionsConfig::buildSystem()
 	}
 #endif
 
+#if defined(PLATFORM_3DS)
+	CATEGORY("3DS")
+	{
+		configBuilder.addSetting("3DS Menu", option::SHOW_3DS_MENU)
+			.addOption("Hidden", 0)
+			.addOption("Shown", 1);
+	}
+#endif
+
 	CATEGORY("Debugging")
 	{
 		configBuilder.addSetting("Script Optimization", option::SCRIPT_OPTIMIZATION)

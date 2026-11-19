@@ -9,6 +9,9 @@
 #include "sonic3air/pch.h"
 #include "sonic3air/menu/MenuBackground.h"
 #include "sonic3air/menu/ExtrasMenu.h"
+#if defined(PLATFORM_3DS)
+	#include "sonic3air/menu/N3DSMenu.h"
+#endif
 #include "sonic3air/menu/GameApp.h"
 #include "sonic3air/menu/GameMenuManager.h"
 #include "sonic3air/menu/MainMenu.h"
@@ -89,6 +92,9 @@ MenuBackground::MenuBackground()
 	detail::createGameMenuInstance(mTimeAttackMenu,	mAllChildren, *this);
 	detail::createGameMenuInstance(mOptionsMenu,	mAllChildren, *this);
 	detail::createGameMenuInstance(mExtrasMenu,		mAllChildren, *this);
+#if defined(PLATFORM_3DS)
+	detail::createGameMenuInstance(m3DSMenu,		mAllChildren, *this);
+#endif
 	detail::createGameMenuInstance(mModsMenu,		mAllChildren, *this);
 }
 
@@ -412,6 +418,13 @@ void MenuBackground::openExtras()
 {
 	openMenu(*mExtrasMenu);
 }
+
+#if defined(PLATFORM_3DS)
+void MenuBackground::open3DSMenu()
+{
+	openMenu(*m3DSMenu);
+}
+#endif
 
 void MenuBackground::openMods()
 {

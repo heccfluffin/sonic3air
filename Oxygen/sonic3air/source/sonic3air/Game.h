@@ -138,6 +138,19 @@ private:
 
 	BlueSpheresRendering mBlueSpheresRendering;
 	PlayerProgress mPlayerProgress;
+
+#if defined(PLATFORM_3DS)
+	// Starting shield bought in the "3DS" menu: given at the start of each act and after losing a life
+	enum class StartingShieldState
+	{
+		NONE,				// Nothing to do
+		WAIT_FOR_RESTART,	// The character died: wait until the level restarts
+		PENDING				// Give the shield as soon as the character can get it
+	};
+	StartingShieldState mStartingShieldState = StartingShieldState::NONE;
+	bool isStartingShieldAllowed() const;
+	void updateStartingShield();
+#endif
 	PlayerRecorder mPlayerRecorder;
 	GameClient mGameClient;
 	CrowdControlClient mCrowdControlClient;

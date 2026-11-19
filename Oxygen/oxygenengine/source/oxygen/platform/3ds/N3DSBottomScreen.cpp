@@ -20,7 +20,15 @@
 #include <string.h>
 #include <zlib.h>
 
-#include "s3air_bottom_screen_bin.h"	// The artwork, see build/_3ds/bottomscreen/make_bottom_screen.py
+#include "oxygen/platform/3ds/N3DSShop.h"
+
+// The artwork, one per theme, see build/_3ds/bottomscreen/make_bottom_screen.py
+#include "s3air_bottom_screen_blue_bin.h"
+#include "s3air_bottom_screen_aero_bin.h"
+#include "s3air_bottom_screen_crimson_bin.h"
+#include "s3air_bottom_screen_gold_bin.h"
+#include "s3air_bottom_screen_emerald_bin.h"
+#include "s3air_bottom_screen_night_bin.h"
 
 
 namespace n3ds
@@ -114,7 +122,23 @@ namespace n3ds
 			uint16 readU16(const uint8* ptr)	{ return (uint16)(ptr[0] | (ptr[1] << 8)); }
 			uint32 readU32(const uint8* ptr)	{ return (uint32)(ptr[0] | (ptr[1] << 8) | (ptr[2] << 16) | ((uint32)ptr[3] << 24)); }
 
-			bool loadArtwork()
+			struct ThemeData
+			{
+				const uint8* mCompressed;
+				const uint32 mCompressedSize;
+			};
+			const ThemeData THEMES[n3ds::shop::_NUM_THEMES] =
+			{
+				{ s3air_bottom_screen_blue_bin,    s3air_bottom_screen_blue_bin_size },
+				{ s3air_bottom_screen_aero_bin,    s3air_bottom_screen_aero_bin_size },
+				{ s3air_bottom_screen_crimson_bin, s3air_bottom_screen_crimson_bin_size },
+				{ s3air_bottom_screen_gold_bin,    s3air_bottom_screen_gold_bin_size },
+				{ s3air_bottom_screen_emerald_bin, s3air_bottom_screen_emerald_bin_size },
+				{ s3air_bottom_screen_night_bin,   s3air_bottom_screen_night_bin_size },
+			};
+			int gTheme = -1;		// Theme currently unpacked into "gData"
+
+			bool loadArtworkInternal(int theme)
 			{
 				// The uncompressed size isn't stored, but it's known: the full screen plus all parts, see make_bottom_screen.py
 				const uLongf maxSize = 1024 * 1024;		// Gets shrunk to the actual size afterwards
@@ -122,7 +146,7 @@ namespace n3ds
 				if (nullptr == gData)
 					return false;
 				uLongf size = maxSize;
-				if (uncompress(gData, &size, s3air_bottom_screen_bin, s3air_bottom_screen_bin_size) != Z_OK || size < 8 || memcmp(gData, "S3BS", 4) != 0)
+				if (uncompress(gData, &size, THEMES[theme].mCompressed, THEMES[theme].mCompressedSize) != Z_OK || size < 8 || memcmp(gData, "S3BS", 4) != 0)
 					return false;
 				if (readU16(&gData[4]) != 1 || readU16(&gData[6]) != _NUM_PARTS || size < 8 + 12 * _NUM_PARTS)
 					return false;
@@ -143,6 +167,35 @@ namespace n3ds
 						return false;
 					part.mPixels = &gData[offset];
 				}
+				return true;
+			}
+
+			// Unpacks the artwork of a theme (only one is kept in memory). Falls back to the default theme if that fails.
+			bool loadArtwork(int theme)
+			{
+				if (theme < 0 || theme >= n3ds::shop::_NUM_THEMES)
+					theme = n3ds::shop::THEME_BLUE;
+				if (theme == gTheme && nullptr != gData)
+					return true;
+
+				free(gData);
+				gData = nullptr;
+				gTheme = -1;
+				if (!loadArtworkInternal(theme))
+				{
+					RMX_LOG_INFO("Bottom screen: could not unpack the artwork of theme " << theme);
+					free(gData);
+					gData = nullptr;
+					if (theme == n3ds::shop::THEME_BLUE || !loadArtworkInternal(n3ds::shop::THEME_BLUE))
+					{
+						free(gData);
+						gData = nullptr;
+						return false;
+					}
+					theme = n3ds::shop::THEME_BLUE;
+				}
+				gTheme = theme;
+				gNeedsFullRedraw = true;
 				return true;
 			}
 
@@ -265,13 +318,7 @@ namespace n3ds
 			void initialize()
 			{
 				gInitialized = true;
-				gDataValid = loadArtwork();
-				if (!gDataValid)
-				{
-					RMX_LOG_INFO("Bottom screen: could not unpack the artwork");
-					free(gData);
-					gData = nullptr;
-				}
+				gDataValid = loadArtwork(n3ds::shop::get().mSelectedTheme);
 
 			#if defined(N3DS_PROFILER)
 				FILE* file = fopen(STATS_SETTING_FILE, "r");
@@ -404,6 +451,13 @@ namespace n3ds
 				case Result::NO_STATE:	setStatusMessage(PART_STATUS_NO_STATE, true);	break;
 				case Result::FAILED:	setStatusMessage(PART_STATUS_FAILED, true);		break;
 			}
+		}
+
+		void setTheme(int theme)
+		{
+			if (!gInitialized)
+				return;		// Gets loaded on initialization anyway
+			gDataValid = loadArtwork(theme);
 		}
 
 		bool isShowingStats()

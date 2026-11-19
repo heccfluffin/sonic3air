@@ -17,6 +17,7 @@ class ActSelectMenu;
 class TimeAttackMenu;
 class OptionsMenu;
 class ExtrasMenu;
+class N3DSMenu;
 class ModsMenu;
 
 
@@ -50,6 +51,9 @@ public:
 	void openTimeAttackMenu();
 	void openOptions(bool enteredInGame = false);
 	void openExtras();
+#if defined(PLATFORM_3DS)
+	void open3DSMenu();
+#endif
 	void openMods();
 
 	void openGameStartedMenu();
@@ -86,6 +90,9 @@ private:
 	TimeAttackMenu* mTimeAttackMenu = nullptr;
 	OptionsMenu* mOptionsMenu = nullptr;
 	ExtrasMenu* mExtrasMenu = nullptr;
+#if defined(PLATFORM_3DS)
+	N3DSMenu* m3DSMenu = nullptr;
+#endif
 	ModsMenu* mModsMenu = nullptr;
 
 	GameMenuBase* mLastOpenedMenu = nullptr;
