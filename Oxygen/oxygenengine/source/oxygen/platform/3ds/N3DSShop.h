@@ -30,6 +30,8 @@ namespace n3ds
 			THEME_SEA,
 			THEME_BLOCKS,
 			THEME_CITY,
+			THEME_AURORA,
+			THEME_SUNSET,
 			_NUM_THEMES
 		};
 

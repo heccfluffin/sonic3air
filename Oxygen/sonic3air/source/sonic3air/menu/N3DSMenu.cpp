@@ -64,6 +64,8 @@ namespace
 		{ "Deep Sea",		 "A shimmering surface, rising bubbles and the seabed below.",	40, rgb(60, 130, 245),  rgb(10, 18, 70),   rgb(30, 190, 170), rgb(60, 120, 255) },
 		{ "Lavender Blocks", "Raised lavender blocks with framed panels.",				40, rgb(236, 236, 252), rgb(150, 148, 214), rgb(80, 170, 120), rgb(120, 110, 210) },
 		{ "Sky City",		 "Puffy clouds over a skyline of blue towers.",				40, rgb(130, 200, 250), rgb(30, 80, 180),  rgb(60, 175, 50),  rgb(40, 110, 220) },
+		{ "Aurora",		 "A soft blend of teal, blue and purple under glass.",			30, rgb(110, 200, 230), rgb(90, 60, 150),  rgb(60, 180, 110), rgb(110, 120, 230) },
+		{ "Sunset Glow",	 "Warm orange fading into pink and purple.",					30, rgb(255, 180, 90),  rgb(130, 60, 140), rgb(240, 150, 40), rgb(180, 80, 170) },
 	};
 
 	struct SecretInfo

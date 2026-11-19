@@ -33,8 +33,10 @@ THEMES = [
 	('sea',     7, (60, 130, 245),  (10, 18, 70)),
 	('blocks',  8, (236, 236, 252), (150, 148, 214)),
 	('city',    9, (130, 200, 250), (30, 80, 180)),
+	('aurora', 10, (110, 200, 230), (90, 60, 150)),
+	('sunset', 11, (255, 180, 90),  (130, 60, 140)),
 ]
-NUM_THEME_NUMBERS = 10
+NUM_THEME_NUMBERS = 12
 
 
 def new_icon(fill):
@@ -230,6 +232,24 @@ def icon_city():
 	return img
 
 
+def icon_gradient():
+	"""A smooth diagonal blend between the two colors (ordered dithering), with a little glass panel."""
+	img, d = new_icon(DARK)
+	px = img.load()
+	bayer = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
+	for y in range(H):
+		for x in range(W):
+			t = 1.0 - (x / (W - 1) * 0.6 + y / (H - 1) * 0.4)		# Light at the top left
+			if t * 16 > bayer[y & 3][x & 3] + 0.5:
+				px[x, y] = LIGHT
+	# Glass panel: light outline with a light top edge band
+	d.rectangle((14, 12, 49, 35), outline=LIGHT)
+	d.line((16, 14, 47, 14), fill=LIGHT)
+	d.line((16, 15, 47, 15), fill=DARK)
+	frame(img)
+	return img
+
+
 ICONS = {
 	'blue': lambda: icon_zigzag(),
 	'crimson': lambda: icon_zigzag(emblem_flame),
@@ -240,6 +260,8 @@ ICONS = {
 	'sea': icon_sea,
 	'blocks': icon_blocks,
 	'city': icon_city,
+	'aurora': icon_gradient,
+	'sunset': icon_gradient,
 }
 
 

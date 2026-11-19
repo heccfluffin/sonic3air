@@ -348,6 +348,10 @@ THEMES = [
 	  'save': (80, 170, 120), 'load': (120, 110, 210), 'outline': (70, 60, 150) },
 	{ 'id': 'city',    'name': 'Sky City',        'style': 'city', 'light': (96, 172, 236), 'dark': (30, 80, 180),
 	  'save': (60, 175, 50), 'load': (40, 110, 220), 'outline': (20, 60, 130) },
+	{ 'id': 'aurora',  'name': 'Aurora',          'style': 'gradient', 'corners': ((40, 150, 215), (150, 110, 210), (60, 130, 90), (120, 70, 150)),
+	  'light': (120, 150, 215), 'dark': (60, 70, 140), 'save': (60, 180, 110), 'load': (110, 120, 230), 'outline': (40, 40, 110) },
+	{ 'id': 'sunset',  'name': 'Sunset Glow',     'style': 'gradient', 'corners': ((255, 170, 80), (240, 110, 120), (200, 90, 140), (110, 60, 150)),
+	  'light': (250, 160, 110), 'dark': (140, 70, 140), 'save': (240, 150, 40), 'load': (180, 80, 170), 'outline': (110, 40, 80) },
 	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
 ]
 THEME = THEMES[0]		# The theme being generated
@@ -540,18 +544,39 @@ def city_background():
 	px = img.load()
 	horizon, ground = 116, 150
 
-	# Clouds: white puffs with a light blue underside
-	for _ in range(16):
-		cx, cy = rng.randint(-10, W + 10), rng.randint(6, 80)
-		w = rng.randint(14, 30)
-		for k in range(3):
+	# Clouds in a 16-bit style: rounded puffs on a flat bottom, white on top with light blue bands along the bottom
+	def cloud(cx, cy, w):
+		mask = Image.new('L', (W, H), 0)
+		md = ImageDraw.Draw(mask)
+		puffs = max(2, w // 9)
+		for k in range(puffs):
 			r = rng.randint(4, 7)
-			x = cx - w // 2 + k * w // 3
-			d.ellipse((x - r, cy - r + 1, x + r, cy + r + 1), fill=(178, 214, 246, 255))
-		for k in range(3):
-			r = rng.randint(4, 6)
-			x = cx - w // 2 + k * w // 3
-			d.ellipse((x - r, cy - r - 1, x + r, cy + r - 1), fill=(250, 252, 255, 255))
+			x = cx - w // 2 + int((k + 0.5) * w / puffs)
+			md.ellipse((x - r, cy - r - rng.randint(0, 3), x + r, cy + r), fill=255)
+		md.rectangle((cx - w // 2, cy - 2, cx + w // 2, cy + 3), fill=255)
+		mp = mask.load()
+		for yy in range(max(0, cy - 14), min(H, cy + 4)):		# Flat bottom: nothing below cy + 3
+			band = (255, 255, 255) if yy < cy - 1 else ((226, 238, 252) if yy < cy + 2 else (196, 222, 248))
+			for xx in range(max(0, cx - w // 2 - 8), min(W, cx + w // 2 + 8)):
+				if mp[xx, yy]:
+					px[xx, yy] = band + (255,)
+
+	# Place whole clouds: inside the screen, above the tower tops (the towers reach up to about 60 pixels above the
+	# horizon), and not overlapping each other
+	placed = []
+	tries = 0
+	while len(placed) < 7 and tries < 400:
+		tries += 1
+		w = rng.randint(24, 46)
+		cx, cy = rng.randint(w // 2 + 10, W - w // 2 - 10), rng.randint(16, horizon - 66)
+		if all(abs(cx - px_) > (w + pw) // 2 + 8 or abs(cy - py_) > 16 for px_, py_, pw in placed):
+			placed.append((cx, cy, w))
+	for (cx, cy, w) in placed:
+		cloud(cx, cy, w)
+	for _ in range(6):		# Thin streaks of cloud
+		sx, sy, sw = rng.randint(0, W), rng.randint(20, 90), rng.randint(10, 26)
+		d.line((sx, sy, sx + sw, sy), fill=(236, 244, 253, 255))
+		d.line((sx + 3, sy + 1, sx + sw - 4, sy + 1), fill=(200, 224, 248, 255))
 
 	blues = [(14, 40, 120), (30, 80, 180), (60, 130, 220), (130, 190, 245)]		# Dark to light
 	# Ring lattice behind the towers: rows of octagon outlines
@@ -590,42 +615,75 @@ def city_background():
 			d.line((ax, top - rng.randint(5, 10), ax, top), fill=blues[0] + (255,))
 		x += w + rng.randint(-3, 4)
 
-	# Ground: rows of rounded bush clumps in a 16-bit sprite style (dark outline, mid body, light highlights on top),
-	# drawn from the back to the front so each row overlaps the one behind; stone blocks set neatly between the rows
-	outline_green, body_green, light_green, shine_green = (16, 70, 16), (52, 140, 28), (100, 190, 44), (160, 225, 90)
-	d.rectangle((0, horizon, W, H), fill=outline_green + (255,))
-
-	def stone_block(bx, by):
-		bw, bh = 28, 8
-		d.rectangle((bx, by, bx + bw, by + bh), fill=(150, 156, 172, 255))
-		d.line((bx, by, bx + bw, by), fill=(206, 210, 222, 255))							# Light top edge
-		d.line((bx, by, bx, by + bh), fill=(186, 190, 204, 255))
-		d.line((bx, by + bh, bx + bw, by + bh), fill=(70, 74, 92, 255))					# Dark bottom / right edge
-		d.line((bx + bw, by, bx + bw, by + bh), fill=(70, 74, 92, 255))
-		for k in range(bx + 7, bx + bw - 1, 7):												# Panel lines
-			d.line((k, by + 2, k, by + bh - 2), fill=(108, 112, 128, 255))
-			d.point((k + 1, by + 2), fill=(196, 200, 212, 255))
-
-	row_height = 12
+	# Ground: rows of bush clumps in a 16-bit sprite style (dark outline, body, lit top, shine), drawn back to front so each
+	# row overlaps the one behind. Back rows are darker and bluer (depth); each clump is a few puffs of different sizes.
+	# Stone blocks lie between the rows, shaded like the bushes, with shadow below and some leaves hanging over them.
+	d.rectangle((0, horizon, W, H), fill=(16, 64, 24, 255))
 	clump_rng = random.Random(3)
-	for row, base in enumerate(range(horizon - 2, H + row_height, row_height)):
-		offset = (row % 2) * 8
-		for cx in range(-12 + offset, W + 12, 16):
-			radius = clump_rng.choice((8, 9, 9, 10, 11))		# Some variety, like hand-placed clumps
-			cx += clump_rng.randint(-2, 2)
-			top = base - radius + clump_rng.randint(-1, 1)
-			d.ellipse((cx - radius - 1, top - 1, cx + radius + 1, top + 2 * radius + 1), fill=outline_green + (255,))	# Outline
-			d.ellipse((cx - radius, top, cx + radius, top + 2 * radius), fill=body_green + (255,))
-			d.ellipse((cx - radius + 2, top + 1, cx + radius - 4, top + radius - 1), fill=light_green + (255,))		# Lit upper part
-			d.ellipse((cx - radius + 4, top + 2, cx - 1, top + 5), fill=shine_green + (255,))					# Shine
-			for (lx, ly) in ((cx + 3, base - 2), (cx - 4, base + 1), (cx + 6, base + 3)):					# Leaf shadows
-				d.point((lx, ly), fill=outline_green + (255,))
-		# Stone blocks on every second row: a regular pattern with alternating offset, sitting on top of this row; the next
-		# row (drawn after) covers their lower edge, so they look set into the bushes
-		if row % 2 == 1:
-			for bx in range(-14 + (row // 2 % 2) * 40, W, 80):
-				stone_block(bx, base - 6)
+
+	def green_set(depth):
+		# depth 0 = front; further back = darker and a little bluer
+		k = min(1.0, depth * 0.12)
+		shade = lambda c: tuple(int(c[i] * (1 - 0.35 * k) + (0, 20, 60)[i] * 0.35 * k) for i in range(3))
+		return [shade(c) for c in ((14, 64, 18), (48, 132, 30), (92, 182, 44), (150, 220, 86))]
+
+	def bush_clump(cx, base, greens, size):
+		outline, body, lit, shine = greens
+		puffs = [(cx + clump_rng.randint(-size // 2, size // 2), base - clump_rng.randint(0, size // 2), clump_rng.randint(size - 2, size + 2))
+				 for _ in range(clump_rng.randint(2, 4))]
+		for (x, y, r) in puffs:
+			d.ellipse((x - r - 1, y - r - 1, x + r + 1, y + r + 1), fill=outline + (255,))
+		for (x, y, r) in puffs:
+			d.ellipse((x - r, y - r, x + r, y + r), fill=body + (255,))
+		for (x, y, r) in puffs:
+			d.ellipse((x - r + 2, y - r + 1, x + r - 3, y - 1), fill=lit + (255,))
+			if clump_rng.random() < 0.8:
+				d.ellipse((x - r + 3, y - r + 2, x - r + 3 + max(2, r // 2), y - r + 4), fill=shine + (255,))
+			for _ in range(3):		# Leaf shadows
+				d.point((x + clump_rng.randint(-r + 2, r - 2), y + clump_rng.randint(0, r - 2)), fill=outline + (255,))
+
+	def stone_block(bx, by, greens):
+		bw, bh = 26, 7
+		d.rectangle((bx + 1, by + bh + 1, bx + bw + 1, by + bh + 2), fill=greens[0] + (255,))		# Shadow on the bushes below
+		d.rectangle((bx, by, bx + bw, by + bh), fill=(134, 146, 150, 255))
+		d.line((bx + 1, by, bx + bw - 1, by), fill=(196, 206, 206, 255))								# Light top edge
+		d.line((bx, by + 1, bx, by + bh - 1), fill=(172, 182, 184, 255))
+		d.line((bx + 1, by + bh, bx + bw - 1, by + bh), fill=(64, 76, 84, 255))						# Dark bottom / right edge
+		d.line((bx + bw, by + 1, bx + bw, by + bh - 1), fill=(64, 76, 84, 255))
+		for k in range(bx + 6, bx + bw - 1, 7):															# Seams
+			d.line((k, by + 2, k, by + bh - 2), fill=(96, 108, 114, 255))
+		for _ in range(3):																				# Leaves hanging over the edge
+			lx = bx + clump_rng.randint(1, bw - 3)
+			d.rectangle((lx, by - 1, lx + clump_rng.randint(1, 3), by + clump_rng.randint(0, 1)), fill=greens[2] + (255,))
+
+	rows = []
+	y = horizon - 2
+	while y < H + 14:
+		rows.append(y)
+		y += clump_rng.choice((10, 11, 12, 13))
+	for row, base in enumerate(rows):
+		greens = green_set(len(rows) - 1 - row)
+		x = -10 + clump_rng.randint(0, 8)
+		while x < W + 12:
+			bush_clump(x, base, greens, clump_rng.choice((6, 7, 7, 8, 9)))
+			x += clump_rng.randint(11, 19)
+		if row % 2 == 1 and base < H - 6:
+			for bx in range(-12 + (row // 2 % 2) * 42, W, 84):
+				stone_block(bx + clump_rng.randint(-3, 3), base - 6, greens)
 	return img.resize((W * S, H * S), Image.NEAREST)
+
+
+def gradient_background(corners):
+	"""A smooth gradient between four corner colors (top left, top right, bottom left, bottom right)."""
+	tl, tr, bl, br = corners
+	img = Image.new('RGBA', (W, H))
+	px = img.load()
+	for y in range(H):
+		v = y / (H - 1)
+		left, right = mix(tl, bl, v), mix(tr, br, v)
+		for x in range(W):
+			px[x, y] = mix(left, right, x / (W - 1)) + (255,)
+	return img.resize((W * S, H * S), Image.BILINEAR)
 
 
 def image_background(filename):
@@ -641,7 +699,9 @@ def background():
 		return new_layer()		# Transparent: the game puts the player's own picture underneath
 	key = THEME['id']
 	if key not in _background_cache:
-		if THEME['style'] == 'city':
+		if THEME['style'] == 'gradient':
+			_background_cache[key] = gradient_background(THEME['corners'])
+		elif THEME['style'] == 'city':
 			_background_cache[key] = city_background()
 		elif THEME['style'] == 'sea':
 			_background_cache[key] = sea_background()

@@ -38,6 +38,8 @@
 #include "s3air_bottom_screen_sea_bin.h"
 #include "s3air_bottom_screen_blocks_bin.h"
 #include "s3air_bottom_screen_city_bin.h"
+#include "s3air_bottom_screen_aurora_bin.h"
+#include "s3air_bottom_screen_sunset_bin.h"
 
 
 namespace n3ds
@@ -148,6 +150,8 @@ namespace n3ds
 				{ s3air_bottom_screen_sea_bin,     s3air_bottom_screen_sea_bin_size },
 				{ s3air_bottom_screen_blocks_bin,  s3air_bottom_screen_blocks_bin_size },
 				{ s3air_bottom_screen_city_bin,    s3air_bottom_screen_city_bin_size },
+				{ s3air_bottom_screen_aurora_bin,  s3air_bottom_screen_aurora_bin_size },
+				{ s3air_bottom_screen_sunset_bin,  s3air_bottom_screen_sunset_bin_size },
 			};
 			int gTheme = -1;		// Theme currently unpacked into "gData"
 
