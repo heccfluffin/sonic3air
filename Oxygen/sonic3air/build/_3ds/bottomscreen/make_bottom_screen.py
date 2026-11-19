@@ -232,8 +232,32 @@ def dpad(img, cx, cy, size, highlight=None):
 
 
 def circle_pad(img, cx, cy, r):
-	glossy(img, (cx - r, cy - r, cx + r, cy + r), 'circle', (80, 88, 105))
-	glossy(img, (cx - r + 3, cy - r + 3, cx + r - 3, cy + r - 3), 'circle', (150, 158, 175))
+	"""The 3DS Circle Pad seen from above: a matte grey cap with a raised rim and a shallow dip, on a black base."""
+	x, y, R = cx * S, cy * S, r * S
+	circle = lambda rad, dy=0: shape_mask('circle', (x - rad, y - rad + dy, x + rad, y + rad + dy), rad)
+
+	def gradient(rad, top, bottom, dy=0):
+		layer = new_layer()
+		ld = ImageDraw.Draw(layer)
+		for yy in range(int(y + dy - rad), int(y + dy + rad) + 1):
+			t = (yy - (y + dy - rad)) / (2 * rad)
+			ld.line((x - rad, yy, x + rad, yy), fill=mix(top, bottom, t) + (255,))
+		return layer
+
+	# Soft drop shadow, like the other buttons
+	fill_through(img, (10, 20, 40, 110), circle(R, 2 * S).filter(ImageFilter.GaussianBlur(2 * S)))
+
+	# Black base, showing a bit more below the cap (depth)
+	fill_through(img, (22, 22, 28, 255), circle(R))
+
+	# Cap with its rim: lit from the top
+	cap = R - int(1.4 * S)
+	lift = -int(0.8 * S)
+	composite_masked(img, gradient(cap, (162, 164, 172), (104, 106, 114), lift), circle(cap, lift))
+
+	# Shallow dip in the middle: the rim shades its top part, its bottom part catches the light
+	dip = int(cap * 0.74)
+	composite_masked(img, gradient(dip, (112, 114, 122), (146, 148, 156), lift), circle(dip, lift))
 
 
 def glass_panel(img, box, radius=10, alpha=70):
@@ -250,6 +274,41 @@ def glass_panel(img, box, radius=10, alpha=70):
 	fill_through(img, (255, 255, 255, 55), gloss)
 
 
+def bevel_box(img, box, fill, light, shadow, outline=(30, 25, 60), pressed=False, alpha=255):
+	"""A flat, square, beveled box like in 16-bit era menus: light edge top / left, shadow edge bottom / right."""
+	x0, y0, x1, y1 = box
+	layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))		# Drawn at 1:1 for crisp pixel edges, then scaled up
+	d = ImageDraw.Draw(layer)
+	d.rectangle((x0, y0, x1 - 1, y1 - 1), fill=outline + (255,))
+	d.rectangle((x0 + 1, y0 + 1, x1 - 2, y1 - 2), fill=fill + (alpha,))
+	top, bottom = (shadow, light) if pressed else (light, shadow)
+	d.rectangle((x0 + 1, y0 + 1, x1 - 2, y0 + 2), fill=top + (255,))
+	d.rectangle((x0 + 1, y0 + 1, x0 + 2, y1 - 2), fill=top + (255,))
+	d.rectangle((x0 + 1, y1 - 3, x1 - 2, y1 - 2), fill=bottom + (255,))
+	d.rectangle((x1 - 3, y0 + 1, x1 - 2, y1 - 2), fill=bottom + (255,))
+	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
+
+
+def outline_box(img, box, fill, outline, alpha=255, inner=None):
+	"""A flat box with a thin light outline, like in 16-bit era menus (drawn at 1:1 for crisp pixel edges)."""
+	x0, y0, x1, y1 = box
+	layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+	d = ImageDraw.Draw(layer)
+	d.rectangle((x0, y0, x1 - 1, y1 - 1), fill=fill + (alpha,))
+	d.rectangle((x0, y0, x1 - 1, y1 - 1), outline=outline + (255,))
+	if inner:
+		d.rectangle((x0 + 1, y0 + 1, x1 - 2, y1 - 2), outline=inner + (255,))
+	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
+
+
+def panel(img, box, radius=10, alpha=60):
+	"""A panel in the theme's frame style: glass, or retro (flat, with a thin light outline)."""
+	if THEME.get('frame') == 'retro':
+		outline_box(img, box, THEME['panel'], THEME['panel_outline'], alpha=215)
+	else:
+		glass_panel(img, box, radius=radius, alpha=alpha)
+
+
 # --- Composition ---
 
 # Bottom screen themes, each with its fixed number in "n3ds::shop::Theme" (N3DSShop.h); the game finds the artwork by the
@@ -260,6 +319,9 @@ THEMES = [
 	{ 'id': 'crimson', 'name': 'Crimson Zig-Zag', 'style': 'zigzag', 'light': (205, 45, 55),  'dark': (95, 12, 28),  'shade': (30, 0, 8),   'save': (230, 110, 20), 'load': (205, 45, 45), 'outline': (110, 15, 30) },
 	{ 'id': 'gold',    'name': 'Golden Zig-Zag',  'style': 'zigzag', 'light': (240, 170, 30), 'dark': (160, 80, 10), 'shade': (50, 20, 0),  'save': (235, 175, 25), 'load': (150, 160, 180), 'outline': (130, 60, 0) },
 	{ 'id': 'emerald', 'name': 'Emerald Zig-Zag', 'style': 'zigzag', 'light': (40, 175, 95),  'dark': (10, 85, 45),  'shade': (0, 30, 10),  'save': (190, 205, 30), 'load': (20, 150, 150), 'outline': (10, 90, 45) },
+	{ 'id': 'marble',  'name': 'Retro Marble',    'style': 'marble', 'frame': 'retro', 'light': (166, 166, 228), 'dark': (96, 94, 172),
+	  'panel': (92, 92, 166), 'panel_outline': (186, 186, 238), 'stats': (92, 92, 166), 'title': (255, 225, 40),
+	  'save': (40, 160, 60), 'load': (110, 100, 190), 'outline': (36, 28, 84) },
 	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
 ]
 THEME = THEMES[0]		# The theme being generated
@@ -319,6 +381,46 @@ def night_background(light, dark, shade_color):
 	return img
 
 
+def marble_background(light, dark):
+	"""Crinkled stone texture in three flat tones, small winding streaks repeating as a tile, like a 16-bit era menu
+	backdrop (drawn from scratch)."""
+	rng = random.Random(21)
+	tile = 40		# Tile size in pixels (seamless)
+	cells = 10
+	values = [[rng.random() for _ in range(cells)] for _ in range(cells)]
+
+	def noise(x, y, frequency):
+		# Periodic value noise (wraps around at the tile size, so the tiles join seamlessly)
+		fx, fy = (x / tile) * frequency, (y / tile) * frequency
+		ix, iy = int(math.floor(fx)), int(math.floor(fy))
+		tx, ty = fx - ix, fy - iy
+		tx, ty = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
+		v = lambda a, b: values[(iy + b) % frequency][(ix + a) % frequency]
+		return (v(0, 0) * (1 - tx) + v(1, 0) * tx) * (1 - ty) + (v(0, 1) * (1 - tx) + v(1, 1) * tx) * ty
+
+	mid = mix(dark, light, 0.55)
+	pattern = Image.new('RGBA', (tile, tile))
+	px = pattern.load()
+	for y in range(tile):
+		for x in range(tile):
+			# Streaks along the diagonal: fast changes across it, slow along it
+			n = noise(x, y, 5) * 0.55 + noise(x, y, 10) * 0.45
+			streak = math.sin(((x - y) * 0.45) + n * 9.0)
+			if streak > 0.55:
+				color = dark
+			elif streak > -0.15:
+				color = mid
+			else:
+				color = light
+			px[x, y] = color + (255,)
+
+	img = Image.new('RGBA', (W, H))
+	for ty in range(0, H, tile):
+		for tx in range(0, W, tile):
+			img.paste(pattern, (tx, ty))
+	return img.resize((W * S, H * S), Image.NEAREST)
+
+
 def image_background(filename):
 	"""A background picture drawn by hand: exactly 320 x 240 pixels, in the folder "themes" next to this script."""
 	img = Image.open(os.path.join(HERE, 'themes', filename)).convert('RGBA')
@@ -330,7 +432,9 @@ def image_background(filename):
 def background():
 	key = THEME['id']
 	if key not in _background_cache:
-		if THEME['style'] == 'image':
+		if THEME['style'] == 'marble':
+			_background_cache[key] = marble_background(THEME['light'], THEME['dark'])
+		elif THEME['style'] == 'image':
 			_background_cache[key] = image_background(THEME['image'])
 		elif THEME['style'] == 'night':
 			_background_cache[key] = night_background(THEME['light'], THEME['dark'], THEME['shade'])
@@ -345,7 +449,11 @@ STATS_COLOR = (95, 105, 130)
 def big_button(img, box, rgb, word, state):
 	"""The touch buttons: state is 'normal', 'pressed' or 'disabled'."""
 	col = grey(rgb) if state == 'disabled' else rgb
-	glossy(img, box, 'rect', col, radius=14, pressed=(state == 'pressed'))
+	if THEME.get('frame') == 'retro':
+		fill = mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col
+		outline_box(img, box, fill, THEME['panel_outline'], inner=mix(fill, (0, 0, 0), 0.35))
+	else:
+		glossy(img, box, 'rect', col, radius=14, pressed=(state == 'pressed'))
 	cx = (box[0] + box[2]) / 2
 	dy = 1 if state == 'pressed' else 0
 	fg = (225, 230, 238) if state == 'disabled' else (255, 255, 255)
@@ -354,7 +462,11 @@ def big_button(img, box, rgb, word, state):
 
 
 def stats_button(img, state):
-	glossy(img, STATS_BOX, 'rect', STATS_COLOR, pressed=(state == 'pressed'))
+	if THEME.get('frame') == 'retro':
+		col = THEME.get('stats', STATS_COLOR)
+		outline_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, THEME['panel_outline'])
+	else:
+		glossy(img, STATS_BOX, 'rect', STATS_COLOR, pressed=(state == 'pressed'))
 	dy = 1 if state == 'pressed' else 0
 	text(img, ((STATS_BOX[0] + STATS_BOX[2]) / 2, (STATS_BOX[1] + STATS_BOX[3]) / 2 + 0.5 + dy), 'STATS', 8, (255, 255, 255), mix(STATS_COLOR, (0, 0, 0), 0.6), anchor='mm', shadow=False)
 
@@ -374,12 +486,12 @@ def build(save='normal', load='normal', stats='normal', status=0):
 	img = background()
 
 	# Header: title on a glass bar, and the STATS button on the right
-	glass_panel(img, (6, 4, 314, 30), radius=9, alpha=60)
-	text(img, (16, 17.5), 'CONTROLS', 14, (255, 255, 255), THEME['outline'], width=1.4)
+	panel(img, (6, 4, 314, 30), radius=9, alpha=60)
+	text(img, (16, 17.5), 'CONTROLS', 14, THEME.get('title', (255, 255, 255)), THEME['outline'], width=1.4)
 	stats_button(img, stats)
 
 	# Controls list on a glass panel: icons on the left, action on the right
-	glass_panel(img, (6, 38, 198, 232), radius=10, alpha=55)
+	panel(img, (6, 38, 198, 232), radius=10, alpha=55)
 	label_x = 108
 	rows_y = [55, 86, 117, 148, 179, 210]
 	label = lambda y, s: text(img, (label_x, y), s, 12, (255, 255, 255), THEME['outline'], width=1.2)
@@ -418,7 +530,7 @@ def build(save='normal', load='normal', stats='normal', status=0):
 	# Save state touch buttons and the status message below them
 	big_button(img, SAVE_BOX, THEME['save'], 'SAVE', save)
 	big_button(img, LOAD_BOX, THEME['load'], 'LOAD', load)
-	glass_panel(img, STATUS_BOX, radius=9, alpha=60)
+	panel(img, STATUS_BOX, radius=9, alpha=60)
 	status_text(img, STATUS_MESSAGES[status])
 
 	return img.resize((W, H), Image.LANCZOS).convert('RGB')

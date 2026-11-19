@@ -58,6 +58,7 @@ namespace
 		{ "Golden Zig-Zag",	 "Shiny gold stripes, fit for a super form.",				40, rgb(240, 170, 30), rgb(160, 80, 10), rgb(235, 175, 25), rgb(150, 160, 180) },
 		{ "Emerald Zig-Zag", "Green stripes, as precious as the Master Emerald.",		30, rgb(40, 175, 95),  rgb(10, 85, 45),  rgb(190, 205, 30), rgb(20, 150, 150) },
 		{ "Starry Night",	 "Midnight blue with twinkling stars.",					40, rgb(30, 45, 100),  rgb(8, 12, 40),   rgb(175, 190, 215), rgb(85, 70, 190) },
+		{ "Retro Marble",	 "Crinkled lavender stone with retro outlined panels.",	40, rgb(166, 166, 228), rgb(96, 94, 172), rgb(40, 160, 60),  rgb(110, 100, 190) },
 	};
 
 	struct SecretInfo

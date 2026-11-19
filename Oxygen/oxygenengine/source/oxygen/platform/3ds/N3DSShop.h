@@ -25,6 +25,7 @@ namespace n3ds
 			THEME_GOLD,
 			THEME_EMERALD,
 			THEME_NIGHT,
+			THEME_MARBLE,
 			_NUM_THEMES
 		};
 

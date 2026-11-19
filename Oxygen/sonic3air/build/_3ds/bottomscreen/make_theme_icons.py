@@ -29,8 +29,9 @@ THEMES = [
 	('gold',    3, (240, 170, 30),  (160, 80, 10)),
 	('emerald', 4, (40, 175, 95),   (10, 85, 45)),
 	('night',   5, (175, 190, 215), (8, 12, 40)),
+	('marble',  6, (166, 166, 228), (96, 94, 172)),
 ]
-NUM_THEME_NUMBERS = 6
+NUM_THEME_NUMBERS = 7
 
 
 def new_icon(fill):
@@ -130,12 +131,34 @@ def icon_night():
 	return img
 
 
+def icon_marble():
+	"""Marble veins and a little beveled panel, in two tones."""
+	img, d = new_icon(DARK)
+	px = img.load()
+	for y in range(H):
+		for x in range(W):
+			t = math.sin(x * 0.12 + y * 0.18 + math.sin(x * 0.07) * 2.0 + math.sin(y * 0.11) * 1.5)
+			if t > 0.35:
+				px[x, y] = LIGHT
+	# Beveled panel in the middle: light top / left edge, dark bottom / right edge
+	d.rectangle((14, 14, 49, 33), fill=DARK)
+	d.rectangle((15, 15, 48, 32), fill=LIGHT)
+	d.rectangle((17, 17, 48, 32), fill=DARK)
+	d.rectangle((17, 17, 46, 30), fill=LIGHT)
+	d.rectangle((19, 19, 46, 30), fill=DARK)
+	for (x, y, w) in ((22, 22, 18), (22, 26, 12)):		# Two "text lines"
+		d.rectangle((x, y, x + w, y + 1), fill=LIGHT)
+	frame(img)
+	return img
+
+
 ICONS = {
 	'blue': lambda: icon_zigzag(),
 	'crimson': lambda: icon_zigzag(emblem_flame),
 	'gold': lambda: icon_zigzag(emblem_ring),
 	'emerald': lambda: icon_zigzag(emblem_gem),
 	'night': icon_night,
+	'marble': icon_marble,
 }
 
 
