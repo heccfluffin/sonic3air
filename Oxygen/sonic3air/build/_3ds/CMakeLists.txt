@@ -152,10 +152,14 @@ dkp_add_embedded_binary_library(s3air_3ds_splash_data ${CMAKE_CURRENT_SOURCE_DIR
 target_link_libraries(oxygen s3air_3ds_splash_data)
 
 # Bottom screen: controls overview with touch buttons for save states, one artwork per theme (see bottomscreen/make_bottom_screen.py)
-foreach(THEME blue crimson gold emerald night marble sea blocks)
+foreach(THEME blue crimson gold emerald night marble sea blocks city)
 	dkp_add_embedded_binary_library(s3air_3ds_bottom_screen_${THEME}_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_bottom_screen_${THEME}.bin)
 	target_link_libraries(oxygen s3air_3ds_bottom_screen_${THEME}_data)
 endforeach()
+# For the player's own background pictures (themes folder on the SD card): overlay with transparency, and the template picture
+dkp_add_embedded_binary_library(s3air_3ds_bottom_screen_overlay_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_bottom_screen_overlay.bin)
+dkp_add_embedded_binary_library(s3air_3ds_theme_template_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_theme_template.png)
+target_link_libraries(oxygen s3air_3ds_bottom_screen_overlay_data s3air_3ds_theme_template_data)
 
 # Presenting frames with the PICA200 GPU (citro3d) instead of SDL's CPU-side rotated copy
 option(S3AIR_3DS_GPU_PRESENT "Present frames via the 3DS GPU" ON)

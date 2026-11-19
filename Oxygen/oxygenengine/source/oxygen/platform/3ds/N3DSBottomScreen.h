@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <string>
+
 
 namespace n3ds
 {
@@ -37,6 +39,7 @@ namespace n3ds
 
 		// Switches to another bottom screen theme (see n3ds::shop::Theme), also for previews in the "3DS" menu
 		void setTheme(int theme);
+		void setCustomTheme(const std::string& name);	// The player's own picture (file name in the themes folder), also for previews
 
 		// Whether the bottom screen shows the profiler's statistics (otherwise the profiler only writes its log file)
 		bool isShowingStats();

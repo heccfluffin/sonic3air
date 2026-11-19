@@ -71,6 +71,7 @@ private:
 	void showMessage(const std::string& text, bool isError);
 	void renderConfirmation(float alpha);
 	void createIcons();
+	void scanCustomThemes();
 
 private:
 	MenuBackground* mMenuBackground = nullptr;
@@ -85,7 +86,12 @@ private:
 	GameMenuScrolling mScrolling;
 
 	int mPlayCoins = -1;			// -1 if they could not be read
-	int mPreviewedTheme = -1;		// Theme currently shown on the bottom screen as preview
+	std::string mPreviewedTheme;	// Theme currently shown on the bottom screen as preview ("t<number>" or "c<file name>")
+
+	// The player's own background pictures from the themes folder on the SD card
+	static const int MAX_CUSTOM_THEMES = 12;
+	std::vector<std::string> mCustomThemes;		// File names (UTF-8)
+	DrawerTexture mCustomIcons[MAX_CUSTOM_THEMES];	// Thumbnails
 
 	std::string mMessage;			// Short feedback at the bottom, like "Not enough Play Coins"
 	bool mMessageIsError = false;

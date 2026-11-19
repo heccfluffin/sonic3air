@@ -30,7 +30,7 @@ namespace n3ds
 			bool operator!=(const Data& a, const Data& b)
 			{
 				return a.mOwnedThemes != b.mOwnedThemes || a.mSelectedTheme != b.mSelectedTheme || a.mOwnsShield != b.mOwnsShield ||
-					   a.mSelectedShield != b.mSelectedShield || a.mShowMenu != b.mShowMenu;
+					   a.mSelectedShield != b.mSelectedShield || a.mShowMenu != b.mShowMenu || a.mCustomTheme != b.mCustomTheme;
 			}
 
 			void load()
@@ -44,11 +44,17 @@ namespace n3ds
 				}
 
 				// Simple "key=value" lines
-				char line[128];
+				char line[384];
 				while (nullptr != fgets(line, sizeof(line), file))
 				{
 					unsigned int value = 0;
-					if (sscanf(line, "owned_themes=%x", &value) == 1)
+					if (strncmp(line, "custom_theme=", 13) == 0)
+					{
+						gData.mCustomTheme = line + 13;
+						while (!gData.mCustomTheme.empty() && (gData.mCustomTheme.back() == '\n' || gData.mCustomTheme.back() == '\r'))
+							gData.mCustomTheme.pop_back();
+					}
+					else if (sscanf(line, "owned_themes=%x", &value) == 1)
 						gData.mOwnedThemes = (value | (1 << THEME_BLUE)) & ((1 << _NUM_THEMES) - 1);
 					else if (sscanf(line, "theme=%u", &value) == 1)
 						gData.mSelectedTheme = (int)value;
@@ -62,8 +68,15 @@ namespace n3ds
 				fclose(file);
 
 				// Only allow what was bought
-				if (gData.mSelectedTheme < 0 || gData.mSelectedTheme >= _NUM_THEMES || (gData.mOwnedThemes & (1 << gData.mSelectedTheme)) == 0 || gData.mSelectedTheme == THEME_AERO)
+				if (gData.mSelectedTheme == THEME_CUSTOM)
+				{
+					if (gData.mCustomTheme.empty())
+						gData.mSelectedTheme = THEME_BLUE;
+				}
+				else if (gData.mSelectedTheme < 0 || gData.mSelectedTheme >= _NUM_THEMES || (gData.mOwnedThemes & (1 << gData.mSelectedTheme)) == 0 || gData.mSelectedTheme == THEME_AERO)
+				{
 					gData.mSelectedTheme = THEME_BLUE;
+				}
 				if (!gData.mOwnsShield || gData.mSelectedShield < 0 || gData.mSelectedShield >= _NUM_SHIELDS)
 					gData.mSelectedShield = SHIELD_OFF;
 				gSavedData = gData;
@@ -89,6 +102,8 @@ namespace n3ds
 			}
 			fprintf(file, "owned_themes=%x\ntheme=%d\nowns_shield=%d\nshield=%d\nshow_menu=%d\n", (unsigned int)gData.mOwnedThemes, gData.mSelectedTheme,
 					gData.mOwnsShield ? 1 : 0, gData.mSelectedShield, gData.mShowMenu ? 1 : 0);
+			if (!gData.mCustomTheme.empty())
+				fprintf(file, "custom_theme=%s\n", gData.mCustomTheme.c_str());
 			fclose(file);
 			gSavedData = gData;
 		}

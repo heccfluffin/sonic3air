@@ -32,8 +32,9 @@ THEMES = [
 	('marble',  6, (166, 166, 228), (96, 94, 172)),
 	('sea',     7, (60, 130, 245),  (10, 18, 70)),
 	('blocks',  8, (236, 236, 252), (150, 148, 214)),
+	('city',    9, (130, 200, 250), (30, 80, 180)),
 ]
-NUM_THEME_NUMBERS = 9
+NUM_THEME_NUMBERS = 10
 
 
 def new_icon(fill):
@@ -202,6 +203,33 @@ def icon_blocks():
 	return img
 
 
+def icon_city():
+	"""Sky with two clouds above a skyline of towers (round and square, with windows), bushes below."""
+	img, d = new_icon(LIGHT)
+	px = img.load()
+	for (cx, cy) in ((14, 9), (44, 13)):		# Clouds: dark outline puffs
+		d.ellipse((cx - 7, cy - 3, cx + 1, cy + 4), outline=DARK)
+		d.ellipse((cx - 2, cy - 5, cx + 7, cy + 4), outline=DARK)
+		d.rectangle((cx - 6, cy, cx + 6, cy + 3), fill=LIGHT)
+		d.line((cx - 6, cy + 4, cx + 6, cy + 4), fill=DARK)
+	towers = [(2, 22, 7), (10, 28, 8), (19, 18, 6), (26, 25, 9), (36, 20, 7), (44, 27, 8), (53, 21, 9)]
+	for k, (x, top, w) in enumerate(towers):
+		d.rectangle((x, top, x + w - 1, 38), fill=DARK)
+		if k % 2 == 0:
+			for yy in range(top + 2, 37, 3):		# Windows
+				for xx in range(x + 2, x + w - 2, 2):
+					px[xx, yy] = LIGHT
+		else:
+			d.line((x + 2, top + 1, x + 2, 37), fill=LIGHT)		# Round tower shine
+	d.line((22, 12, 22, 18), fill=DARK)		# Antenna
+	# Bushes along the bottom: light bumps on dark
+	d.rectangle((0, 38, W, H), fill=DARK)
+	for x in range(0, W, 5):
+		d.ellipse((x - 2, 40 + (x // 5) % 2 * 2, x + 3, 44 + (x // 5) % 2 * 2), fill=LIGHT)
+	frame(img)
+	return img
+
+
 ICONS = {
 	'blue': lambda: icon_zigzag(),
 	'crimson': lambda: icon_zigzag(emblem_flame),
@@ -211,6 +239,7 @@ ICONS = {
 	'marble': icon_marble,
 	'sea': icon_sea,
 	'blocks': icon_blocks,
+	'city': icon_city,
 }
 
 

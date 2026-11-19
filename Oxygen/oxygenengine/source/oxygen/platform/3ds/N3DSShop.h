@@ -10,6 +10,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <string>
 
 
 namespace n3ds
@@ -28,8 +29,13 @@ namespace n3ds
 			THEME_MARBLE,
 			THEME_SEA,
 			THEME_BLOCKS,
+			THEME_CITY,
 			_NUM_THEMES
 		};
+
+		// The player's own background pictures: PNG files in this folder on the SD card (free, see "themes/README.txt" there)
+		static const int THEME_CUSTOM = 100;		// As "mSelectedTheme", with the file name in "mCustomTheme"
+		static const char* const CUSTOM_THEMES_FOLDER = "sdmc:/3ds/sonic3air/themes/";
 
 		// Starting shield, given at the start of each act and after losing a life (as flags of the game's "char.bonus" byte)
 		enum Shield
@@ -46,6 +52,7 @@ namespace n3ds
 		{
 			uint32_t mOwnedThemes = (1 << THEME_BLUE);
 			int mSelectedTheme = THEME_BLUE;
+			std::string mCustomTheme;		// File name (UTF-8) in CUSTOM_THEMES_FOLDER, if mSelectedTheme == THEME_CUSTOM
 			bool mOwnsShield = false;
 			int mSelectedShield = SHIELD_OFF;
 			bool mShowMenu = true;		// The "3DS" entry in the main menu (option in the System tab of the options)

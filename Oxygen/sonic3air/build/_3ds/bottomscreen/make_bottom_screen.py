@@ -346,6 +346,8 @@ THEMES = [
 	  'bg_light': (214, 214, 246), 'bg_mid': (226, 226, 252), 'bg_highlight': (255, 255, 255), 'bg_shadow': (160, 158, 222),
 	  'frame_light': (236, 236, 252), 'frame_shadow': (150, 148, 214), 'panel': (130, 126, 200), 'stats': (130, 126, 200),
 	  'save': (80, 170, 120), 'load': (120, 110, 210), 'outline': (70, 60, 150) },
+	{ 'id': 'city',    'name': 'Sky City',        'style': 'city', 'light': (96, 172, 236), 'dark': (30, 80, 180),
+	  'save': (60, 175, 50), 'load': (40, 110, 220), 'outline': (20, 60, 130) },
 	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
 ]
 THEME = THEMES[0]		# The theme being generated
@@ -529,6 +531,86 @@ def blocks_background(light, mid, highlight, shadow):
 	return img.resize((W * S, H * S), Image.NEAREST)
 
 
+def city_background():
+	"""A bright sky with puffy pixel clouds, a skyline of blue towers and ring lattices, and a leafy green ground with
+	grey stone blocks, in a 16-bit style (drawn from scratch)."""
+	rng = random.Random(17)
+	img = Image.new('RGBA', (W, H), (96, 172, 236, 255))
+	d = ImageDraw.Draw(img)
+	px = img.load()
+	horizon, ground = 116, 150
+
+	# Clouds: white puffs with a light blue underside
+	for _ in range(16):
+		cx, cy = rng.randint(-10, W + 10), rng.randint(6, 80)
+		w = rng.randint(14, 30)
+		for k in range(3):
+			r = rng.randint(4, 7)
+			x = cx - w // 2 + k * w // 3
+			d.ellipse((x - r, cy - r + 1, x + r, cy + r + 1), fill=(178, 214, 246, 255))
+		for k in range(3):
+			r = rng.randint(4, 6)
+			x = cx - w // 2 + k * w // 3
+			d.ellipse((x - r, cy - r - 1, x + r, cy + r - 1), fill=(250, 252, 255, 255))
+
+	blues = [(14, 40, 120), (30, 80, 180), (60, 130, 220), (130, 190, 245)]		# Dark to light
+	# Ring lattice behind the towers: rows of octagon outlines
+	def octagon(cx, cy, r):
+		a = int(r * 0.42)
+		return [(cx - a, cy - r), (cx + a, cy - r), (cx + r, cy - a), (cx + r, cy + a), (cx + a, cy + r), (cx - a, cy + r), (cx - r, cy + a), (cx - r, cy - a)]
+	for row, y in enumerate((horizon - 26, horizon - 12)):
+		for x in range(-6 + row * 9, W + 18, 18):
+			d.polygon(octagon(x, y, 9), outline=blues[1] + (255,))
+			d.polygon(octagon(x, y, 8), outline=blues[2] + (255,))
+
+	# Towers: boxes with window grids, and round towers with vertical shading bands
+	x = -4
+	while x < W:
+		w = rng.randint(10, 22)
+		h = rng.randint(30, 62)
+		top = horizon - h
+		if rng.random() < 0.45:
+			# Round tower: shading bands from dark (left) to light, dark right edge
+			bands = [blues[0], blues[1], blues[2], blues[3], blues[2], blues[1], blues[0]]
+			for k in range(w):
+				band = bands[min(len(bands) - 1, k * len(bands) // w)]
+				d.line((x + k, top + 2, x + k, horizon + 4), fill=band + (255,))
+			d.ellipse((x, top - 1, x + w - 1, top + 4), fill=blues[3] + (255,))
+			for yy in range(top + 8, horizon, 9):		# Spiral-like stripes
+				d.line((x + 2, yy, x + w - 3, yy - 3), fill=blues[0] + (255,))
+		else:
+			d.rectangle((x, top, x + w - 1, horizon + 4), fill=blues[1] + (255,))
+			d.rectangle((x, top, x + 1, horizon + 4), fill=blues[2] + (255,))
+			d.rectangle((x + w - 2, top, x + w - 1, horizon + 4), fill=blues[0] + (255,))
+			for yy in range(top + 3, horizon, 4):
+				for xx in range(x + 3, x + w - 3, 3):
+					px[xx, yy] = blues[3] + (255,) if 0 <= xx < W else None or blues[3] + (255,)
+		if rng.random() < 0.5:		# Antenna
+			ax = x + w // 2
+			d.line((ax, top - rng.randint(5, 10), ax, top), fill=blues[0] + (255,))
+		x += w + rng.randint(-3, 4)
+
+	# Ground: leafy green clumps in three tones, with grey stone blocks in rows
+	greens = [(30, 100, 20), (60, 150, 30), (110, 200, 50)]
+	d.rectangle((0, horizon, W, H), fill=greens[0] + (255,))
+	for _ in range(900):
+		lx, ly = rng.randint(-4, W + 4), rng.randint(horizon - 3, H)
+		r = rng.randint(2, 4)
+		tone = greens[1] if rng.random() < 0.6 else greens[2]
+		d.ellipse((lx - r, ly - r, lx + r, ly + r // 2), fill=tone + (255,))
+	for y in range(ground, H, 22):
+		for x0 in range(-10 + (y // 22 % 2) * 30, W, 60):
+			bx = x0 + rng.randint(0, 14)
+			bw = rng.randint(18, 30)
+			d.rectangle((bx, y, bx + bw, y + 7), fill=(150, 156, 170, 255))
+			d.line((bx, y, bx + bw, y), fill=(200, 205, 215, 255))
+			d.line((bx, y + 7, bx + bw, y + 7), fill=(80, 84, 100, 255))
+			d.line((bx + bw, y, bx + bw, y + 7), fill=(80, 84, 100, 255))
+			for k in range(bx + 4, bx + bw - 2, 6):		# Panel lines
+				d.line((k, y + 2, k, y + 5), fill=(110, 115, 130, 255))
+	return img.resize((W * S, H * S), Image.NEAREST)
+
+
 def image_background(filename):
 	"""A background picture drawn by hand: exactly 320 x 240 pixels, in the folder "themes" next to this script."""
 	img = Image.open(os.path.join(HERE, 'themes', filename)).convert('RGBA')
@@ -538,9 +620,13 @@ def image_background(filename):
 
 
 def background():
+	if THEME['style'] == 'overlay':
+		return new_layer()		# Transparent: the game puts the player's own picture underneath
 	key = THEME['id']
 	if key not in _background_cache:
-		if THEME['style'] == 'sea':
+		if THEME['style'] == 'city':
+			_background_cache[key] = city_background()
+		elif THEME['style'] == 'sea':
 			_background_cache[key] = sea_background()
 		elif THEME['style'] == 'blocks':
 			_background_cache[key] = blocks_background(THEME['bg_light'], THEME['bg_mid'], THEME['bg_highlight'], THEME['bg_shadow'])
@@ -656,6 +742,8 @@ def build(save='normal', load='normal', stats='normal', status=0):
 	panel(img, STATUS_BOX, radius=9, alpha=60)
 	status_text(img, STATUS_MESSAGES[status])
 
+	if THEME['style'] == 'overlay':
+		return img.resize((W, H), Image.LANCZOS)		# Keeps the transparency
 	return img.resize((W, H), Image.LANCZOS).convert('RGB')
 
 
@@ -732,6 +820,43 @@ def build_theme():
 	return base
 
 
+# Overlay for the player's own background pictures (folder "themes" on the SD card): the panels, buttons and texts on a
+# transparent background, with the colors of the default theme. The game puts it over the picture.
+OVERLAY_THEME = dict(THEMES[0], id='overlay', style='overlay')
+
+
+def build_overlay():
+	"""s3air_bottom_screen_overlay.bin: like the theme files, but the pixels are RGBA (4 bytes, straight alpha)."""
+	global THEME
+	THEME = OVERLAY_THEME
+	parts = [(build(status=0), (0, 0, W, H))]
+	for state in ('normal', 'pressed', 'disabled'):
+		parts.append((build(save=state), SAVE_BOX))
+	for state in ('normal', 'pressed', 'disabled'):
+		parts.append((build(load=state), LOAD_BOX))
+	for state in ('normal', 'pressed'):
+		parts.append((build(stats=state), STATS_BOX))
+	for index in range(len(STATUS_MESSAGES)):
+		parts.append((build(status=index), STATUS_BOX))
+
+	def grow(box):
+		if box == (0, 0, W, H):
+			return box
+		return (max(0, box[0] - 3), max(0, box[1] - 3), min(W, box[2] + 4), min(H, box[3] + 5))
+
+	header = bytearray(b'S3BO') + struct.pack('<HH', 1, len(parts))
+	data_offset = len(header) + 12 * len(parts)
+	table = bytearray()
+	pixels = bytearray()
+	for img, box in parts:
+		box = grow(box)
+		table += struct.pack('<HHHHI', box[0], box[1], box[2] - box[0], box[3] - box[1], data_offset + len(pixels))
+		pixels += img.crop(box).tobytes()		# RGBA, rows top to bottom
+	with open(os.path.join(HERE, 's3air_bottom_screen_overlay.bin'), 'wb') as f:
+		f.write(zlib.compress(bytes(header + table + pixels), 9))
+	print('Wrote s3air_bottom_screen_overlay.bin')
+
+
 def main():
 	global THEME
 	previews = []
@@ -741,7 +866,7 @@ def main():
 		print(f"Wrote s3air_bottom_screen_{theme['id']}.bin")
 
 	# All themes side by side
-	sheet = Image.new('RGB', (2 * W + 12, 3 * (H + 22) + 4), (30, 30, 30))
+	sheet = Image.new('RGB', (2 * W + 12, ((len(THEMES) + 1) // 2) * (H + 22) + 4), (30, 30, 30))
 	d = ImageDraw.Draw(sheet)
 	label_font = ImageFont.truetype(FONT_CANDIDATES[0], 13) if os.path.exists(FONT_CANDIDATES[0]) else None
 	for i, (theme, img) in enumerate(zip(THEMES, previews)):
@@ -749,6 +874,7 @@ def main():
 		d.text((x, y), theme['name'], fill=(255, 255, 255), font=label_font)
 		sheet.paste(img, (x, y + 18))
 	sheet.save(os.path.join(HERE, 'bottom_screen_themes.png'))
+	build_overlay()
 	print('Wrote bottom_screen_preview.png, bottom_screen_parts.png and bottom_screen_themes.png')
 
 

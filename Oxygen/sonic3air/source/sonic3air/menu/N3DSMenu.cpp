@@ -35,6 +35,8 @@ namespace
 	static constexpr uint32 BACK = 0xffff;
 	static constexpr uint32 SHIELD_BUY = 0x100;
 	static constexpr uint32 SHIELD_SELECT = 0x200;		// Plus the shield, see n3ds::shop::Shield
+	static constexpr uint32 CUSTOM_THEME = 0x400;		// Plus the index in "mCustomThemes"
+	static constexpr uint32 CUSTOM_INFO = 0x4ff;		// Explanation entry for the player's own pictures
 
 	struct ThemeInfo
 	{
@@ -61,6 +63,7 @@ namespace
 		{ "Retro Marble",	 "Crinkled lavender stone with retro outlined panels.",	40, rgb(166, 166, 228), rgb(96, 94, 172), rgb(40, 160, 60),  rgb(110, 100, 190) },
 		{ "Deep Sea",		 "A shimmering surface, rising bubbles and the seabed below.",	40, rgb(60, 130, 245),  rgb(10, 18, 70),   rgb(30, 190, 170), rgb(60, 120, 255) },
 		{ "Lavender Blocks", "Raised lavender blocks with framed panels.",				40, rgb(236, 236, 252), rgb(150, 148, 214), rgb(80, 170, 120), rgb(120, 110, 210) },
+		{ "Sky City",		 "Puffy clouds over a skyline of blue towers.",				40, rgb(130, 200, 250), rgb(30, 80, 180),  rgb(60, 175, 50),  rgb(40, 110, 220) },
 	};
 
 	struct SecretInfo
@@ -161,8 +164,9 @@ void N3DSMenu::onFadeIn()
 	int coins = 0;
 	mPlayCoins = n3ds::playcoins::read(coins) ? coins : -1;
 	mMessage.clear();
-	mPreviewedTheme = -1;
+	mPreviewedTheme.clear();
 
+	scanCustomThemes();
 	rebuildTabs();
 	createIcons();
 
@@ -298,6 +302,47 @@ void N3DSMenu::createIcons()
 	}
 }
 
+void N3DSMenu::scanCustomThemes()
+{
+	// The player's own PNG pictures in the themes folder (except the template), with thumbnails for the menu
+	mCustomThemes.clear();
+	std::wstring folder;
+	rmx::UTF8Conversion::convertFromUTF8(n3ds::shop::CUSTOM_THEMES_FOLDER, folder);
+	std::vector<rmx::FileIO::FileEntry> fileEntries;
+	FTX::FileSystem->listFilesByMask(folder + L"*.png", false, fileEntries);
+	std::vector<std::string> names;
+	for (const rmx::FileIO::FileEntry& fileEntry : fileEntries)
+	{
+		const std::string name = rmx::convertToUTF8(fileEntry.mFilename);
+		std::string lower = name;
+		for (char& c : lower)
+			c = (char)tolower((unsigned char)c);
+		if (lower != "template.png")
+			names.push_back(name);
+	}
+	std::sort(names.begin(), names.end());
+	for (const std::string& name : names)
+	{
+		if ((int)mCustomThemes.size() >= MAX_CUSTOM_THEMES)
+			break;
+		Bitmap picture;
+		std::wstring path;
+		rmx::UTF8Conversion::convertFromUTF8(std::string(n3ds::shop::CUSTOM_THEMES_FOLDER) + name, path);
+		if (!FileHelper::loadBitmap(picture, path, false) || picture.getWidth() <= 0 || picture.getHeight() <= 0)
+			continue;
+
+		// Thumbnail: 64 x 48, the picture scaled down
+		DrawerTexture& icon = mCustomIcons[mCustomThemes.size()];
+		Bitmap& bitmap = icon.accessBitmap();
+		bitmap.create(64, 48);
+		for (int y = 0; y < 48; ++y)
+			for (int x = 0; x < 64; ++x)
+				*bitmap.getPixelPointer(x, y) = *picture.getPixelPointer(x * picture.getWidth() / 64, y * picture.getHeight() / 48) | 0xff000000;
+		icon.bitmapUpdated();
+		mCustomThemes.push_back(name);
+	}
+}
+
 void N3DSMenu::rebuildTabs()
 {
 	const n3ds::shop::Data& shop = n3ds::shop::get();
@@ -312,6 +357,12 @@ void N3DSMenu::rebuildTabs()
 			if (nullptr != THEMES[theme].mName)		// Skip removed themes
 				entries.addEntry(THEMES[theme].mName, theme);
 		}
+		for (size_t k = 0; k < mCustomThemes.size(); ++k)
+		{
+			const std::string& name = mCustomThemes[k];
+			entries.addEntry(name.substr(0, name.length() - 4), CUSTOM_THEME + (uint32)k);		// Without ".png"
+		}
+		entries.addEntry("Your Own Pictures", CUSTOM_INFO);
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -356,6 +407,13 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 	switch (tabIndex)
 	{
 		case Tab::Id::THEMES:
+			if (data >= CUSTOM_THEME && data < CUSTOM_THEME + mCustomThemes.size())
+			{
+				outItem.mName = mCustomThemes[data - CUSTOM_THEME];
+				outItem.mPrice = 0;
+				outItem.mOwned = true;
+				return true;
+			}
 			if (data >= (uint32)n3ds::shop::_NUM_THEMES || nullptr == THEMES[data].mName)
 				return false;
 			outItem.mName = THEMES[data].mName;
@@ -395,17 +453,31 @@ void N3DSMenu::showMessage(const std::string& text, bool isError)
 void N3DSMenu::updateThemePreview()
 {
 	// While a theme is selected in the menu, show it on the bottom screen; otherwise the active one
-	int theme = n3ds::shop::get().mSelectedTheme;
+	const n3ds::shop::Data& shop = n3ds::shop::get();
+	int theme = shop.mSelectedTheme;
+	std::string custom = (theme == n3ds::shop::THEME_CUSTOM) ? shop.mCustomTheme : std::string();
 	if (mState != State::FADE_TO_MENU && mState != State::INACTIVE && mActiveTab == Tab::Id::THEMES && mActiveMenu == &mTabs[Tab::Id::THEMES].mMenuEntries)
 	{
 		const uint32 data = mActiveMenu->selected().mData;
 		if (data < (uint32)n3ds::shop::_NUM_THEMES)
+		{
 			theme = (int)data;
+			custom.clear();
+		}
+		else if (data >= CUSTOM_THEME && data < CUSTOM_THEME + mCustomThemes.size())
+		{
+			theme = n3ds::shop::THEME_CUSTOM;
+			custom = mCustomThemes[data - CUSTOM_THEME];
+		}
 	}
-	if (theme != mPreviewedTheme)
+	const std::string key = (theme == n3ds::shop::THEME_CUSTOM) ? ("c" + custom) : ("t" + std::to_string(theme));
+	if (key != mPreviewedTheme)
 	{
-		mPreviewedTheme = theme;
-		n3ds::bottomscreen::setTheme(theme);
+		mPreviewedTheme = key;
+		if (theme == n3ds::shop::THEME_CUSTOM)
+			n3ds::bottomscreen::setCustomTheme(custom);
+		else
+			n3ds::bottomscreen::setTheme(theme);
 	}
 }
 
@@ -510,6 +582,26 @@ void N3DSMenu::onAccept()
 {
 	n3ds::shop::Data& shop = n3ds::shop::get();
 	const uint32 data = mActiveMenu->selected().mData;
+
+	// The player's own pictures: select them (free); the explanation entry does nothing
+	if (mActiveTab == Tab::Id::THEMES && data == CUSTOM_INFO)
+	{
+		showMessage("Put 320x240 PNG pictures into 3ds/sonic3air/themes", false);
+		return;
+	}
+	if (mActiveTab == Tab::Id::THEMES && data >= CUSTOM_THEME && data < CUSTOM_THEME + mCustomThemes.size())
+	{
+		const std::string& name = mCustomThemes[data - CUSTOM_THEME];
+		if (shop.mSelectedTheme != n3ds::shop::THEME_CUSTOM || shop.mCustomTheme != name)
+		{
+			shop.mSelectedTheme = n3ds::shop::THEME_CUSTOM;
+			shop.mCustomTheme = name;
+			n3ds::shop::save();
+			playMenuSound(0x63);
+			showMessage(name.substr(0, name.length() - 4) + " is now active", false);
+		}
+		return;
+	}
 
 	// Owned themes and shields: select them
 	if (mActiveTab == Tab::Id::THEMES && data < (uint32)n3ds::shop::_NUM_THEMES && (shop.mOwnedThemes & (1 << data)) != 0)
@@ -691,7 +783,30 @@ void N3DSMenu::render()
 					}
 				}
 
-				if (tabIndex == Tab::Id::THEMES)
+				if (tabIndex == Tab::Id::THEMES && entry.mData == CUSTOM_INFO)
+				{
+					description = "Put 320 x 240 PNG pictures into the folder 3ds/sonic3air/themes on the SD card. The README and template.png there explain more.";
+					status = "FREE";
+					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
+					drawer.printText(global::mOxyfontRegular, Recti(imageRect.x + 32, imageRect.y + 19, 0, 10), "PNG", 5, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::THEMES && entry.mData >= CUSTOM_THEME)
+				{
+					const size_t index = entry.mData - CUSTOM_THEME;
+					description = "Your own picture from the themes folder on the SD card.";
+					if (shop.mSelectedTheme == n3ds::shop::THEME_CUSTOM && index < mCustomThemes.size() && shop.mCustomTheme == mCustomThemes[index])
+					{
+						status = "ACTIVE";
+						statusColor = Color(0.4f, 1.0f, 1.0f, tabAlpha);
+					}
+					else
+					{
+						status = "YOURS";
+					}
+					if (index < (size_t)MAX_CUSTOM_THEMES)
+						drawer.drawRect(imageRect, mCustomIcons[index], Color(1.0f, 1.0f, 1.0f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::THEMES)
 				{
 					const ThemeInfo& theme = THEMES[entry.mData];
 					description = theme.mDescription;

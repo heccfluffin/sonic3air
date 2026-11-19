@@ -21,6 +21,12 @@
 #include <zlib.h>
 
 #include "oxygen/platform/3ds/N3DSShop.h"
+#include "oxygen/helper/FileHelper.h"
+
+// Overlay for the player's own background pictures: panels, buttons and texts with transparency (see make_bottom_screen.py)
+#include "s3air_bottom_screen_overlay_bin.h"
+// Template picture for the themes folder on the SD card
+#include "s3air_theme_template_png.h"
 
 // The artwork, one per theme, see build/_3ds/bottomscreen/make_bottom_screen.py
 #include "s3air_bottom_screen_blue_bin.h"
@@ -31,6 +37,7 @@
 #include "s3air_bottom_screen_marble_bin.h"
 #include "s3air_bottom_screen_sea_bin.h"
 #include "s3air_bottom_screen_blocks_bin.h"
+#include "s3air_bottom_screen_city_bin.h"
 
 
 namespace n3ds
@@ -140,25 +147,12 @@ namespace n3ds
 				{ s3air_bottom_screen_marble_bin,  s3air_bottom_screen_marble_bin_size },
 				{ s3air_bottom_screen_sea_bin,     s3air_bottom_screen_sea_bin_size },
 				{ s3air_bottom_screen_blocks_bin,  s3air_bottom_screen_blocks_bin_size },
+				{ s3air_bottom_screen_city_bin,    s3air_bottom_screen_city_bin_size },
 			};
 			int gTheme = -1;		// Theme currently unpacked into "gData"
 
-			bool loadArtworkInternal(int theme)
+			bool parseParts(uLongf size)
 			{
-				// The uncompressed size isn't stored, but it's known: the full screen plus all parts, see make_bottom_screen.py
-				const uLongf maxSize = 1024 * 1024;		// Gets shrunk to the actual size afterwards
-				gData = (uint8*)malloc(maxSize);
-				if (nullptr == gData)
-					return false;
-				uLongf size = maxSize;
-				if (uncompress(gData, &size, THEMES[theme].mCompressed, THEMES[theme].mCompressedSize) != Z_OK || size < 8 || memcmp(gData, "S3BS", 4) != 0)
-					return false;
-				if (readU16(&gData[4]) != 1 || readU16(&gData[6]) != _NUM_PARTS || size < 8 + 12 * _NUM_PARTS)
-					return false;
-				uint8* shrunk = (uint8*)realloc(gData, size);
-				if (nullptr != shrunk)
-					gData = shrunk;
-
 				for (int i = 0; i < _NUM_PARTS; ++i)
 				{
 					const uint8* entry = &gData[8 + i * 12];
@@ -175,9 +169,138 @@ namespace n3ds
 				return true;
 			}
 
+			std::string gCustomTheme;		// File name of the custom theme in "gData", if gTheme == THEME_CUSTOM
+
+			// The player's own picture with the overlay (panels, buttons, texts) on top, converted to the same format as the
+			// built-in themes. The picture should be 320 x 240; other sizes get stretched to fit.
+			bool loadCustomArtworkInternal(const std::string& name)
+			{
+				std::wstring path;
+				rmx::UTF8Conversion::convertFromUTF8(std::string(n3ds::shop::CUSTOM_THEMES_FOLDER) + name, path);
+				Bitmap picture;
+				if (!FileHelper::loadBitmap(picture, path, false) || picture.getWidth() <= 0 || picture.getHeight() <= 0)
+					return false;
+
+				// Unpack the overlay: like the theme files, but RGBA pixels
+				const uLongf maxOverlaySize = 1536 * 1024;
+				uint8* overlay = (uint8*)malloc(maxOverlaySize);
+				if (nullptr == overlay)
+					return false;
+				uLongf overlaySize = maxOverlaySize;
+				if (uncompress(overlay, &overlaySize, s3air_bottom_screen_overlay_bin, s3air_bottom_screen_overlay_bin_size) != Z_OK ||
+					overlaySize < 8 + 12 * _NUM_PARTS || memcmp(overlay, "S3BO", 4) != 0 || readU16(&overlay[6]) != _NUM_PARTS)
+				{
+					free(overlay);
+					return false;
+				}
+
+				// Output: same table, RGB565 pixels
+				uLongf size = 8 + 12 * _NUM_PARTS;
+				for (int i = 0; i < _NUM_PARTS; ++i)
+					size += (uLongf)readU16(&overlay[8 + i * 12 + 4]) * readU16(&overlay[8 + i * 12 + 6]) * 2;
+				gData = (uint8*)malloc(size);
+				if (nullptr == gData)
+				{
+					free(overlay);
+					return false;
+				}
+				memcpy(gData, "S3BS", 4);
+				memcpy(&gData[4], &overlay[4], 4);
+
+				static const int BAYER4[4][4] = { { 0, 8, 2, 10 }, { 12, 4, 14, 6 }, { 3, 11, 1, 9 }, { 15, 7, 13, 5 } };
+				uint32 offset = 8 + 12 * _NUM_PARTS;
+				for (int i = 0; i < _NUM_PARTS; ++i)
+				{
+					const uint8* entry = &overlay[8 + i * 12];
+					const int px = readU16(&entry[0]);
+					const int py = readU16(&entry[2]);
+					const int width = readU16(&entry[4]);
+					const int height = readU16(&entry[6]);
+					const uint32 sourceOffset = readU32(&entry[8]);
+					if (px + width > SCREEN_WIDTH || py + height > SCREEN_HEIGHT || sourceOffset + (uLongf)width * height * 4 > overlaySize)
+					{
+						free(overlay);
+						return false;
+					}
+					memcpy(&gData[8 + i * 12], entry, 8);
+					gData[8 + i * 12 + 8] = (uint8)(offset);
+					gData[8 + i * 12 + 9] = (uint8)(offset >> 8);
+					gData[8 + i * 12 + 10] = (uint8)(offset >> 16);
+					gData[8 + i * 12 + 11] = (uint8)(offset >> 24);
+
+					const uint8* src = &overlay[sourceOffset];
+					uint8* dst = &gData[offset];
+					for (int y = 0; y < height; ++y)
+					{
+						const int sy = (py + y) * picture.getHeight() / SCREEN_HEIGHT;
+						for (int x = 0; x < width; ++x)
+						{
+							const int sx = (px + x) * picture.getWidth() / SCREEN_WIDTH;
+							const uint32 background = *picture.getPixelPointer(sx, sy);		// ABGR
+							const int alpha = src[3];
+							int r = (src[0] * alpha + (int)(background & 0xff) * (255 - alpha)) / 255;
+							int g = (src[1] * alpha + (int)((background >> 8) & 0xff) * (255 - alpha)) / 255;
+							int b = (src[2] * alpha + (int)((background >> 16) & 0xff) * (255 - alpha)) / 255;
+
+							// Ordered dithering against banding, like for the built-in themes
+							const int t = BAYER4[(py + y) & 3][(px + x) & 3] - 8;
+							r = std::min(255, std::max(0, r + t / 2));
+							g = std::min(255, std::max(0, g + t / 4));
+							b = std::min(255, std::max(0, b + t / 2));
+							const uint16 rgb565 = (uint16)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+							dst[0] = (uint8)rgb565;
+							dst[1] = (uint8)(rgb565 >> 8);
+							src += 4;
+							dst += 2;
+						}
+					}
+					offset += (uint32)width * height * 2;
+				}
+				free(overlay);
+				return parseParts(size);
+			}
+
+			bool loadArtworkInternal(int theme)
+			{
+				// The uncompressed size isn't stored, but it's known: the full screen plus all parts, see make_bottom_screen.py
+				const uLongf maxSize = 1024 * 1024;		// Gets shrunk to the actual size afterwards
+				gData = (uint8*)malloc(maxSize);
+				if (nullptr == gData)
+					return false;
+				uLongf size = maxSize;
+				if (uncompress(gData, &size, THEMES[theme].mCompressed, THEMES[theme].mCompressedSize) != Z_OK || size < 8 || memcmp(gData, "S3BS", 4) != 0)
+					return false;
+				if (readU16(&gData[4]) != 1 || readU16(&gData[6]) != _NUM_PARTS || size < 8 + 12 * _NUM_PARTS)
+					return false;
+				uint8* shrunk = (uint8*)realloc(gData, size);
+				if (nullptr != shrunk)
+					gData = shrunk;
+				return parseParts(size);
+			}
+
 			// Unpacks the artwork of a theme (only one is kept in memory). Falls back to the default theme if that fails.
 			bool loadArtwork(int theme)
 			{
+				if (theme == n3ds::shop::THEME_CUSTOM)
+				{
+					const std::string& name = n3ds::shop::get().mCustomTheme;
+					if (gTheme == n3ds::shop::THEME_CUSTOM && gCustomTheme == name && nullptr != gData)
+						return true;
+					free(gData);
+					gData = nullptr;
+					gTheme = -1;
+					if (loadCustomArtworkInternal(name))
+					{
+						gTheme = n3ds::shop::THEME_CUSTOM;
+						gCustomTheme = name;
+						gNeedsFullRedraw = true;
+						return true;
+					}
+					RMX_LOG_INFO("Bottom screen: could not load the custom theme '" << name << "', using the default theme");
+					free(gData);
+					gData = nullptr;
+					theme = n3ds::shop::THEME_BLUE;
+				}
 				if (theme < 0 || theme >= n3ds::shop::_NUM_THEMES || nullptr == THEMES[theme].mCompressed)
 					theme = n3ds::shop::THEME_BLUE;
 				if (theme == gTheme && nullptr != gData)
@@ -320,10 +443,13 @@ namespace n3ds
 				}
 			}
 
+			void createCustomThemesFolder();
+
 			void initialize()
 			{
 				gInitialized = true;
 				gDataValid = loadArtwork(n3ds::shop::get().mSelectedTheme);
+				createCustomThemesFolder();
 
 			#if defined(N3DS_PROFILER)
 				FILE* file = fopen(STATS_SETTING_FILE, "r");
@@ -335,6 +461,35 @@ namespace n3ds
 				}
 			#endif
 				aptHook(&gAptHookCookie, &onAptEvent, nullptr);
+			}
+
+			// The folder for the player's own background pictures, with a template and an explanation (only written if missing)
+			void createCustomThemesFolder()
+			{
+				std::wstring folder;
+				rmx::UTF8Conversion::convertFromUTF8(n3ds::shop::CUSTOM_THEMES_FOLDER, folder);
+				FTX::FileSystem->createDirectory(folder);
+				if (!FTX::FileSystem->exists(folder + L"template.png"))
+					FTX::FileSystem->saveFile(folder + L"template.png", s3air_theme_template_png, s3air_theme_template_png_size);
+				if (!FTX::FileSystem->exists(folder + L"README.txt"))
+				{
+					static const char* README =
+						"Your own bottom screen themes for Sonic 3 A.I.R. (3DS port)\r\n"
+						"===========================================================\r\n"
+						"\r\n"
+						"Put your own background pictures into this folder, as PNG files.\r\n"
+						"Each one shows up in the game's \"3DS\" menu, in the Themes tab (they're free).\r\n"
+						"\r\n"
+						"- Size: 320 x 240 pixels (the 3DS bottom screen). Other sizes get stretched to fit.\r\n"
+						"- The game draws its panels, buttons and texts on top of your picture.\r\n"
+						"  template.png shows where they go: the panels and buttons drawn in it are only there\r\n"
+						"  to show you their places - don't draw them into your picture, the game adds them.\r\n"
+						"- The title bar, the controls panel and the status box are see-through (glass),\r\n"
+						"  so your picture shows through them; the SAVE / LOAD buttons cover it.\r\n"
+						"- The 3DS shows the bottom screen with 16-bit colors, soft gradients get slightly dithered.\r\n"
+						"- template.png itself is not listed as a theme.\r\n";
+					FTX::FileSystem->saveFile(folder + L"README.txt", README, strlen(README));
+				}
 			}
 
 			Button getButtonAt(int x, int y)
@@ -456,6 +611,16 @@ namespace n3ds
 				case Result::NO_STATE:	setStatusMessage(PART_STATUS_NO_STATE, true);	break;
 				case Result::FAILED:	setStatusMessage(PART_STATUS_FAILED, true);		break;
 			}
+		}
+
+		void setCustomTheme(const std::string& name)
+		{
+			if (!gInitialized)
+				return;
+			const std::string previous = n3ds::shop::get().mCustomTheme;
+			n3ds::shop::get().mCustomTheme = name;		// Only for loading here; the caller decides whether to keep it
+			gDataValid = loadArtwork(n3ds::shop::THEME_CUSTOM);
+			n3ds::shop::get().mCustomTheme = previous;
 		}
 
 		void setTheme(int theme)
