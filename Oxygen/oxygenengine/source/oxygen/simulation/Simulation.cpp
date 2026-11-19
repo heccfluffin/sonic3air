@@ -84,6 +84,9 @@ bool Simulation::startup()
 #if defined(PLATFORM_3DS)
 	const uint64 ticksScriptsLoaded = svcGetSystemTick();
 #endif
+#if defined(PLATFORM_3DS)
+	RMX_LOG_INFO("Scripts: loaded, setting up the runtime");	// Memory checkpoint (each log line shows the memory in use)
+#endif
 	if (success)
 	{
 		mCodeExec.reinitRuntime(nullptr, CodeExec::CallStackInitPolicy::RESET);

@@ -155,6 +155,9 @@ LemonScriptProgram::LoadScriptsResult LemonScriptProgram::loadScripts(std::wstri
 
 	if (loadingResult != LoadingResult::SUCCESS)
 		return LoadScriptsResult::FAILED;
+#if defined(PLATFORM_3DS)
+	RMX_LOG_INFO("Scripts: modules loaded");	// Memory checkpoint (each log line shows the memory in use)
+#endif
 
 	// Build lemon script program from modules
 	mInternal.mProgram.addModule(mInternal.mLemonCoreModule);
@@ -191,8 +194,15 @@ LemonScriptProgram::LoadScriptsResult LemonScriptProgram::loadScripts(std::wstri
 		config.mRunScriptNativization = 2;		// Mark as done
 	}
 
+#if defined(PLATFORM_3DS)
+	RMX_LOG_INFO("Scripts: program built");		// Memory checkpoint
+#endif
+
 	// Scan for function pragmas defining hooks
 	collectHooksFromFunctions();
+#if defined(PLATFORM_3DS)
+	RMX_LOG_INFO("Scripts: hooks collected");	// Memory checkpoint
+#endif
 
 	if (EngineMain::getDelegate().useDeveloperFeatures())
 	{
