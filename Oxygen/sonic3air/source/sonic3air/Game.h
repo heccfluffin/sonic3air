@@ -74,6 +74,7 @@ public:
 	inline bool isInNormalGameMode() const	{ return mMode == Mode::NORMAL_GAME; }
 	inline bool isInTimeAttackMode() const	{ return mMode == Mode::TIME_ATTACK; }
 	inline bool isInMainMenuMode() const	{ return mMode == Mode::MAIN_MENU_BG; }
+	inline Mode getMode() const				{ return mMode; }
 	inline void resetCurrentMode()			{ mMode = Mode::UNDEFINED; }
 
 	inline PlayerRecorder& getPlayerRecorder()	{ return mPlayerRecorder; }

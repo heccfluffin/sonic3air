@@ -44,8 +44,7 @@ namespace n3ds
 				PART_LOAD_DISABLED,
 				PART_STATS_NORMAL,
 				PART_STATS_PRESSED,
-				PART_STATUS_READY,			// "Quick save slot"
-				PART_STATUS_HINT,			// "Save states work during gameplay"
+				PART_STATUS_HINT,			// "Save states work in levels"
 				PART_STATUS_SAVING,
 				PART_STATUS_SAVED,
 				PART_STATUS_LOADING,
@@ -53,6 +52,8 @@ namespace n3ds
 				PART_STATUS_NO_STATE,
 				PART_STATUS_FAILED,
 				PART_STATUS_ONLY_INGAME,
+				PART_STATUS_SLOTS,			// Which save file the state belongs to: 9 save files ("No Save", 1-8) x ("has a state", "no state yet")
+				_PART_STATUS_SLOTS_END = PART_STATUS_SLOTS + 18 - 1,
 				_NUM_PARTS
 			};
 
@@ -116,7 +117,7 @@ namespace n3ds
 			bool loadArtwork()
 			{
 				// The uncompressed size isn't stored, but it's known: the full screen plus all parts, see make_bottom_screen.py
-				const uLongf maxSize = 512 * 1024;
+				const uLongf maxSize = 1024 * 1024;		// Gets shrunk to the actual size afterwards
 				gData = (uint8*)malloc(maxSize);
 				if (nullptr == gData)
 					return false;
@@ -125,6 +126,9 @@ namespace n3ds
 					return false;
 				if (readU16(&gData[4]) != 1 || readU16(&gData[6]) != _NUM_PARTS || size < 8 + 12 * _NUM_PARTS)
 					return false;
+				uint8* shrunk = (uint8*)realloc(gData, size);
+				if (nullptr != shrunk)
+					gData = shrunk;
 
 				for (int i = 0; i < _NUM_PARTS; ++i)
 				{
@@ -175,6 +179,9 @@ namespace n3ds
 				}
 			}
 
+			int gSlot = -1;					// Save file of the running game: 0 = "No Save", 1-8, or -1 if unknown
+			bool gSlotHasState = false;
+
 			Part getStatusPart(bool saveStatesAllowed)
 			{
 				if (gStatusMessage != _NUM_PARTS)
@@ -183,7 +190,9 @@ namespace n3ds
 						return gStatusMessage;
 					gStatusMessage = _NUM_PARTS;
 				}
-				return saveStatesAllowed ? PART_STATUS_READY : PART_STATUS_HINT;
+				if (!saveStatesAllowed || gSlot < 0 || gSlot > 8)
+					return PART_STATUS_HINT;
+				return (Part)(PART_STATUS_SLOTS + gSlot * 2 + (gSlotHasState ? 0 : 1));
 			}
 
 			void setStatusMessage(Part part, bool temporary)
@@ -288,8 +297,10 @@ namespace n3ds
 			}
 		}
 
-		Request update(bool saveStatesAllowed)
+		Request update(bool saveStatesAllowed, int slot, bool slotHasState)
 		{
+			gSlot = slot;
+			gSlotHasState = slotHasState;
 			if (!gInitialized)
 				initialize();
 			if (!gDataValid)

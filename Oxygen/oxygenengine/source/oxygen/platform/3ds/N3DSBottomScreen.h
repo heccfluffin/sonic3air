@@ -30,8 +30,9 @@ namespace n3ds
 		};
 
 		// Call once per frame on the main thread. "saveStatesAllowed" tells whether save states can be used right now
-		// (they get greyed out otherwise). Returns what the player tapped; the caller performs it, then reports back with "showResult".
-		Request update(bool saveStatesAllowed);
+		// (they get greyed out otherwise), "slot" which save file is being played (0 = "No Save", 1-8) and "slotHasState" whether
+		// it has a save state. Returns what the player tapped; the caller performs it, then reports back with "showResult".
+		Request update(bool saveStatesAllowed, int slot, bool slotHasState);
 		void showResult(Result result);
 
 		// Whether the bottom screen shows the profiler's statistics (otherwise the profiler only writes its log file)

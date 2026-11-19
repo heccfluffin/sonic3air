@@ -375,22 +375,89 @@ bool GameApp::openFileBrowser()
 #if defined(PLATFORM_3DS)
 void GameApp::updateBottomScreen()
 {
-	// 3DS bottom screen: controls overview with touch buttons for a quick save state
+	// 3DS bottom screen: controls overview with touch buttons for a save state per save file
 	Simulation& simulation = Application::instance().getSimulation();
-	const bool saveStatesAllowed = (mCurrentState == State::INGAME) && (nullptr == mPauseMenu->getParent()) && !Game::instance().isInTimeAttackMode() && simulation.isRunning();
+	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
 
-	const n3ds::bottomscreen::Request request = n3ds::bottomscreen::update(saveStatesAllowed);
+	// Save file of the running game, from "global.active_saveslot": zero for "No Save", otherwise a pointer to the slot's data
+	int slot = -1;
+	{
+		const uint32 slotPointer = emulatorInterface.readMemory32(0xffffe660);
+		if (slotPointer == 0)
+			slot = 0;
+		else if (slotPointer >= 0xffffe6ac && (slotPointer - 0xffffe6ac) % 0x0a == 0 && (slotPointer - 0xffffe6ac) / 0x0a < 8)
+			slot = 1 + (int)((slotPointer - 0xffffe6ac) / 0x0a);
+	}
+	const auto getStateFilename = [](int slot)
+	{
+		return Configuration::instance().mSaveStatesDirLocal + ((slot == 0) ? std::wstring(L"3ds_nosave.state") : (L"3ds_slot" + std::to_wstring(slot) + L".state"));
+	};
+
+	// When a save file gets deleted in data select (its first byte gets the "empty" flag 0x80), delete its save state as well.
+	// Not if all of them are empty at once: that's the default data before the save files are loaded (or nothing could be loaded).
+	{
+		static uint8 lastFlags[8] = { 0 };
+		static bool initialized = false;
+		uint8 flags[8];
+		int numEmpty = 0;
+		for (int i = 0; i < 8; ++i)
+		{
+			flags[i] = emulatorInterface.readMemory8(0xffffe6ac + i * 0x0a);
+			if (flags[i] & 0x80)
+				++numEmpty;
+		}
+		if (numEmpty < 8)
+		{
+			for (int i = 0; i < 8; ++i)
+			{
+				const bool becameEmpty = (flags[i] & 0x80) && (!initialized || !(lastFlags[i] & 0x80));
+				if (becameEmpty)
+				{
+					const std::wstring filename = getStateFilename(i + 1);
+					if (FTX::FileSystem->exists(filename))
+					{
+						FTX::FileSystem->removeFile(filename);
+						RMX_LOG_INFO("Bottom screen: save file " << (i + 1) << " is empty, deleted its save state");
+					}
+				}
+			}
+			initialized = true;
+		}
+		memcpy(lastFlags, flags, 8);
+	}
+
+	// Whether the current save file has a state: only checked on the SD card when the save file changes
+	static int cachedSlot = -2;
+	static bool cachedHasState = false;
+	if (slot != cachedSlot)
+	{
+		cachedSlot = slot;
+		cachedHasState = (slot >= 0) && FTX::FileSystem->exists(getStateFilename(slot));
+	}
+
+	// Save states only in levels and special stages of a normal game (game mode 0x0c / 0x34), not paused
+	const uint8 gameMode = emulatorInterface.readMemory8(0xfffff600);
+	const Game::Mode mode = Game::instance().getMode();
+	const bool saveStatesAllowed = (mCurrentState == State::INGAME) && (nullptr == mPauseMenu->getParent()) && simulation.isRunning()
+								&& (gameMode == 0x0c || gameMode == 0x34) && slot >= 0
+								&& (mode == Game::Mode::NORMAL_GAME || mode == Game::Mode::ACT_SELECT || mode == Game::Mode::UNDEFINED);	// Undefined after loading a state
+
+	const n3ds::bottomscreen::Request request = n3ds::bottomscreen::update(saveStatesAllowed, slot, cachedHasState);
 	if (request == n3ds::bottomscreen::Request::NONE)
 		return;
 
-	const std::wstring filename = Configuration::instance().mSaveStatesDirLocal + L"3ds_quicksave.state";
+	const std::wstring filename = getStateFilename(slot);
 	const uint64 startTicks = svcGetSystemTick();
 	if (request == n3ds::bottomscreen::Request::SAVE_STATE)
 	{
 		// Directly with the serializer instead of "Simulation::saveState", which also saves a screenshot and shows an error dialog on failure
 		SaveStateSerializer serializer(simulation, RenderParts::instance());
-		const bool success = serializer.saveState(filename);
-		RMX_LOG_INFO("Bottom screen: save state " << (success ? "saved" : "FAILED") << " (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
+		std::vector<uint8> data;
+		const bool success = serializer.saveState(data) && FTX::FileSystem->saveFile(filename, data);
+		RMX_LOG_INFO("Bottom screen: save state for save file " << slot << (success ? " saved" : " FAILED") << ", " << (int)(data.size() / 1024) << " KB, "
+					 << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms");
+		if (success)
+			cachedHasState = true;
 		n3ds::bottomscreen::showResult(success ? n3ds::bottomscreen::Result::SAVED : n3ds::bottomscreen::Result::FAILED);
 	}
 	else if (request == n3ds::bottomscreen::Request::LOAD_STATE)
@@ -411,7 +478,6 @@ void GameApp::updateBottomScreen()
 			{ 0x801100, 0x100 },	// Data select save slots, extended data
 			{ 0xffffffa6, 4 },		// Blue Sphere progress
 		};
-		EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
 		std::vector<uint8> persistentBackup;
 		for (const PersistentRange& range : PERSISTENT_RANGES)
 		{
@@ -431,7 +497,7 @@ void GameApp::updateBottomScreen()
 					emulatorInterface.writeMemory8(range.mAddress + k, persistentBackup[index++]);
 			}
 		}
-		RMX_LOG_INFO("Bottom screen: save state " << (success ? "loaded" : "FAILED to load") << " (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
+		RMX_LOG_INFO("Bottom screen: save state for save file " << slot << (success ? " loaded" : " FAILED to load") << " (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
 		n3ds::bottomscreen::showResult(success ? n3ds::bottomscreen::Result::LOADED : n3ds::bottomscreen::Result::FAILED);
 	}
 }

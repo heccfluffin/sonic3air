@@ -45,16 +45,20 @@ STATS_BOX  = (258, 7, 312, 27)
 
 # Status messages, in the order of the STATUS_* parts in N3DSBottomScreen.cpp
 STATUS_MESSAGES = [
-	('Quick save slot', ''),			# Default while playing
-	('Save states work', 'during gameplay'),	# Default elsewhere (menus, title screen)
+	('Save states work', 'in levels'),			# Default outside of levels (menus, title screen, data select)
 	('Saving...', ''),
 	('State saved!', ''),
 	('Loading...', ''),
 	('State loaded!', ''),
-	('No state saved', 'yet'),
+	('No state saved', 'for this game yet'),
 	('Something went', 'wrong, see log'),
-	('Only during', 'gameplay'),
+	('Only works', 'in levels'),
 ]
+# Default while playing: which save file the state belongs to, and whether it has one. For "No Save" and save files 1-8,
+# each with "has a state" and "no state yet".
+for slot_name in ['No Save game'] + [f'Save file {i}' for i in range(1, 9)]:
+	STATUS_MESSAGES.append((slot_name, 'has a state'))
+	STATUS_MESSAGES.append((slot_name, 'no state yet'))
 
 
 def font(size):
@@ -402,7 +406,7 @@ def to_rgb565(img, box):
 
 
 def main():
-	base = build(status=1)		# What the screen looks like before the game is running
+	base = build(status=0)		# What the screen looks like before the game is running
 
 	# Parts that get swapped in at runtime - order must match "Part" in N3DSBottomScreen.cpp
 	parts = [(base, (0, 0, W, H))]
@@ -436,7 +440,7 @@ def main():
 	base.save(os.path.join(HERE, 'bottom_screen_preview.png'))
 
 	# Contact sheet of all parts
-	sheet = Image.new("RGB", (W, H + 4 + 80 * 7), (40, 40, 40))
+	sheet = Image.new("RGB", (W, H + 4 + 80 * 15), (40, 40, 40))
 	sheet.paste(base, (0, 0))
 	x, y = 0, H + 4
 	for img, box in parts[1:]:
