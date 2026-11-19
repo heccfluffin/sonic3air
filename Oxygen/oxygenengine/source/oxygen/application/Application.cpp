@@ -14,6 +14,10 @@
 #include "oxygen/application/Application.h"
 #if defined(PLATFORM_3DS)
 	#include "oxygen/platform/3ds/N3DSExitGuard.h"
+	#include <3ds.h>
+	#include <malloc.h>
+	extern "C" u32 __ctru_heap_size;
+	extern "C" u32 __ctru_linear_heap_size;
 #endif
 #include "oxygen/application/Configuration.h"
 #include "oxygen/application/EngineMain.h"
@@ -799,6 +803,17 @@ void Application::render()
 			snprintf(text, sizeof(text), "Memory: sprites %u palette (%.1f MB, upscaled for rotation %.1f MB), %u component (%.1f MB), %u items in total",
 					 (unsigned)numPalette, (double)palettePixels / 1048576.0, (double)upscaledPixels / 1048576.0,
 					 (unsigned)numComponent, (double)componentPixels * 4.0 / 1048576.0, (unsigned)SpriteCollection::instance().getAllSprites().size());
+			RMX_LOG_INFO(text);
+		}
+
+		// Memory layout: the app memory mode, and how it's split into heap (malloc / new) and linear memory, with the peak use so far
+		{
+			const struct mallinfo info = mallinfo();
+			char text[256];
+			snprintf(text, sizeof(text), "Memory: app memory mode %.1f MB (%.1f MB free), heap %.1f MB (peak arena %.1f MB), linear %.1f MB (%.1f MB free)",
+					 (double)osGetMemRegionSize(MEMREGION_APPLICATION) / 1048576.0, (double)osGetMemRegionFree(MEMREGION_APPLICATION) / 1048576.0,
+					 (double)__ctru_heap_size / 1048576.0, (double)info.arena / 1048576.0,
+					 (double)__ctru_linear_heap_size / 1048576.0, (double)linearSpaceFree() / 1048576.0);
 			RMX_LOG_INFO(text);
 		}
 	#endif
