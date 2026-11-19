@@ -15,6 +15,10 @@
 	#include <android/log.h>
 #elif defined(PLATFORM_VITA)
 	#include <psp2/kernel/clib.h>
+#elif defined(PLATFORM_3DS)
+	#include <3ds.h>
+	#include <malloc.h>
+	extern "C" u32 __ctru_linear_heap_size;
 #endif
 
 #include <chrono>
@@ -136,6 +140,20 @@ namespace rmx
 			std::string timestampString = detail::getTimestampString();
 			mFileHandle.write(timestampString.c_str(), timestampString.length());
 		}
+
+	#if defined(PLATFORM_3DS)
+		// Memory in use with every line, so the log shows how much each loading step (and everything else) takes:
+		// heap in use (malloc / new), heap arena (taken from the system so far, never shrinks), linear memory in use (GPU, audio)
+		{
+			const struct mallinfo info = mallinfo();
+			const u32 linearUsed = __ctru_linear_heap_size - linearSpaceFree();
+			char memoryString[64];
+			const int length = snprintf(memoryString, sizeof(memoryString), "[heap %.1f, arena %.1f, linear %.1f MB] ",
+										(double)info.uordblks / 1048576.0, (double)info.arena / 1048576.0, (double)linearUsed / 1048576.0);
+			if (length > 0 && length < (int)sizeof(memoryString))
+				mFileHandle.write(memoryString, (size_t)length);
+		}
+	#endif
 
 		// Write to file
 		mFileHandle.write(string.c_str(), string.length());

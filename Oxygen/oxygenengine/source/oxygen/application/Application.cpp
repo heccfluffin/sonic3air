@@ -8,6 +8,9 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/platform/3ds/N3DSProfiler.h"
+#include "oxygen/resources/SpriteCollection.h"
+#include "oxygen/rendering/sprite/ComponentSprite.h"
+#include "oxygen/rendering/sprite/PaletteSprite.h"
 #include "oxygen/application/Application.h"
 #if defined(PLATFORM_3DS)
 	#include "oxygen/platform/3ds/N3DSExitGuard.h"
@@ -769,6 +772,36 @@ void Application::render()
 		RMX_LOG_INFO("End of first application render call");
 		RMX_LOG_INFO("Ready to go");
 		mIsVeryFirstFrameForLogging = false;
+
+	#if defined(PLATFORM_3DS)
+		// Memory statistics: how much the loaded sprites take (the rest shows up in the memory numbers of the log lines)
+		{
+			size_t numPalette = 0, numComponent = 0, palettePixels = 0, upscaledPixels = 0, componentPixels = 0;
+			for (const auto& pair : SpriteCollection::instance().getAllSprites())
+			{
+				const SpriteCollection::Item& item = pair.second;
+				if (nullptr == item.mSprite)
+					continue;
+				if (item.mUsesComponentSprite)
+				{
+					++numComponent;
+					componentPixels += (size_t)static_cast<const ComponentSprite*>(item.mSprite)->getBitmap().getPixelCount();
+				}
+				else
+				{
+					++numPalette;
+					const PaletteSprite& sprite = *static_cast<const PaletteSprite*>(item.mSprite);
+					palettePixels += (size_t)sprite.getBitmap().getPixelCount();
+					upscaledPixels += (size_t)sprite.getUpscaledPixelCount();
+				}
+			}
+			char text[256];
+			snprintf(text, sizeof(text), "Memory: sprites %u palette (%.1f MB, upscaled for rotation %.1f MB), %u component (%.1f MB), %u items in total",
+					 (unsigned)numPalette, (double)palettePixels / 1048576.0, (double)upscaledPixels / 1048576.0,
+					 (unsigned)numComponent, (double)componentPixels * 4.0 / 1048576.0, (unsigned)SpriteCollection::instance().getAllSprites().size());
+			RMX_LOG_INFO(text);
+		}
+	#endif
 	}
 }
 

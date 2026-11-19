@@ -4,7 +4,7 @@
 BasicInfo:
   Title                   : "S3AIR"
   ProductCode             : "CTR-H-S3AR"
-  Logo                    : Homebrew
+  Logo                    : None         # No launch logo (makerom's "Homebrew" logo looked like the Homebrew Launcher)
 
 TitleInfo:
   Category                : Application

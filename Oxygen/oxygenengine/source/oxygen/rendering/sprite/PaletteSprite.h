@@ -25,6 +25,7 @@ public:
 	inline PaletteBitmap& accessBitmap()  { return mBitmap; }
 	inline const PaletteBitmap& getBitmap() const  { return mBitmap; }
 	const PaletteBitmap& getUpscaledBitmap() const;
+	inline int getUpscaledPixelCount() const  { return mUpscaledBitmap.getPixelCount(); }	// Without creating it, for memory statistics
 
 	inline Vec2i getSize() const override  { return mBitmap.getSize(); }
 
