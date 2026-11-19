@@ -20,9 +20,11 @@ Option:
 AccessControlInfo:
   CoreVersion             : 2
 
-  # Memory: on New 3DS / New 2DS XL, request the largest app memory mode (178 MB)
+  # Memory: EXPERIMENT - the normal 64 MB mode, like the HOME Menu uses
+  #  -> Switching to a larger mode (178 MB) makes the system reload itself, which causes long black screens at launch and exit
+  #  -> This only works if the game fits into 64 MB (code, heap and linear memory together)
   SystemMode              : 64MB
-  SystemModeExt           : 178MB
+  SystemModeExt           : Legacy
   CpuSpeed                : 804MHz
   EnableL2Cache           : true
   CanAccessCore2          : true

@@ -49,7 +49,9 @@
 
 			const u32 remaining = (u32)(maxCommit - currentCommit) & ~0xFFFu;
 			const u32 maxHeapSize = OS_HEAP_AREA_END - OS_HEAP_AREA_BEGIN;
-			const u32 minLinearHeapSize = 16u << 20;	// Framebuffers, audio buffers
+			// Linear memory: framebuffers, GPU textures and command buffers, audio buffers (about 4 MB in use, measured)
+			//  -> In the 64 MB memory mode, keep the reserve small, as the application heap needs nearly everything
+			const u32 minLinearHeapSize = (remaining < (100u << 20)) ? (7u << 20) : (16u << 20);
 
 			u32 heapSize = (remaining > 2 * minLinearHeapSize) ? (remaining - minLinearHeapSize) : (remaining / 2);
 			if (heapSize > maxHeapSize)
