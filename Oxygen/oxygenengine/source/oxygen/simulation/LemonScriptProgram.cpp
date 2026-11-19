@@ -23,6 +23,8 @@
 #include <lemon/program/GlobalsLookup.h>
 #include <lemon/program/Module.h>
 #include <lemon/program/Program.h>
+#include <lemon/runtime/Runtime.h>
+#include <lemon/runtime/RuntimeFunction.h>
 #include <lemon/runtime/StandardLibrary.h>
 #include <lemon/utility/PragmaSplitter.h>
 
@@ -42,6 +44,7 @@ struct LemonScriptProgram::Internal
 	lemon::Module mScriptModule;
 	std::vector<lemon::Module*> mModModules;
 	std::vector<const Mod*> mLastModSelection;
+	bool mBaseScriptOpcodesReleased = false;	// If set, the game scripts module can't be used for building the runtime again, and has to be loaded anew
 	lemon::Program mProgram;
 	LemonScriptBindings	mLemonScriptBindings;
 	lemon::GlobalsLookup mGlobalsLookupCoreOnly;
@@ -136,7 +139,7 @@ LemonScriptProgram::LoadScriptsResult LemonScriptProgram::loadScripts(std::wstri
 	}
 
 	// Check if there's anything to do at all
-	const bool mainScriptReloadNeeded = (mInternal.mProgram.getModules().empty() || loadOptions.mEnforceFullReload);
+	const bool mainScriptReloadNeeded = (mInternal.mProgram.getModules().empty() || loadOptions.mEnforceFullReload || mInternal.mBaseScriptOpcodesReleased);
 	if (!mainScriptReloadNeeded)
 	{
 		if (modsToLoad == mInternal.mLastModSelection)
@@ -271,16 +274,40 @@ void LemonScriptProgram::resolveLocation(ResolvedLocation& outResolvedLocation, 
 	}
 }
 
+void LemonScriptProgram::releaseBaseScriptOpcodes(lemon::Runtime& runtime)
+{
+	size_t numReleased = 0;
+	size_t numOpcodes = 0;
+	size_t compactDataSize = 0;
+	for (lemon::ScriptFunction* function : mInternal.mScriptModule.getScriptFunctions())
+	{
+		if (function->areOpcodesReleased() || function->mOpcodes.empty())
+			continue;
+
+		// Only release the opcodes if the runtime function was built successfully (it's already built, so this does not build anything new)
+		const lemon::RuntimeFunction* runtimeFunction = runtime.getRuntimeFunction(*function);
+		if (nullptr == runtimeFunction || nullptr == runtimeFunction->getFirstRuntimeOpcode())
+			continue;
+
+		numOpcodes += function->mOpcodes.size();
+		function->releaseOpcodes();
+		compactDataSize += function->getReleasedDataSize();
+		++numReleased;
+		mInternal.mBaseScriptOpcodesReleased = true;
+	}
+	RMX_LOG_INFO("Released the opcodes of " << numReleased << " script functions (" << numOpcodes << " opcodes, " << (numOpcodes * sizeof(lemon::Opcode) / 1024) << " KB, replaced by " << (compactDataSize / 1024) << " KB of compact data)");
+}
+
 void LemonScriptProgram::resolveLocation(ResolvedLocation& outResolvedLocation, const lemon::Function& function, uint32 programCounter)
 {
 	if (function.isA<lemon::ScriptFunction>())
 	{
 		const lemon::ScriptFunction& scriptFunc = function.as<lemon::ScriptFunction>();
-		if (programCounter < scriptFunc.mOpcodes.size())
+		if (programCounter < scriptFunc.getNumOpcodes())
 		{
 			outResolvedLocation.mSourceFileInfo = scriptFunc.mSourceFileInfo;
 			outResolvedLocation.mScriptFilename = *WString(scriptFunc.mSourceFileInfo->mFilename).toString();
-			outResolvedLocation.mLineNumber = scriptFunc.mOpcodes[programCounter].mLineNumber - scriptFunc.mSourceBaseLineOffset + 1;
+			outResolvedLocation.mLineNumber = scriptFunc.getOpcodeLineNumber(programCounter) - scriptFunc.mSourceBaseLineOffset + 1;	// Works even if the opcodes were released
 		}
 		else
 		{
@@ -307,6 +334,7 @@ LemonScriptProgram::LoadingResult LemonScriptProgram::loadAllScriptModules(const
 	if (!baseScriptFilename.empty())
 	{
 		mInternal.mScriptModule.clear();
+		mInternal.mBaseScriptOpcodesReleased = false;
 		const uint32 coreModuleDependencyHash = mInternal.mLemonCoreModule.buildDependencyHash() + mInternal.mOxygenCoreModule.buildDependencyHash();
 
 		// Load scripts

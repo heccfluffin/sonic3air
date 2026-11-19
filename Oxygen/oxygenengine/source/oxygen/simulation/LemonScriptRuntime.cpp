@@ -145,6 +145,12 @@ void LemonScriptRuntime::onProgramUpdated()
 
 	// Build all runtime functions right away
 	mInternal.mRuntime.buildAllRuntimeFunctions();
+
+#if defined(PLATFORM_3DS)
+	// With all runtime functions built, the original opcodes of the game scripts are not needed any more, so free them (about 9 MB)
+	//  -> This matters on 3DS, where the game should fit into the smaller memory modes
+	mProgram.releaseBaseScriptOpcodes(mInternal.mRuntime);
+#endif
 }
 
 bool LemonScriptRuntime::serializeRuntime(VectorBinarySerializer& serializer)
@@ -382,10 +388,9 @@ std::string LemonScriptRuntime::buildScriptLocationString(const lemon::ControlFl
 
 uint32 LemonScriptRuntime::getLineNumberInFile(const lemon::ScriptFunction& function, size_t programCounter)
 {
-	const auto& opcodes = function.mOpcodes;
-	if (opcodes.empty())
+	if (function.getNumOpcodes() == 0)
 		return 0;
 
-	const uint32 lineNumber = (programCounter < opcodes.size()) ? opcodes[programCounter].mLineNumber : opcodes.back().mLineNumber;
+	const uint32 lineNumber = function.getOpcodeLineNumber(programCounter);	// Works even if the opcodes were released to save memory
 	return (lineNumber < function.mSourceBaseLineOffset) ? 0 : (lineNumber - function.mSourceBaseLineOffset + 1);
 }

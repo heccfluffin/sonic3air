@@ -21,18 +21,20 @@ namespace lemon
 	{
 		int matchCallerProgramCounter(const Program& program, const ControlFlow::State& parentState, const ControlFlow::State& childLocation)
 		{
-			const std::vector<Opcode>& opcodes = parentState.mRuntimeFunction->mFunction->mOpcodes;
+			// Using the call sites instead of the opcodes, as the opcodes might have been released already to save memory (see "ScriptFunction::releaseOpcodes")
+			static std::vector<ScriptFunction::CallSite> callSites;
+			parentState.mRuntimeFunction->mFunction->getCallSites(callSites);
 			const int oldPC = (int)parentState.mRuntimeFunction->translateFromRuntimeProgramCounter(parentState.mProgramCounter);
 			int newPC = -1;
 
 			// Pass 1: Search normal function calls
 			{
 				const uint64 nameAndSignatureHash = childLocation.mRuntimeFunction->mFunction->getNameAndSignatureHash();
-				for (size_t k = 0; k < opcodes.size(); ++k)
+				for (const ScriptFunction::CallSite& callSite : callSites)
 				{
-					if (opcodes[k].mType == Opcode::Type::CALL && (uint64)opcodes[k].mParameter == nameAndSignatureHash && opcodes[k].mDataType == BaseType::VOID)
+					if (callSite.mType == Opcode::Type::CALL && callSite.mParameter == nameAndSignatureHash && callSite.mDataType == BaseType::VOID)
 					{
-						const int programCounter = (int)(k + 1);
+						const int programCounter = (int)(callSite.mOpcodeIndex + 1);
 						if (newPC == -1 || std::abs(programCounter - oldPC) < std::abs(newPC - oldPC))
 						{
 							newPC = programCounter;
@@ -44,11 +46,11 @@ namespace lemon
 			// Pass 2: Search external calls, no filtering
 			if (newPC < 0)
 			{
-				for (size_t k = 0; k < opcodes.size(); ++k)
+				for (const ScriptFunction::CallSite& callSite : callSites)
 				{
-					if (opcodes[k].mType == Opcode::Type::EXTERNAL_CALL)
+					if (callSite.mType == Opcode::Type::EXTERNAL_CALL)
 					{
-						const int programCounter = (int)(k + 1);
+						const int programCounter = (int)(callSite.mOpcodeIndex + 1);
 						if (newPC == -1 || std::abs(programCounter - oldPC) < std::abs(newPC - oldPC))
 						{
 							newPC = programCounter;
@@ -60,15 +62,15 @@ namespace lemon
 			// Pass 3: Search normal function calls to user functions
 			if (newPC < 0)
 			{
-				for (size_t k = 0; k < opcodes.size(); ++k)
+				for (const ScriptFunction::CallSite& callSite : callSites)
 				{
-					if (opcodes[k].mType == Opcode::Type::CALL && opcodes[k].mDataType == BaseType::VOID)
+					if (callSite.mType == Opcode::Type::CALL && callSite.mDataType == BaseType::VOID)
 					{
-						const uint64 nameAndSignatureHash = (uint32)opcodes[k].mParameter;
+						const uint64 nameAndSignatureHash = (uint32)callSite.mParameter;
 						const Function* function = program.getFunctionBySignature(nameAndSignatureHash);
 						if (nullptr != function && function->isA<NativeFunction>())
 						{
-							const int programCounter = (int)(k + 1);
+							const int programCounter = (int)(callSite.mOpcodeIndex + 1);
 							if (newPC == -1 || std::abs(programCounter - oldPC) < std::abs(newPC - oldPC))
 							{
 								newPC = programCounter;

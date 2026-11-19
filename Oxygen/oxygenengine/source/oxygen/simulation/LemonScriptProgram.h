@@ -18,6 +18,7 @@ namespace lemon
 {
 	class GlobalsLookup;
 	class Program;
+	class Runtime;
 	class RuntimeFunction;
 	class ScriptFunction;
 	class Variable;
@@ -103,6 +104,10 @@ public:
 	const std::vector<const lemon::Module*>& getModules() const;
 
 	void resolveLocation(ResolvedLocation& outResolvedLocation, uint32 functionId, uint32 programCounter) const;
+
+	// Releases the opcodes of the game scripts after all runtime functions were built (see "lemon::ScriptFunction::releaseOpcodes"), to save memory
+	//  -> The next program change (like activating a script mod) then loads the game scripts anew
+	void releaseBaseScriptOpcodes(lemon::Runtime& runtime);
 
 public:
 	static void resolveLocation(ResolvedLocation& outResolvedLocation, const lemon::Function& function, uint32 programCounter);

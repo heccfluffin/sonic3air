@@ -90,7 +90,15 @@ namespace lemon
 	bool RuntimeFunction::build(Runtime& runtime)
 	{
 		// First check if it is built already
-		if (!mRuntimeOpcodeBuffer.empty() || mFunction->mOpcodes.empty())
+		if (!mRuntimeOpcodeBuffer.empty())
+			return true;
+		if (mFunction->areOpcodesReleased())
+		{
+			// This should never happen: Opcodes are only released after a successful build, and a new build only happens after the module was loaded anew
+			RMX_ERROR("Can't build lemonscript runtime function \"" << mFunction->getName() << "\", as its opcodes were released already", );
+			return false;
+		}
+		if (mFunction->mOpcodes.empty())
 			return true;
 
 		// Create the runtime opcodes
@@ -202,6 +210,8 @@ namespace lemon
 			}
 		}
 
+		// The opcode pointers are only needed during the build, so free them (about 1 MB for the game scripts)
+		std::vector<RuntimeOpcode*>().swap(mRuntimeOpcodeBuffer.mOpcodePointers);
 		return true;
 	}
 
