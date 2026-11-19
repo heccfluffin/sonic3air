@@ -116,7 +116,9 @@ namespace lemon
 			tempBuffer.clear();
 			tempBuffer.reserveForOpcodes(numOpcodes);
 
-			mProgramCounterByOpcodeIndex.resize(numOpcodes, 0xffffffff);
+			static std::vector<uint32> programCounters;
+			programCounters.clear();
+			programCounters.resize(numOpcodes, 0xffffffff);
 
 			try
 			{
@@ -130,7 +132,7 @@ namespace lemon
 
 					for (int k = 0; k < numOpcodesConsumed; ++k)
 					{
-						mProgramCounterByOpcodeIndex[k + i] = start;
+						programCounters[k + i] = (uint32)start;
 					}
 					i += numOpcodesConsumed;
 				}
@@ -143,6 +145,7 @@ namespace lemon
 
 			// Copy the runtime opcodes over into the actual opcode buffer for this function
 			mRuntimeOpcodeBuffer.copyFrom(tempBuffer, runtime.mRuntimeOpcodesPool);
+			setProgramCounters(programCounters);
 		}
 
 		// Post-processing
@@ -225,20 +228,21 @@ namespace lemon
 	int RuntimeFunction::translateFromRuntimeProgramCounterOptional(const uint8* runtimeProgramCounter) const
 	{
 		// Binary search
-		if (mProgramCounterByOpcodeIndex.empty())
+		if (getNumProgramCounters() == 0)
 			return -1;
 
 		const size_t programCounter = (size_t)(runtimeProgramCounter - getFirstRuntimeOpcode());
 		size_t minimum = 0;
-		size_t maximum = mProgramCounterByOpcodeIndex.size() - 1;
+		size_t maximum = getNumProgramCounters() - 1;
 		while (minimum <= maximum)
 		{
 			const size_t median = (minimum + maximum) / 2;
-			if (programCounter < mProgramCounterByOpcodeIndex[median])
+			const size_t medianProgramCounter = getProgramCounter(median);
+			if (programCounter < medianProgramCounter)
 			{
 				maximum = median - 1;
 			}
-			else if (programCounter > mProgramCounterByOpcodeIndex[median])
+			else if (programCounter > medianProgramCounter)
 			{
 				minimum = median + 1;
 			}
@@ -252,7 +256,7 @@ namespace lemon
 
 	const uint8* RuntimeFunction::translateToRuntimeProgramCounter(size_t originalProgramCounter) const
 	{
-		const size_t index = (originalProgramCounter < mProgramCounterByOpcodeIndex.size()) ? mProgramCounterByOpcodeIndex[originalProgramCounter] : 0;
+		const size_t index = (originalProgramCounter < getNumProgramCounters()) ? getProgramCounter(originalProgramCounter) : 0;
 		return &mRuntimeOpcodeBuffer[index];
 	}
 
@@ -278,12 +282,37 @@ namespace lemon
 		DefaultOpcodeProvider::buildRuntimeOpcodeStatic(buffer, opcodes, numOpcodesAvailable, firstOpcodeIndex, outNumOpcodesConsumed, runtime, *mFunction);
 	}
 
+	void RuntimeFunction::setProgramCounters(const std::vector<uint32>& programCounters)
+	{
+		// Use 16-bit entries if all values fit (exact sizes, no spare capacity)
+		std::vector<uint16>().swap(mProgramCounterByOpcodeIndex16);
+		std::vector<uint32>().swap(mProgramCounterByOpcodeIndex32);
+		bool fitsInto16Bits = !programCounters.empty();
+		for (uint32 programCounter : programCounters)
+		{
+			if (programCounter > 0xffff)
+			{
+				fitsInto16Bits = false;
+				break;
+			}
+		}
+
+		if (fitsInto16Bits)
+		{
+			mProgramCounterByOpcodeIndex16.assign(programCounters.begin(), programCounters.end());
+		}
+		else
+		{
+			mProgramCounterByOpcodeIndex32.assign(programCounters.begin(), programCounters.end());
+		}
+	}
+
 	const uint8* RuntimeFunction::translateJumpTarget(uint32 targetOpcodeIndex) const
 	{
 		const size_t oldJumpTarget = (size_t)targetOpcodeIndex;
-		if (oldJumpTarget < mProgramCounterByOpcodeIndex.size())
+		if (oldJumpTarget < getNumProgramCounters())
 		{
-			return mRuntimeOpcodeBuffer.getStart() + mProgramCounterByOpcodeIndex[oldJumpTarget];
+			return mRuntimeOpcodeBuffer.getStart() + getProgramCounter(oldJumpTarget);
 		}
 		else
 		{

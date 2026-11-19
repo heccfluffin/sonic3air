@@ -66,10 +66,20 @@ namespace lemon
 		void createRuntimeOpcode(RuntimeOpcodeBuffer& buffer, const Opcode* opcodes, int numOpcodesAvailable, int firstOpcodeIndex, int& outNumOpcodesConsumed, const Runtime& runtime);
 		const uint8* translateJumpTarget(uint32 targetOpcodeIndex) const;
 
+		void setProgramCounters(const std::vector<uint32>& programCounters);
+		inline size_t getNumProgramCounters() const			{ return mProgramCounterByOpcodeIndex16.empty() ? mProgramCounterByOpcodeIndex32.size() : mProgramCounterByOpcodeIndex16.size(); }
+		inline size_t getProgramCounter(size_t index) const	{ return mProgramCounterByOpcodeIndex16.empty() ? (size_t)mProgramCounterByOpcodeIndex32[index] : (size_t)mProgramCounterByOpcodeIndex16[index]; }
+
 	public:
 		const ScriptFunction* mFunction = nullptr;
 		RuntimeOpcodeBuffer mRuntimeOpcodeBuffer;
-		std::vector<size_t> mProgramCounterByOpcodeIndex;	// Program counter (= byte index inside "mRuntimeOpcodeData") where runtime opcode for given original opcode index starts
+
+	private:
+		// Program counter (= byte index inside the runtime opcode buffer) where the runtime opcode for a given original opcode index starts
+		//  -> Stored with 16 bits per entry if the runtime opcodes take less than 64 KB (that's nearly all functions), otherwise with 32 bits; only one of the two is used
+		//  -> This saves memory, which matters on 3DS (about 2.3 MB in total for the game scripts with the former 32-bit "size_t" entries)
+		std::vector<uint16> mProgramCounterByOpcodeIndex16;
+		std::vector<uint32> mProgramCounterByOpcodeIndex32;
 	};
 
 }

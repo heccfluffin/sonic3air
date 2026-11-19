@@ -60,7 +60,10 @@ namespace lemon
 				mScriptFunctions.push_back(&function->as<ScriptFunction>());
 			}
 
+		#if !defined(PLATFORM_3DS)
+			// Not on 3DS, to save memory (about 0.5 MB): Nothing uses this lookup there, "getFunctionsByName" returns empty lists instead
 			mFunctionsByName[function->getName().getHash()].push_back(function);
+		#endif
 			std::vector<Function*>& funcs = mFunctionsBySignature[function->getNameAndSignatureHash()];
 			funcs.insert(funcs.begin(), function);		// Insert as first
 		}
