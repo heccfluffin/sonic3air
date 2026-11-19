@@ -12,6 +12,7 @@
 
 #include "sonic3air/menu/GameMenuBase.h"
 #include "oxygen/drawing/DrawerTexture.h"
+#include "oxygen/platform/3ds/N3DSShop.h"
 
 class MenuBackground;
 
@@ -99,8 +100,8 @@ private:
 
 	// Pixel art icons of the themes (in each theme's two colors), and the game's monitors for the shields
 	bool mIconsCreated = false;
-	DrawerTexture mThemeIcons[6];
-	DrawerTexture mShieldIcons[5];
+	DrawerTexture mThemeIcons[n3ds::shop::_NUM_THEMES];		// Sized by the theme count (a fixed size here once overflowed when themes were added)
+	DrawerTexture mShieldIcons[n3ds::shop::_NUM_SHIELDS];
 	bool mHasShieldIcons = false;
 
 	// Sonic's move sprites for the Drop Dash and Super Peel-Out secrets (animated)
