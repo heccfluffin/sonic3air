@@ -79,7 +79,8 @@ namespace n3ds
 		void endFrame();						// Call once per frame, right after presenting
 		void showStartupInfo();					// Shows the build on the bottom screen while the game loads
 		void showOnScreen();					// The bottom screen switched to the statistics: show them again from scratch
-		void finish();							// On exit: writes the summary of the current area to the log
+		void finish();							// On exit: writes the summary of the current area to the log (in the background)
+		void waitForWriter(unsigned int maxMilliseconds);	// At the very end of the exit: waits until everything is written
 
 		struct Scope
 		{
@@ -108,6 +109,7 @@ namespace n3ds
 #define N3DS_PROFILE_END_FRAME()		n3ds::profiler::endFrame()
 #define N3DS_PROFILE_STARTUP_INFO()		n3ds::profiler::showStartupInfo()
 #define N3DS_PROFILE_FINISH()			n3ds::profiler::finish()
+#define N3DS_PROFILE_WAIT_FOR_WRITER()	n3ds::profiler::waitForWriter(3000)
 
 #else
 
@@ -122,5 +124,6 @@ namespace n3ds
 #define N3DS_PROFILE_END_FRAME()
 #define N3DS_PROFILE_STARTUP_INFO()
 #define N3DS_PROFILE_FINISH()
+#define N3DS_PROFILE_WAIT_FOR_WRITER()
 
 #endif

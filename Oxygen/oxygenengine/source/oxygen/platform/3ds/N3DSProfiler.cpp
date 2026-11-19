@@ -201,6 +201,17 @@ namespace n3ds
 			std::string gPendingReport;		// Protected by gWriterLock
 			bool gHasPendingReport = false;
 			std::string gPendingLogLines;	// Protected by gWriterLock
+			bool gWriterBusy = false;		// Protected by gWriterLock: writing what it took from the pending data
+
+			// Time while the game is suspended (HOME Menu, power menu, sleep mode) is no frame time: the frame during which
+			// that happened gets left out of the statistics
+			volatile bool gWasSuspended = false;	// Set from the APT hook
+			aptHookCookie gAptHookCookie;
+			void onAptEvent(APT_HookType hookType, void*)
+			{
+				if (hookType == APTHOOK_ONSUSPEND || hookType == APTHOOK_ONSLEEP)
+					gWasSuspended = true;
+			}
 
 			void appendToFile(const char* path, const std::string& text)
 			{
@@ -237,11 +248,15 @@ namespace n3ds
 						gHasPendingReport = false;
 					}
 					logLines.swap(gPendingLogLines);
+					gWriterBusy = true;
 					LightLock_Unlock(&gWriterLock);
 					if (!logLines.empty())
 						appendToFile(PROFILE_LOG_PATH, logLines);
 					if (hasReport)
 						writeFile(REPORT_PATH, text);
+					LightLock_Lock(&gWriterLock);
+					gWriterBusy = false;
+					LightLock_Unlock(&gWriterLock);
 				}
 			}
 
@@ -651,8 +666,29 @@ namespace n3ds
 
 		void finish()
 		{
-			writeAreaSummary(true);		// On exit: write the report directly
-			flushLogLinesNow();
+			// On exit: hand the last summary and the report to the writer thread, so it gets written while the game shuts down
+			// (see "waitForWriter"); without the writer thread, directly
+			const bool synchronous = (nullptr == gWriterThread);
+			writeAreaSummary(synchronous);
+			if (synchronous)
+				flushLogLinesNow();
+		}
+
+		void waitForWriter(unsigned int maxMilliseconds)
+		{
+			if (nullptr == gWriterThread)
+				return;
+			LightEvent_Signal(&gWriterEvent);
+			const uint64_t end = svcGetSystemTick() + (uint64_t)maxMilliseconds * (SYSCLOCK_ARM11 / 1000);
+			while (svcGetSystemTick() < end)
+			{
+				LightLock_Lock(&gWriterLock);
+				const bool done = !gHasPendingReport && gPendingLogLines.empty() && !gWriterBusy;
+				LightLock_Unlock(&gWriterLock);
+				if (done)
+					return;
+				svcSleepThread(5000000LL);	// 5 ms, lets the (lowest priority) writer thread run
+			}
 		}
 
 		void showStartupInfo()
@@ -732,6 +768,7 @@ namespace n3ds
 				// Very first frame: just start measuring from here
 				calibrate();
 				startWriterThread();
+				aptHook(&gAptHookCookie, &onAptEvent, nullptr);
 				const uint64_t afterCalibration = svcGetSystemTick();
 				gLastFrameEnd = afterCalibration;
 				resetWindow(afterCalibration);
@@ -746,6 +783,19 @@ namespace n3ds
 			// Frame time: from the end of the previous frame's presenting to the end of this one's, so this includes everything
 			const uint64_t frameTicks = now - gLastFrameEnd;
 			gLastFrameEnd = now;
+
+			if (gWasSuspended)
+			{
+				// The game was suspended during this frame: leave it out, otherwise it would show up as a freeze of many seconds
+				gWasSuspended = false;
+				for (int i = 0; i < _NUM; ++i)
+					gFrameAccum[i] = 0;
+				for (int i = 0; i < _NUM_COUNTERS; ++i)
+					gFrameCounts[i] = 0;
+				gFrameSimSteps = 0;
+				gFrameSectionCalls = 0;
+				return;
+			}
 
 			uint64_t topLevelTicks = 0;
 			for (Section section : TOP_LEVEL_SECTIONS)

@@ -372,10 +372,10 @@ void EngineMain::run()
 	//  -> The watchdog starts only after saving: writing to the SD card can take several seconds on the 3DS, and the watchdog
 	//     must never end the process while a file is still being written
 	n3ds::exitguard::showExitMessage();
+	N3DS_PROFILE_FINISH();		// Gets written in the background meanwhile
 	n3ds::exitguard::step("saving settings");
 	mInternal.mModManager.copyModSettingsToConfig();
 	Configuration::instance().saveSettings();
-	N3DS_PROFILE_FINISH();
 	n3ds::exitguard::start(5);
 	n3ds::exitguard::step("application cleanup");
 #endif
@@ -424,6 +424,8 @@ void EngineMain::shutdown()
 	mInternal.mModManager.copyModSettingsToConfig();
 	Configuration::instance().saveSettings();
 #endif
+	N3DS_SHUTDOWN_STEP("waiting for the profiler log");
+	N3DS_PROFILE_WAIT_FOR_WRITER();
 	N3DS_SHUTDOWN_STEP("done");
 	#undef N3DS_SHUTDOWN_STEP
 	oxygen::Logging::shutdown();

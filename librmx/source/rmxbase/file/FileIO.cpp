@@ -353,6 +353,25 @@ namespace rmx
 	#if defined(PLATFORM_3DS)
 		// Writing files to the SD card turned out to be very slow on the 3DS (seconds for the settings), so measure each step
 		const uint64 ticksStart = svcGetSystemTick();
+
+		// Small files (like the settings) are usually saved again with exactly the same content: then skip writing.
+		// Reading is much cheaper than writing on the SD card, and a write can stall for seconds.
+		if (size <= 0x10000 && (size == 0 || nullptr != data))
+		{
+			FILE* existing = fopen(rmx::convertToUTF8(filename).c_str(), "rb");
+			if (nullptr != existing)
+			{
+				bool unchanged = false;
+				if (fseek(existing, 0, SEEK_END) == 0 && (size_t)ftell(existing) == size && fseek(existing, 0, SEEK_SET) == 0)
+				{
+					std::vector<uint8> content(size);
+					unchanged = (size == 0) || (fread(content.data(), 1, size, existing) == size && memcmp(content.data(), data, size) == 0);
+				}
+				fclose(existing);
+				if (unchanged)
+					return true;
+			}
+		}
 	#endif
 
 		// Create directory if needed
