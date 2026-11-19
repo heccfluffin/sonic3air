@@ -53,6 +53,8 @@ public:
 	inline GameMenuManager& getGameMenuManager() const  { return *mGameMenuManager; }
 	inline MenuBackground& getMenuBackground() const	{ return *mMenuBackground; }
 
+	inline bool isOnTitleScreen() const	{ return mCurrentState == State::TITLE_SCREEN; }	// SEGA logo, intro and title screen, before the main menu
+
 	bool supportsFileBrowser();
 	bool openFileBrowser();
 

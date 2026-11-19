@@ -54,6 +54,7 @@ public:
 	void injectInput(uint32 padIndex, uint16 inputFlags);
 	void injectInputs(const uint16* inputFlags, size_t numInputs = InputManager::NUM_PLAYERS);
 	void injectEmptyInputs(size_t numInputs = InputManager::NUM_PLAYERS);
+	inline void addInputFlags(uint32 padIndex, uint16 inputFlags)	{ mGamepad[padIndex].mCurrentInput |= inputFlags; }	// Adds to this frame's input, without touching the previous frame's
 
 	void setIgnores(uint16 bitmask);
 	void setAllIgnores();

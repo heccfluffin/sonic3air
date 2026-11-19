@@ -569,6 +569,17 @@ void Game::onUpdateControls()
 			ControlsIn::instance().injectEmptyInputs();
 		}
 	}
+
+#if defined(PLATFORM_3DS)
+	// 3DS: on the SEGA logo, intro and title screen (game mode 0x04), A works like Start, as Start is small and out of the way.
+	// Only while the title is actually running (not behind the A.I.R. menus), so A keeps its usual meaning everywhere else.
+	if (GameApp::hasInstance() && GameApp::instance().isOnTitleScreen() && EmulatorInterface::instance().readMemory8(0xfffff600) == 0x04)
+	{
+		ControlsIn& controlsIn = ControlsIn::instance();
+		if (controlsIn.getGamepad(0).isPressed(ControlsIn::Button::A))
+			controlsIn.addInputFlags(0, (uint16)ControlsIn::Button::START);
+	}
+#endif
 }
 
 void Game::updateSpecialInput(float timeElapsed)
