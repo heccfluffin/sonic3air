@@ -319,10 +319,20 @@ def night_background(light, dark, shade_color):
 	return img
 
 
+def image_background(filename):
+	"""A background picture drawn by hand: exactly 320 x 240 pixels, in the folder "themes" next to this script."""
+	img = Image.open(os.path.join(HERE, 'themes', filename)).convert('RGBA')
+	if img.size != (W, H):
+		raise SystemExit(f"themes/{filename} must be exactly {W} x {H} pixels (it is {img.size[0]} x {img.size[1]})")
+	return img.resize((W * S, H * S), Image.NEAREST)		# Pixel art stays crisp
+
+
 def background():
 	key = THEME['id']
 	if key not in _background_cache:
-		if THEME['style'] == 'night':
+		if THEME['style'] == 'image':
+			_background_cache[key] = image_background(THEME['image'])
+		elif THEME['style'] == 'night':
 			_background_cache[key] = night_background(THEME['light'], THEME['dark'], THEME['shade'])
 		else:
 			_background_cache[key] = zigzag_background(THEME['light'], THEME['dark'], THEME['shade'])
