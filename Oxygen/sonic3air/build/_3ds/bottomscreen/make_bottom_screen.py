@@ -168,11 +168,62 @@ def pill(img, x, cy, w, h, rgb, label, size=8):
 	text(img, (x + w / 2, cy + 0.5), label, size, (255, 255, 255), mix(rgb, (0, 0, 0), 0.6), anchor='mm', shadow=False)
 
 
-def dpad(img, cx, cy, size):
-	arm = size // 3
+def dpad(img, cx, cy, size, highlight=None):
+	"""A d-pad as one cross-shaped piece: rim, gradient body, gloss, a dimple in the middle and an arrow on each arm.
+	'highlight' ('down' etc.) colors that arm's arrow yellow."""
 	col = (75, 85, 110)
-	glossy(img, (cx - arm // 2, cy - size // 2, cx + arm // 2, cy + size // 2), 'rect', col, radius=2)
-	glossy(img, (cx - size // 2, cy - arm // 2, cx + size // 2, cy + arm // 2), 'rect', col, radius=2)
+	half = size * S / 2
+	arm = size * S * 0.36 / 2		# Half the width of an arm
+	x, y = cx * S, cy * S
+	r = 1.2 * S
+
+	def cross(inset=0, dx=0, dy=0):
+		m = Image.new('L', (W * S, H * S), 0)
+		md = ImageDraw.Draw(m)
+		md.rounded_rectangle((x - arm + inset + dx, y - half + inset + dy, x + arm - inset + dx, y + half - inset + dy), radius=max(1, r - inset / 2), fill=255)
+		md.rounded_rectangle((x - half + inset + dx, y - arm + inset + dy, x + half - inset + dx, y + arm - inset + dy), radius=max(1, r - inset / 2), fill=255)
+		return m
+
+	# Shadow and rim
+	fill_through(img, (10, 20, 40, 110), cross(dx=S, dy=2 * S).filter(ImageFilter.GaussianBlur(2 * S)))
+	fill_through(img, mix(col, (0, 0, 0), 0.5) + (255,), cross())
+
+	# Body: vertical gradient over the whole cross
+	body = new_layer()
+	bd = ImageDraw.Draw(body)
+	for yy in range(int(y - half), int(y + half) + 1):
+		t = (yy - (y - half)) / (2 * half)
+		bd.line((x - half, yy, x + half, yy), fill=mix(mix(col, (0, 0, 0), 0.15), mix(col, (255, 255, 255), 0.35), t ** 1.3) + (255,))
+	composite_masked(img, body, cross(inset=int(1.5 * S)))
+
+	# Gloss: upper half of the cross
+	gloss = new_layer()
+	gd = ImageDraw.Draw(gloss)
+	for yy in range(int(y - half), int(y) + 1):
+		t = (yy - (y - half)) / half
+		gd.line((x - half, yy, x + half, yy), fill=(255, 255, 255, int(150 * (1 - t) + 25)))
+	composite_masked(img, gloss, cross(inset=int(2.5 * S)))
+
+	# Dimple in the middle
+	dr = arm * 0.55
+	layer = new_layer()
+	ld = ImageDraw.Draw(layer)
+	ld.ellipse((x - dr, y - dr, x + dr, y + dr), fill=mix(col, (0, 0, 0), 0.35) + (255,))
+	ld.ellipse((x - dr + S * 0.8, y - dr + S * 0.8, x + dr - S * 0.2, y + dr - S * 0.2), fill=mix(col, (0, 0, 0), 0.1) + (255,))
+	img.alpha_composite(layer)
+
+	# Arrows on the arms
+	layer = new_layer()
+	ld = ImageDraw.Draw(layer)
+	a = arm * 0.62			# Arrow size
+	tip = half - arm * 0.35	# Distance of the arrow tip from the center
+	for direction, (ux, uy) in (('up', (0, -1)), ('down', (0, 1)), ('left', (-1, 0)), ('right', (1, 0))):
+		tx, ty = x + ux * tip, y + uy * tip
+		bx, by = x + ux * (tip - a), y + uy * (tip - a)
+		px, py = -uy * a * 0.8, ux * a * 0.8
+		color = (255, 214, 0, 255) if direction == highlight else (225, 232, 245, 220)
+		ld.polygon([(tx, ty), (bx + px, by + py), (bx - px, by - py)], fill=color)
+	img.alpha_composite(layer)
 
 
 def circle_pad(img, cx, cy, r):
@@ -290,7 +341,7 @@ def build(save='normal', load='normal', stats='normal', status=0):
 
 	y = rows_y[0]
 	circle_pad(img, 30, y, 11)
-	dpad(img, 68, y, 22)
+	dpad(img, 68, y, 24)
 	label(y, 'MOVE')
 
 	y = rows_y[1]
@@ -299,8 +350,7 @@ def build(save='normal', load='normal', stats='normal', status=0):
 	label(y, 'JUMP')
 
 	y = rows_y[2]
-	dpad(img, 28, y, 20)
-	ImageDraw.Draw(img).polygon([(24 * S, (y + 4) * S), (32 * S, (y + 4) * S), (28 * S, (y + 9) * S)], fill=(255, 214, 0, 255))
+	dpad(img, 28, y, 22, highlight='down')
 	text(img, (49, y), '+', 13, (255, 255, 255), (20, 70, 140), anchor='mm')
 	face_button(img, 70, y, 10, (225, 38, 46), 'A', 10)
 	label(y, 'SPIN DASH')
