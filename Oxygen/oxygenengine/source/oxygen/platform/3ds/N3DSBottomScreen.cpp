@@ -29,6 +29,8 @@
 #include "s3air_bottom_screen_emerald_bin.h"
 #include "s3air_bottom_screen_night_bin.h"
 #include "s3air_bottom_screen_marble_bin.h"
+#include "s3air_bottom_screen_sea_bin.h"
+#include "s3air_bottom_screen_blocks_bin.h"
 
 
 namespace n3ds
@@ -136,6 +138,8 @@ namespace n3ds
 				{ s3air_bottom_screen_emerald_bin, s3air_bottom_screen_emerald_bin_size },
 				{ s3air_bottom_screen_night_bin,   s3air_bottom_screen_night_bin_size },
 				{ s3air_bottom_screen_marble_bin,  s3air_bottom_screen_marble_bin_size },
+				{ s3air_bottom_screen_sea_bin,     s3air_bottom_screen_sea_bin_size },
+				{ s3air_bottom_screen_blocks_bin,  s3air_bottom_screen_blocks_bin_size },
 			};
 			int gTheme = -1;		// Theme currently unpacked into "gData"
 

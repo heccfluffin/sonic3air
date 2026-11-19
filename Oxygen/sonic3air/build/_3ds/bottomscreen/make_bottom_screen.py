@@ -301,8 +301,26 @@ def outline_box(img, box, fill, outline, alpha=255, inner=None):
 	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
 
 
+def framed_box(img, box, inner_fill, inner_alpha):
+	"""Thick light frame with a drop shadow to the bottom right, around a translucent tinted inside."""
+	x0, y0, x1, y1 = box
+	layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+	d = ImageDraw.Draw(layer)
+	d.rectangle((x0 + 4, y0 + 4, x1 + 3, y1 + 3), fill=THEME['frame_shadow'] + (255,))		# Drop shadow
+	d.rectangle((x0, y0, x1 - 1, y1 - 1), fill=THEME['frame_light'] + (255,))				# Frame
+	d.rectangle((x0 + 1, y0 + 1, x1 - 2, y1 - 2), outline=(255, 255, 255, 255))			# Bright inner edge
+	d.rectangle((x0 + 3, y0 + 3, x1 - 4, y1 - 4), outline=THEME['frame_shadow'] + (255,))	# Line inside the frame
+	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
+	inside = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+	ImageDraw.Draw(inside).rectangle((x0 + 4, y0 + 4, x1 - 5, y1 - 5), fill=inner_fill + (inner_alpha,))
+	img.alpha_composite(inside.resize((W * S, H * S), Image.NEAREST))
+
+
 def panel(img, box, radius=10, alpha=60):
-	"""A panel in the theme's frame style: glass, or retro (flat, with a thin light outline)."""
+	"""A panel in the theme's frame style: glass, retro (flat, with a thin light outline) or framed."""
+	if THEME.get('frame') == 'framed':
+		framed_box(img, box, THEME['panel'], 150)
+		return
 	if THEME.get('frame') == 'retro':
 		outline_box(img, box, THEME['panel'], THEME['panel_outline'], alpha=215)
 	else:
@@ -322,6 +340,12 @@ THEMES = [
 	{ 'id': 'marble',  'name': 'Retro Marble',    'style': 'marble', 'frame': 'retro', 'light': (166, 166, 228), 'dark': (96, 94, 172),
 	  'panel': (92, 92, 166), 'panel_outline': (186, 186, 238), 'stats': (92, 92, 166), 'title': (255, 225, 40),
 	  'save': (40, 160, 60), 'load': (110, 100, 190), 'outline': (36, 28, 84) },
+	{ 'id': 'sea',     'name': 'Deep Sea',        'style': 'sea', 'light': (40, 110, 240), 'dark': (10, 18, 70),
+	  'save': (30, 190, 170), 'load': (60, 120, 255), 'outline': (10, 30, 100) },
+	{ 'id': 'blocks',  'name': 'Lavender Blocks', 'style': 'blocks', 'frame': 'framed', 'light': (222, 222, 250), 'dark': (150, 148, 214),
+	  'bg_light': (214, 214, 246), 'bg_mid': (226, 226, 252), 'bg_highlight': (255, 255, 255), 'bg_shadow': (160, 158, 222),
+	  'frame_light': (236, 236, 252), 'frame_shadow': (150, 148, 214), 'panel': (130, 126, 200), 'stats': (130, 126, 200),
+	  'save': (80, 170, 120), 'load': (120, 110, 210), 'outline': (70, 60, 150) },
 	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
 ]
 THEME = THEMES[0]		# The theme being generated
@@ -421,6 +445,90 @@ def marble_background(light, dark):
 	return img.resize((W * S, H * S), Image.NEAREST)
 
 
+def sea_background():
+	"""Under the sea, in a 16-bit style with a limited palette: shimmering surface, deep water with distant mountains and
+	rising bubbles, a dark seabed silhouette and a bright floor below (drawn from scratch)."""
+	rng = random.Random(5)
+	img = Image.new('RGBA', (W, H))
+	px = img.load()
+	surface, seabed_top, floor_top = 26, 128, 150
+
+	def dither(t, a, b, x, y):
+		return a if t + (BAYER4[y & 3][x & 3] / 16.0 - 0.5) * 0.5 < 0.5 else b
+
+	for y in range(H):
+		for x in range(W):
+			if y < surface:
+				# Surface: bright, shimmering bands
+				wave = math.sin(x * 0.21 + math.sin(y * 0.9) * 2.0) + math.sin(x * 0.07 - y * 0.5)
+				t = y / surface
+				color = dither(t, (150, 210, 255), (40, 110, 240), x, y)
+				if wave > 1.1 and y < surface - 4:
+					color = (220, 245, 255)
+			elif y < seabed_top:
+				t = (y - surface) / (seabed_top - surface)
+				color = dither(t * 1.1, (30, 80, 230), (15, 40, 170), x, y)
+			elif y < floor_top:
+				color = (10, 18, 70)
+			else:
+				t = (y - floor_top) / (H - floor_top)
+				color = dither(t, (25, 75, 235), (20, 60, 215), x, y)
+			px[x, y] = color + (255,)
+
+	d = ImageDraw.Draw(img)
+	# Distant mountains (lighter silhouette), then the dark seabed with rocks and pillars
+	mountains = [(x, seabed_top - 18 - int(14 * abs(math.sin(x * 0.018 + 0.6)) + 6 * math.sin(x * 0.07))) for x in range(0, W + 8, 8)]
+	d.polygon(mountains + [(W, seabed_top), (0, seabed_top)], fill=(25, 55, 170, 255))
+	ridge = [(x, seabed_top - 6 - int(5 * math.sin(x * 0.05) + 3 * math.sin(x * 0.17))) for x in range(0, W + 4, 4)]
+	d.polygon(ridge + [(W, floor_top), (0, floor_top)], fill=(10, 18, 70, 255))
+	for x0 in range(12, W, 46):
+		h = rng.randint(8, 16)
+		x = x0 + rng.randint(-6, 6)
+		d.rectangle((x, seabed_top - h, x + 5, seabed_top), fill=(14, 26, 90, 255))
+		d.rectangle((x + 1, seabed_top - h, x + 1, seabed_top), fill=(40, 80, 170, 255))
+	# Light line where the seabed meets the bright floor
+	d.line((0, floor_top, W, floor_top), fill=(60, 120, 245, 255))
+	# Rising bubbles in a few columns
+	for cx in (40, 104, 170, 236, 290):
+		for k in range(10):
+			by = surface + 6 + k * 9 + rng.randint(-2, 2)
+			bx = cx + int(3 * math.sin(k * 1.3)) + rng.randint(-1, 1)
+			if by < seabed_top - 20:
+				px[bx, by] = (190, 230, 255, 255)
+				if k % 3 == 0:
+					px[bx + 1, by] = (120, 180, 255, 255)
+	return img.resize((W * S, H * S), Image.NEAREST)
+
+
+def blocks_background(light, mid, highlight, shadow):
+	"""Pale background with raised, interlocking stepped shapes (embossed relief), like a 16-bit era menu (drawn from scratch).
+	Each shape is 2-3 grid rectangles joined into steps / L shapes; later shapes lie on top of earlier ones."""
+	rng = random.Random(9)
+	cell = 4
+	img = Image.new('RGBA', (W, H), light + (255,))
+	px = img.load()
+	for _ in range(150):
+		x, y = rng.randrange(-16, W, cell), rng.randrange(-8, H, cell)
+		rects = [(x, y, rng.randint(3, 7) * cell, rng.randint(1, 3) * cell)]
+		for _ in range(rng.randint(1, 2)):
+			bx, by, bw, bh = rects[-1]
+			# Next step: shifted right / down, overlapping the previous rectangle
+			nx = bx + rng.randint(1, max(1, bw // cell - 1)) * cell
+			ny = by + rng.choice((-1, 1)) * rng.randint(1, 2) * cell
+			rects.append((nx, ny, rng.randint(2, 6) * cell, rng.randint(1, 3) * cell))
+		inside = lambda px_, py_: any(rx <= px_ < rx + rw and ry <= py_ < ry + rh for rx, ry, rw, rh in rects)
+		x0 = min(r[0] for r in rects); y0 = min(r[1] for r in rects)
+		x1 = max(r[0] + r[2] for r in rects) + 2; y1 = max(r[1] + r[3] for r in rects) + 2
+		for yy in range(max(0, y0), min(H, y1 + 1)):
+			for xx in range(max(0, x0), min(W, x1 + 1)):
+				if inside(xx, yy):
+					edge_light = not inside(xx, yy - 1) or not inside(xx - 1, yy)
+					px[xx, yy] = (highlight if edge_light else mid) + (255,)
+				elif inside(xx, yy - 1) or inside(xx - 1, yy) or inside(xx, yy - 2) or inside(xx - 2, yy) or inside(xx - 1, yy - 1):
+					px[xx, yy] = shadow + (255,)		# 2 pixel shadow below / right of the shape
+	return img.resize((W * S, H * S), Image.NEAREST)
+
+
 def image_background(filename):
 	"""A background picture drawn by hand: exactly 320 x 240 pixels, in the folder "themes" next to this script."""
 	img = Image.open(os.path.join(HERE, 'themes', filename)).convert('RGBA')
@@ -432,7 +540,11 @@ def image_background(filename):
 def background():
 	key = THEME['id']
 	if key not in _background_cache:
-		if THEME['style'] == 'marble':
+		if THEME['style'] == 'sea':
+			_background_cache[key] = sea_background()
+		elif THEME['style'] == 'blocks':
+			_background_cache[key] = blocks_background(THEME['bg_light'], THEME['bg_mid'], THEME['bg_highlight'], THEME['bg_shadow'])
+		elif THEME['style'] == 'marble':
 			_background_cache[key] = marble_background(THEME['light'], THEME['dark'])
 		elif THEME['style'] == 'image':
 			_background_cache[key] = image_background(THEME['image'])
@@ -449,7 +561,10 @@ STATS_COLOR = (95, 105, 130)
 def big_button(img, box, rgb, word, state):
 	"""The touch buttons: state is 'normal', 'pressed' or 'disabled'."""
 	col = grey(rgb) if state == 'disabled' else rgb
-	if THEME.get('frame') == 'retro':
+	if THEME.get('frame') == 'framed':
+		pressed_box = (box[0] + 1, box[1] + 1, box[2] + 1, box[3] + 1) if state == 'pressed' else box
+		framed_box(img, pressed_box, mix(col, (0, 0, 0), 0.2) if state == 'pressed' else col, 255)
+	elif THEME.get('frame') == 'retro':
 		fill = mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col
 		outline_box(img, box, fill, THEME['panel_outline'], inner=mix(fill, (0, 0, 0), 0.35))
 	else:
@@ -462,7 +577,15 @@ def big_button(img, box, rgb, word, state):
 
 
 def stats_button(img, state):
-	if THEME.get('frame') == 'retro':
+	if THEME.get('frame') == 'framed':
+		col = THEME.get('stats', STATS_COLOR)
+		x0, y0, x1, y1 = STATS_BOX
+		layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+		d = ImageDraw.Draw(layer)
+		d.rectangle((x0 + 2, y0 + 2, x1 + 1, y1 + 1), fill=THEME['frame_shadow'] + (255,))
+		d.rectangle((x0, y0, x1 - 1, y1 - 1), fill=(mix(col, (0, 0, 0), 0.2) if state == 'pressed' else col) + (255,), outline=THEME['frame_light'] + (255,))
+		img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
+	elif THEME.get('frame') == 'retro':
 		col = THEME.get('stats', STATS_COLOR)
 		outline_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, THEME['panel_outline'])
 	else:

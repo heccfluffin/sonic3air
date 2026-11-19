@@ -26,6 +26,8 @@ namespace n3ds
 			THEME_EMERALD,
 			THEME_NIGHT,
 			THEME_MARBLE,
+			THEME_SEA,
+			THEME_BLOCKS,
 			_NUM_THEMES
 		};
 

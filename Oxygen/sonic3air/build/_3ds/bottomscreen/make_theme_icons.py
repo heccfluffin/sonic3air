@@ -30,8 +30,10 @@ THEMES = [
 	('emerald', 4, (40, 175, 95),   (10, 85, 45)),
 	('night',   5, (175, 190, 215), (8, 12, 40)),
 	('marble',  6, (166, 166, 228), (96, 94, 172)),
+	('sea',     7, (60, 130, 245),  (10, 18, 70)),
+	('blocks',  8, (236, 236, 252), (150, 148, 214)),
 ]
-NUM_THEME_NUMBERS = 7
+NUM_THEME_NUMBERS = 9
 
 
 def new_icon(fill):
@@ -152,6 +154,54 @@ def icon_marble():
 	return img
 
 
+def icon_sea():
+	"""Wavy water lines with a badge of rising bubbles."""
+	img, d = new_icon(DARK)
+	px = img.load()
+	for x in range(W):
+		for row in range(0, H + 8, 8):
+			y = row + int(round(2 * math.sin(x * 2 * math.pi / 16)))
+			for t in range(2):
+				if 0 <= y + t < H:
+					px[x, y + t] = LIGHT
+	badge(d, W // 2, H // 2, 15)
+	for (cx, cy, r) in ((W // 2 - 3, H // 2 + 4, 5), (W // 2 + 5, H // 2 - 3, 3), (W // 2 - 2, H // 2 - 8, 2)):
+		d.ellipse((cx - r, cy - r, cx + r, cy + r), outline=LIGHT)
+		d.point((cx - r // 2, cy - r // 2), fill=LIGHT)
+	frame(img)
+	return img
+
+
+def icon_blocks():
+	"""Light stair-shaped blocks with a dark shadow, on a dithered mid-tone background (two colors only)."""
+	import random
+	rng = random.Random(13)
+	img, d = new_icon(LIGHT)
+	px = img.load()
+	cell, shadow = 4, 2
+	for y in range(H):
+		for x in range(W):
+			px[x, y] = DARK if (x + y) % 2 == 0 else LIGHT		# Dithered mid tone
+	for _ in range(24):
+		x, y = rng.randrange(-12, W, cell), rng.randrange(-8, H, cell)
+		rects = []
+		direction = rng.choice((-1, 1))
+		for step in range(rng.randint(2, 3)):		# Stairs: each step shifted right and up / down by one cell
+			rects.append((x, y, rng.randint(2, 4) * cell, rng.randint(1, 2) * cell))
+			x += rng.randint(1, 2) * cell
+			y += direction * cell
+		inside = lambda x_, y_, rects=rects: any(rx <= x_ < rx + rw and ry <= y_ < ry + rh for rx, ry, rw, rh in rects)
+		offsets = [(dx, dy) for dx in range(shadow + 1) for dy in range(shadow + 1) if dx or dy]
+		for yy in range(H):
+			for xx in range(W):
+				if inside(xx, yy):
+					px[xx, yy] = LIGHT
+				elif any(inside(xx - dx, yy - dy) for dx, dy in offsets):
+					px[xx, yy] = DARK
+	frame(img)
+	return img
+
+
 ICONS = {
 	'blue': lambda: icon_zigzag(),
 	'crimson': lambda: icon_zigzag(emblem_flame),
@@ -159,6 +209,8 @@ ICONS = {
 	'emerald': lambda: icon_zigzag(emblem_gem),
 	'night': icon_night,
 	'marble': icon_marble,
+	'sea': icon_sea,
+	'blocks': icon_blocks,
 }
 
 
