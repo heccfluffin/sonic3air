@@ -400,9 +400,37 @@ void GameApp::updateBottomScreen()
 			n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::NO_STATE);
 			return;
 		}
+		// A save state contains the game's whole memory, including its in-memory copy of the save data (all data select
+		// slots, competition records, Blue Sphere progress). Keep the current copy instead of the older one from the state,
+		// otherwise the next time the game saves, it would write the old data back and roll back progress in other slots.
+		struct PersistentRange { uint32 mAddress; uint32 mSize; };
+		static const PersistentRange PERSISTENT_RANGES[] =
+		{
+			{ 0xffffe600, 0x50 },	// Competition mode records
+			{ 0xffffe6ac, 0x50 },	// Data select save slots
+			{ 0x801100, 0x100 },	// Data select save slots, extended data
+			{ 0xffffffa6, 4 },		// Blue Sphere progress
+		};
+		EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+		std::vector<uint8> persistentBackup;
+		for (const PersistentRange& range : PERSISTENT_RANGES)
+		{
+			for (uint32 k = 0; k < range.mSize; ++k)
+				persistentBackup.push_back(emulatorInterface.readMemory8(range.mAddress + k));
+		}
+
 		// Same as the engine's save state menu
 		EngineMain::getDelegate().onPreSaveStateLoad();
 		const bool success = simulation.loadState(filename, false);
+		if (success)
+		{
+			size_t index = 0;
+			for (const PersistentRange& range : PERSISTENT_RANGES)
+			{
+				for (uint32 k = 0; k < range.mSize; ++k)
+					emulatorInterface.writeMemory8(range.mAddress + k, persistentBackup[index++]);
+			}
+		}
 		RMX_LOG_INFO("Bottom screen: save state " << (success ? "loaded" : "FAILED to load") << " (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
 		n3ds::bottomscreen::showResult(success ? n3ds::bottomscreen::Result::LOADED : n3ds::bottomscreen::Result::FAILED);
 	}
