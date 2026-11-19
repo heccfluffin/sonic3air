@@ -346,7 +346,7 @@ THEMES = [
 	  'bg_light': (214, 214, 246), 'bg_mid': (226, 226, 252), 'bg_highlight': (255, 255, 255), 'bg_shadow': (160, 158, 222),
 	  'frame_light': (236, 236, 252), 'frame_shadow': (150, 148, 214), 'panel': (130, 126, 200), 'stats': (130, 126, 200),
 	  'save': (80, 170, 120), 'load': (120, 110, 210), 'outline': (70, 60, 150) },
-	{ 'id': 'city',    'name': 'Sky City',        'style': 'city', 'light': (96, 172, 236), 'dark': (30, 80, 180),
+	{ 'id': 'city',    'name': 'Sky City',        'style': 'city', 'light': (96, 172, 236), 'dark': (96, 56, 160),
 	  'save': (66, 156, 36), 'load': (96, 172, 236), 'outline': (20, 60, 130) },		# Bush green, sky blue
 	{ 'id': 'aurora',  'name': 'Aurora',          'style': 'gradient', 'corners': ((40, 150, 215), (150, 110, 210), (60, 130, 90), (120, 70, 150)),
 	  'light': (120, 150, 215), 'dark': (60, 70, 140), 'save': (60, 180, 110), 'load': (110, 120, 230), 'outline': (40, 40, 110) },
@@ -578,42 +578,61 @@ def city_background():
 		d.line((sx, sy, sx + sw, sy), fill=(236, 244, 253, 255))
 		d.line((sx + 3, sy + 1, sx + sw - 4, sy + 1), fill=(200, 224, 248, 255))
 
-	blues = [(14, 40, 120), (30, 80, 180), (60, 130, 220), (130, 190, 245)]		# Dark to light
-	# Ring lattice behind the towers: rows of octagon outlines
-	def octagon(cx, cy, r):
-		a = int(r * 0.42)
-		return [(cx - a, cy - r), (cx + a, cy - r), (cx + r, cy - a), (cx + r, cy + a), (cx + a, cy + r), (cx - a, cy + r), (cx - r, cy + a), (cx - r, cy - a)]
-	for row, y in enumerate((horizon - 26, horizon - 12)):
-		for x in range(-6 + row * 9, W + 18, 18):
-			d.polygon(octagon(x, y, 9), outline=blues[1] + (255,))
-			d.polygon(octagon(x, y, 8), outline=blues[2] + (255,))
+	purples = [(52, 26, 96), (96, 56, 160), (146, 104, 210), (204, 176, 244)]		# Dark to light
 
-	# Towers: boxes with window grids, and round towers with vertical shading bands
-	x = -4
+	def hexagon(cx, cy, r):
+		"""Pointy-top hexagon around (cx, cy)."""
+		return [(cx + r * math.cos(math.radians(a)), cy + r * math.sin(math.radians(a))) for a in (-90, -30, 30, 90, 150, 210)]
+
+	# Distant honeycomb wall along the horizon: light outlines on a pale purple haze
+	haze_top = horizon - 34
+	d.rectangle((0, haze_top + 8, W, horizon + 4), fill=mix(purples[3], (96, 172, 236), 0.45) + (255,))
+	r, dx, dy = 6, 10.4, 9
+	for row in range(5):
+		y = haze_top + 8 + row * dy
+		for col in range(-1, int(W / dx) + 2):
+			x = col * dx + (dx / 2 if row % 2 else 0)
+			d.polygon(hexagon(x, y, r), outline=mix(purples[2], (96, 172, 236), 0.3) + (255,))
+
+	# Foreground: honeycomb towers (stacked hexagon cells) and purple buildings with windows
+	x = -6
 	while x < W:
-		w = rng.randint(10, 22)
-		h = rng.randint(30, 62)
-		top = horizon - h
-		if rng.random() < 0.45:
-			# Round tower: shading bands from dark (left) to light, dark right edge
-			bands = [blues[0], blues[1], blues[2], blues[3], blues[2], blues[1], blues[0]]
-			for k in range(w):
-				band = bands[min(len(bands) - 1, k * len(bands) // w)]
-				d.line((x + k, top + 2, x + k, horizon + 4), fill=band + (255,))
-			d.ellipse((x, top - 1, x + w - 1, top + 4), fill=blues[3] + (255,))
-			for yy in range(top + 8, horizon, 9):		# Spiral-like stripes
-				d.line((x + 2, yy, x + w - 3, yy - 3), fill=blues[0] + (255,))
+		if rng.random() < 0.5:
+			# Honeycomb tower: 2 cells wide, 4-7 cells high, each cell filled with a lit top edge
+			cells_high = rng.randint(4, 7)
+			cr = 6
+			cdx, cdy = 2 * cr * 0.866, cr * 1.5
+			width = int(2 * cdx + cdx / 2) + 2
+			for row in range(cells_high):
+				cy = horizon - 4 - row * cdy
+				for col in range(2):
+					cx = x + cdx / 2 + col * cdx + (cdx / 2 if row % 2 else 0)
+					d.polygon(hexagon(cx, cy, cr), fill=purples[1] + (255,), outline=purples[0] + (255,))
+					d.line((cx - cr * 0.8, cy - cr * 0.45, cx, cy - cr + 1), fill=purples[3] + (255,))		# Lit upper left edge
+					d.point((cx + 1, cy + 1), fill=purples[2] + (255,))
+			top = int(horizon - 4 - (cells_high - 1) * cdy - cr)
+			if rng.random() < 0.6:		# Antenna
+				ax = x + width // 2
+				d.line((ax, top - rng.randint(5, 9), ax, top), fill=purples[0] + (255,))
+				d.point((ax, top - 10), fill=purples[3] + (255,))
+			x += width + rng.randint(-2, 4)
 		else:
-			d.rectangle((x, top, x + w - 1, horizon + 4), fill=blues[1] + (255,))
-			d.rectangle((x, top, x + 1, horizon + 4), fill=blues[2] + (255,))
-			d.rectangle((x + w - 2, top, x + w - 1, horizon + 4), fill=blues[0] + (255,))
-			for yy in range(top + 3, horizon, 4):
-				for xx in range(x + 3, x + w - 3, 3):
-					px[xx, yy] = blues[3] + (255,) if 0 <= xx < W else None or blues[3] + (255,)
-		if rng.random() < 0.5:		# Antenna
-			ax = x + w // 2
-			d.line((ax, top - rng.randint(5, 10), ax, top), fill=blues[0] + (255,))
-		x += w + rng.randint(-3, 4)
+			# Building: purple block with a domed or flat roof and light windows
+			w = rng.randint(14, 24)
+			h = rng.randint(26, 50)
+			top = horizon - h
+			d.rectangle((x, top, x + w - 1, horizon + 4), fill=purples[1] + (255,))
+			d.rectangle((x, top, x + 1, horizon + 4), fill=purples[2] + (255,))			# Lit left side
+			d.rectangle((x + w - 2, top, x + w - 1, horizon + 4), fill=purples[0] + (255,))	# Shaded right side
+			if rng.random() < 0.5:
+				d.pieslice((x, top - w // 2, x + w - 1, top + w // 2), 180, 360, fill=purples[2] + (255,), outline=purples[0] + (255,))
+				d.arc((x + 2, top - w // 2 + 2, x + w - 3, top + w // 2 - 2), 200, 260, fill=purples[3] + (255,))
+			else:
+				d.rectangle((x - 1, top - 2, x + w, top), fill=purples[0] + (255,))
+			for yy in range(top + 4, horizon, 5):
+				for xx in range(x + 3, x + w - 3, 4):
+					d.rectangle((xx, yy, xx + 1, yy + 2), fill=purples[3] + (255,))
+			x += w + rng.randint(-2, 3)
 
 	# Ground: rows of bush clumps in a 16-bit sprite style (dark outline, body, lit top, shine), drawn back to front so each
 	# row overlaps the one behind. Back rows are darker and bluer (depth); each clump is a few puffs of different sizes.

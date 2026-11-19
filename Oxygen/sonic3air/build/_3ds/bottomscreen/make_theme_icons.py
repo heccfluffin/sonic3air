@@ -32,7 +32,7 @@ THEMES = [
 	('marble',  6, (166, 166, 228), (96, 94, 172)),
 	('sea',     7, (60, 130, 245),  (10, 18, 70)),
 	('blocks',  8, (236, 236, 252), (150, 148, 214)),
-	('city',    9, (130, 200, 250), (30, 80, 180)),
+	('city',    9, (130, 200, 250), (96, 56, 160)),
 	('aurora', 10, (110, 200, 230), (90, 60, 150)),
 	('sunset', 11, (255, 180, 90),  (130, 60, 140)),
 ]
@@ -206,24 +206,36 @@ def icon_blocks():
 
 
 def icon_city():
-	"""Sky with two clouds above a skyline of towers (round and square, with windows), bushes below."""
+	"""Sky with two clouds above purple honeycomb towers and a domed building, bushes below."""
 	img, d = new_icon(LIGHT)
 	px = img.load()
-	for (cx, cy) in ((14, 9), (44, 13)):		# Clouds: dark outline puffs
-		d.ellipse((cx - 7, cy - 3, cx + 1, cy + 4), outline=DARK)
-		d.ellipse((cx - 2, cy - 5, cx + 7, cy + 4), outline=DARK)
-		d.rectangle((cx - 6, cy, cx + 6, cy + 3), fill=LIGHT)
-		d.line((cx - 6, cy + 4, cx + 6, cy + 4), fill=DARK)
-	towers = [(2, 22, 7), (10, 28, 8), (19, 18, 6), (26, 25, 9), (36, 20, 7), (44, 27, 8), (53, 21, 9)]
-	for k, (x, top, w) in enumerate(towers):
-		d.rectangle((x, top, x + w - 1, 38), fill=DARK)
-		if k % 2 == 0:
-			for yy in range(top + 2, 37, 3):		# Windows
-				for xx in range(x + 2, x + w - 2, 2):
-					px[xx, yy] = LIGHT
-		else:
-			d.line((x + 2, top + 1, x + 2, 37), fill=LIGHT)		# Round tower shine
-	d.line((22, 12, 22, 18), fill=DARK)		# Antenna
+	for (cx, cy) in ((14, 8), (48, 7)):		# Clouds: two puffs on a flat bottom, with a closed dark outline
+		for grow, color in ((1, DARK), (0, LIGHT)):
+			d.ellipse((cx - 7 - grow, cy - 3 - grow, cx + 1 + grow, cy + 4 + grow), fill=color)
+			d.ellipse((cx - 2 - grow, cy - 5 - grow, cx + 7 + grow, cy + 4 + grow), fill=color)
+			d.rectangle((cx - 7 - grow, cy + 1, cx + 7 + grow, cy + 4 + grow), fill=color)
+
+	def hexagon(cx, cy, r):
+		return [(cx + r * math.cos(math.radians(a)), cy + r * math.sin(math.radians(a))) for a in (-90, -30, 30, 90, 150, 210)]
+
+	# Honeycomb towers: stacked hexagon cells (dark, with a light dot in each)
+	for (x0, rows) in ((3, 4), (38, 4)):
+		for row in range(rows):
+			cy = 35 - row * 4.5
+			for col in range(2):
+				cx = x0 + 3 + col * 5.2 + (2.6 if row % 2 else 0)
+				d.polygon(hexagon(cx, cy, 3), fill=DARK)
+				px[int(cx), int(cy)] = LIGHT
+	# Domed building with windows
+	d.rectangle((20, 22, 31, 38), fill=DARK)
+	d.pieslice((20, 16, 31, 28), 180, 360, fill=DARK)
+	for yy in range(25, 37, 3):
+		for xx in range(22, 30, 3):
+			px[xx, yy] = LIGHT
+	d.rectangle((52, 26, 60, 38), fill=DARK)
+	for yy in range(28, 37, 3):
+		px[54, yy] = LIGHT
+		px[57, yy] = LIGHT
 	# Bushes along the bottom: light bumps on dark
 	d.rectangle((0, 38, W, H), fill=DARK)
 	for x in range(0, W, 5):
