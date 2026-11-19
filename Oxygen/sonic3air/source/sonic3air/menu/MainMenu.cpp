@@ -320,7 +320,11 @@ void MainMenu::render()
 	{
 		// Make place for FPS display if it's shown
 		int px = (int)(mRect.width - ((Configuration::instance().mPerformanceDisplay != 0) ? 32 : 2) + (1.0f - mVisibility) * 100.0f);
+	#if defined(PLATFORM_3DS) && defined(S3AIR_3DS_BUILD_ID)
+		std::wstring text = L"\x02c5" BUILD_STRING L" " BUILD_VARIANT L" - 3DS " S3AIR_3DS_BUILD_ID;
+	#else
 		std::wstring text = L"\x02c5" BUILD_STRING L" " BUILD_VARIANT;
+	#endif
 		drawer.printText(global::mSmallfont, Vec2i(px, 1), text, 3, Color(0.2f, 0.2f, 0.2f, mVisibility * 0.3f));
 
 		// Show whether dev mode is active, or one of the non-default glitch fix settings

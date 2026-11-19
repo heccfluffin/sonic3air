@@ -36,6 +36,7 @@
 #include "oxygen/simulation/Simulation.h"
 #if defined(PLATFORM_3DS)
 	#include "oxygen/platform/3ds/N3DSBottomScreen.h"
+	#include "sonic3air/version.inc"
 	#include "oxygen/rendering/parts/RenderParts.h"
 	#include "oxygen/simulation/SaveStateSerializer.h"
 	#include <3ds.h>
@@ -202,6 +203,20 @@ void GameApp::render()
 	}
 
 	GuiBase::render();
+
+#if defined(PLATFORM_3DS)
+	// 3DS: the build on the title screen (game mode 0x04, also during the SEGA logo and intro)
+	if (mCurrentState == State::TITLE_SCREEN && EmulatorInterface::instance().readMemory8(0xfffff600) == 0x04)
+	{
+	#if defined(S3AIR_3DS_BUILD_ID)
+		const char* text = "3DS port " S3AIR_3DS_BUILD_ID "  -  A.I.R. " BUILD_STRING;
+	#else
+		const char* text = "3DS port  -  A.I.R. " BUILD_STRING;
+	#endif
+		drawer.printText(global::mSmallfontSemiOutlined, Vec2i(3, (int)mRect.height - 8), text, 1, Color(1.0f, 1.0f, 1.0f, 0.75f));
+		drawer.performRendering();
+	}
+#endif
 }
 
 void GameApp::onStartGame()
