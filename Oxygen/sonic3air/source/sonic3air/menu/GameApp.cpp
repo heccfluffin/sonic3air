@@ -57,6 +57,9 @@ GameApp::GameApp() :
 	mTimeAttackResultsMenu(new TimeAttackResultsMenu())
 {
 	mGameMenuManager->initWithRoot(*mMenuBackground);
+#if defined(PLATFORM_3DS)
+	RMX_LOG_INFO("GameApp: menus created");		// Memory checkpoint (each log line shows the memory in use)
+#endif
 }
 
 GameApp::~GameApp()
@@ -73,6 +76,9 @@ void GameApp::initialize()
 {
 	// Init shared resources
 	global::loadSharedResources();
+#if defined(PLATFORM_3DS)
+	RMX_LOG_INFO("GameApp: shared resources loaded");		// Memory checkpoint
+#endif
 
 	mGameView = &Application::instance().getGameView();
 	Simulation& simulation = Application::instance().getSimulation();
@@ -88,6 +94,9 @@ void GameApp::initialize()
 	{
 		mApplicationContextMenu = &createChild<ApplicationContextMenu>();
 	}
+#if defined(PLATFORM_3DS)
+	RMX_LOG_INFO("GameApp: initialized");		// Memory checkpoint
+#endif
 }
 
 void GameApp::deinitialize()
@@ -117,7 +126,19 @@ void GameApp::keyboard(const rmx::KeyboardEvent& ev)
 
 void GameApp::update(float timeElapsed)
 {
+#if defined(PLATFORM_3DS)
+	static int numUpdatesLogged = 0;
+	if (numUpdatesLogged < 2)
+		RMX_LOG_INFO("GameApp: update " << numUpdatesLogged << " start");	// Memory checkpoints for the first updates
+#endif
 	GuiBase::update(timeElapsed);
+#if defined(PLATFORM_3DS)
+	if (numUpdatesLogged < 2)
+	{
+		RMX_LOG_INFO("GameApp: update " << numUpdatesLogged << " GUI done");
+		++numUpdatesLogged;
+	}
+#endif
 
 	// Update disclaimer fade-in / fade-out
 	{
