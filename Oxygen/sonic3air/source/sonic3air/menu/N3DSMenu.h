@@ -96,6 +96,11 @@ private:
 	DrawerTexture mThemeIcons[6];
 	DrawerTexture mShieldIcons[5];
 	bool mHasShieldIcons = false;
+
+	// Sonic's move sprites for the Drop Dash and Super Peel-Out secrets (animated)
+	DrawerTexture mDropDashFrames[2];
+	DrawerTexture mPeelOutFrames[4];
+	bool mHasMoveSprites = false;
 };
 
 #endif

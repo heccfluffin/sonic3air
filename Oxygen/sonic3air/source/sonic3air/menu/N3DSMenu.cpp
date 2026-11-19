@@ -263,6 +263,33 @@ void N3DSMenu::createIcons()
 		}
 		mHasShieldIcons = true;
 	}
+
+	// Sonic's Drop Dash and Super Peel-Out sprites (definitions as in the game's "data/sprites/characters/sonic_additional.json")
+	Bitmap dropDash;
+	Bitmap peelOut;
+	if (FileHelper::loadBitmap(dropDash, L"data/sprites/characters/sonic_dropdash.bmp", false) && dropDash.getWidth() >= 64 && dropDash.getHeight() >= 32 &&
+		FileHelper::loadBitmap(peelOut, L"data/sprites/characters/sonic_peelout.bmp", false) && peelOut.getWidth() >= 160 && peelOut.getHeight() >= 40)
+	{
+		const auto extractFrame = [](const Bitmap& sheet, int sx, int size, DrawerTexture& texture)
+		{
+			Bitmap& bitmap = texture.accessBitmap();
+			bitmap.create(size, size, 0);
+			for (int y = 0; y < size; ++y)
+			{
+				for (int x = 0; x < size; ++x)
+				{
+					const uint32 color = *sheet.getPixelPointer(sx + x, y);
+					*bitmap.getPixelPointer(x, y) = ((color & 0x00ffffff) == 0 || (color >> 24) == 0) ? 0 : color;	// Palette index 0 (black) is transparent
+				}
+			}
+			texture.bitmapUpdated();
+		};
+		for (int k = 0; k < 2; ++k)
+			extractFrame(dropDash, k * 32, 32, mDropDashFrames[k]);
+		for (int k = 0; k < 4; ++k)
+			extractFrame(peelOut, k * 40, 40, mPeelOutFrames[k]);
+		mHasMoveSprites = true;
+	}
 }
 
 void N3DSMenu::rebuildTabs()
@@ -679,9 +706,29 @@ void N3DSMenu::render()
 					if (nullptr != secret)
 					{
 						description = secret->mDescription;
-						DrawerTexture& image = item.mOwned ? global::mSecretImage[secret->mType] : global::mSecretImage[secret->mType | 0x80000000];
-						if (image.getWidth() > 0)
-							drawer.drawRect(Recti(imageRect.x, imageRect.y, image.getWidth(), image.getHeight()), image, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						const bool isMove = (secret->mType == SharedDatabase::Secret::SECRET_DROPDASH || secret->mType == SharedDatabase::Secret::SECRET_SUPER_PEELOUT);
+						if (isMove && mHasMoveSprites)
+						{
+							// Sonic doing the move, animated; a dark silhouette while it's still locked
+							drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
+							const Color tint = item.mOwned ? Color(1.0f, 1.0f, 1.0f, tabAlpha) : Color(0.12f, 0.14f, 0.3f, tabAlpha);
+							if (secret->mType == SharedDatabase::Secret::SECRET_DROPDASH)
+							{
+								DrawerTexture& frame = mDropDashFrames[(int)(FTX::getTime() * 10.0f) % 2];
+								drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 8, 32, 32), frame, tint);
+							}
+							else
+							{
+								DrawerTexture& frame = mPeelOutFrames[(int)(FTX::getTime() * 15.0f) % 4];
+								drawer.drawRect(Recti(imageRect.x + 12, imageRect.y + 4, 40, 40), frame, tint);
+							}
+						}
+						else
+						{
+							DrawerTexture& image = item.mOwned ? global::mSecretImage[secret->mType] : global::mSecretImage[secret->mType | 0x80000000];
+							if (image.getWidth() > 0)
+								drawer.drawRect(Recti(imageRect.x, imageRect.y, image.getWidth(), image.getHeight()), image, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						}
 						if (!item.mOwned)
 							description += String(0, " (Or complete %d achievements.)", secret->mRequiredAchievements).toStdString();
 					}
