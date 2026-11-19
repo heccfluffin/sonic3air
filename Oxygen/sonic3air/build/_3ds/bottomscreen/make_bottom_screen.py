@@ -347,7 +347,7 @@ THEMES = [
 	  'frame_light': (236, 236, 252), 'frame_shadow': (150, 148, 214), 'panel': (130, 126, 200), 'stats': (130, 126, 200),
 	  'save': (80, 170, 120), 'load': (120, 110, 210), 'outline': (70, 60, 150) },
 	{ 'id': 'city',    'name': 'Sky City',        'style': 'city', 'light': (96, 172, 236), 'dark': (30, 80, 180),
-	  'save': (60, 175, 50), 'load': (40, 110, 220), 'outline': (20, 60, 130) },
+	  'save': (66, 156, 36), 'load': (96, 172, 236), 'outline': (20, 60, 130) },		# Bush green, sky blue
 	{ 'id': 'aurora',  'name': 'Aurora',          'style': 'gradient', 'corners': ((40, 150, 215), (150, 110, 210), (60, 130, 90), (120, 70, 150)),
 	  'light': (120, 150, 215), 'dark': (60, 70, 140), 'save': (60, 180, 110), 'load': (110, 120, 230), 'outline': (40, 40, 110) },
 	{ 'id': 'sunset',  'name': 'Sunset Glow',     'style': 'gradient', 'corners': ((255, 170, 80), (240, 110, 120), (200, 90, 140), (110, 60, 150)),
