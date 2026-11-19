@@ -34,6 +34,12 @@
 #include "oxygen/rendering/utils/RenderUtils.h"
 #include "oxygen/simulation/EmulatorInterface.h"
 #include "oxygen/simulation/Simulation.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSBottomScreen.h"
+	#include "oxygen/rendering/parts/RenderParts.h"
+	#include "oxygen/simulation/SaveStateSerializer.h"
+	#include <3ds.h>
+#endif
 
 
 namespace
@@ -144,6 +150,10 @@ void GameApp::update(float timeElapsed)
 		// Input
 		Game::instance().updateSpecialInput(timeElapsed);
 	}
+
+#if defined(PLATFORM_3DS)
+	updateBottomScreen();
+#endif
 
 	// GUI
 	mGameMenuManager->updateMenus();
@@ -361,6 +371,43 @@ bool GameApp::openFileBrowser()
 	return false;
 #endif
 }
+
+#if defined(PLATFORM_3DS)
+void GameApp::updateBottomScreen()
+{
+	// 3DS bottom screen: controls overview with touch buttons for a quick save state
+	Simulation& simulation = Application::instance().getSimulation();
+	const bool saveStatesAllowed = (mCurrentState == State::INGAME) && (nullptr == mPauseMenu->getParent()) && !Game::instance().isInTimeAttackMode() && simulation.isRunning();
+
+	const n3ds::bottomscreen::Request request = n3ds::bottomscreen::update(saveStatesAllowed);
+	if (request == n3ds::bottomscreen::Request::NONE)
+		return;
+
+	const std::wstring filename = Configuration::instance().mSaveStatesDirLocal + L"3ds_quicksave.state";
+	const uint64 startTicks = svcGetSystemTick();
+	if (request == n3ds::bottomscreen::Request::SAVE_STATE)
+	{
+		// Directly with the serializer instead of "Simulation::saveState", which also saves a screenshot and shows an error dialog on failure
+		SaveStateSerializer serializer(simulation, RenderParts::instance());
+		const bool success = serializer.saveState(filename);
+		RMX_LOG_INFO("Bottom screen: save state " << (success ? "saved" : "FAILED") << " (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
+		n3ds::bottomscreen::showResult(success ? n3ds::bottomscreen::Result::SAVED : n3ds::bottomscreen::Result::FAILED);
+	}
+	else if (request == n3ds::bottomscreen::Request::LOAD_STATE)
+	{
+		if (!FTX::FileSystem->exists(filename))
+		{
+			n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::NO_STATE);
+			return;
+		}
+		// Same as the engine's save state menu
+		EngineMain::getDelegate().onPreSaveStateLoad();
+		const bool success = simulation.loadState(filename, false);
+		RMX_LOG_INFO("Bottom screen: save state " << (success ? "loaded" : "FAILED to load") << " (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
+		n3ds::bottomscreen::showResult(success ? n3ds::bottomscreen::Result::LOADED : n3ds::bottomscreen::Result::FAILED);
+	}
+}
+#endif
 
 void GameApp::gotoPhase(int phaseNumber)
 {

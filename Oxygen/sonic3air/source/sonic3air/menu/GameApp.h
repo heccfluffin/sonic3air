@@ -58,6 +58,9 @@ public:
 
 private:
 	void gotoPhase(int phaseNumber);
+#if defined(PLATFORM_3DS)
+	void updateBottomScreen();
+#endif
 
 private:
 	enum class State

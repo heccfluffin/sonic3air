@@ -151,6 +151,10 @@ target_link_libraries(oxygen minizip rmxmedia rmxext_oggvorbis lemonscript oxyge
 dkp_add_embedded_binary_library(s3air_3ds_splash_data ${CMAKE_CURRENT_SOURCE_DIR}/splash/s3air_splash.bin)
 target_link_libraries(oxygen s3air_3ds_splash_data)
 
+# Bottom screen: controls overview with touch buttons for save states (see bottomscreen/make_bottom_screen.py)
+dkp_add_embedded_binary_library(s3air_3ds_bottom_screen_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_bottom_screen.bin)
+target_link_libraries(oxygen s3air_3ds_bottom_screen_data)
+
 # Presenting frames with the PICA200 GPU (citro3d) instead of SDL's CPU-side rotated copy
 option(S3AIR_3DS_GPU_PRESENT "Present frames via the 3DS GPU" ON)
 set(S3AIR_3DS_GPU_LIBS "")

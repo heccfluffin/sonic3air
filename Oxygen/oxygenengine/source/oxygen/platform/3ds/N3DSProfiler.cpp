@@ -11,6 +11,7 @@
 #if defined(PLATFORM_3DS) && defined(N3DS_PROFILER)
 
 #include "oxygen/platform/3ds/N3DSProfiler.h"
+#include "oxygen/platform/3ds/N3DSBottomScreen.h"
 #include "oxygen/simulation/EmulatorInterface.h"
 #include <lemon/runtime/provider/NativizedOpcodeProvider.h>
 
@@ -606,6 +607,8 @@ namespace n3ds
 					return;
 				if (!aptIsActive())		// The bottom screen belongs to the system while suspended
 					return;
+				if (!n3ds::bottomscreen::isShowingStats())	// The bottom screen shows the controls instead
+					return;
 
 				initConsole();
 
@@ -664,6 +667,25 @@ namespace n3ds
 			printf("Build %s\n\n", S3AIR_3DS_BUILD_ID);
 			printf("Loading...\n");
 			presentConsole();
+		}
+
+		void showOnScreen()
+		{
+			if (!aptIsActive())
+				return;
+			initConsole();
+			consoleClear();
+			if (gScreenLines[0][0] != 0)
+			{
+				gNextScreenLine = 0;	// Print the latest table again, over the next frames
+			}
+			else
+			{
+				gConsole.cursorX = 1;
+				gConsole.cursorY = 1;
+				printf("Collecting statistics...\n\n Tap the screen to go back\n to the controls");
+				presentConsole();
+			}
 		}
 
 		uint64_t getTicks()

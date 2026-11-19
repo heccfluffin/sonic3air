@@ -78,6 +78,7 @@ namespace n3ds
 		uint64_t getTicks();
 		void endFrame();						// Call once per frame, right after presenting
 		void showStartupInfo();					// Shows the build on the bottom screen while the game loads
+		void showOnScreen();					// The bottom screen switched to the statistics: show them again from scratch
 		void finish();							// On exit: writes the summary of the current area to the log
 
 		struct Scope

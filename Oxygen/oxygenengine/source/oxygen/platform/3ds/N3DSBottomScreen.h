@@ -1,0 +1,40 @@
+/*
+*	Part of the Oxygen Engine / Sonic 3 A.I.R. software distribution.
+*	Nintendo 3DS port: the bottom screen - a controls overview with touch buttons for a quick save state,
+*	or the profiler's statistics.
+*
+*	Published under the GNU GPLv3 open source software license, see license.txt
+*	or https://www.gnu.org/licenses/gpl-3.0.en.html
+*/
+
+#pragma once
+
+
+namespace n3ds
+{
+	namespace bottomscreen
+	{
+		enum class Request
+		{
+			NONE,
+			SAVE_STATE,
+			LOAD_STATE
+		};
+
+		enum class Result
+		{
+			SAVED,
+			LOADED,
+			NO_STATE,		// Loading: there's no saved state yet
+			FAILED
+		};
+
+		// Call once per frame on the main thread. "saveStatesAllowed" tells whether save states can be used right now
+		// (they get greyed out otherwise). Returns what the player tapped; the caller performs it, then reports back with "showResult".
+		Request update(bool saveStatesAllowed);
+		void showResult(Result result);
+
+		// Whether the bottom screen shows the profiler's statistics (otherwise the profiler only writes its log file)
+		bool isShowingStats();
+	}
+}
