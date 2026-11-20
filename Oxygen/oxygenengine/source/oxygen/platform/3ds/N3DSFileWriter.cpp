@@ -183,6 +183,14 @@ namespace n3ds
 			LightEvent_Signal(&gWakeEvent);
 		}
 
+		bool writeFileIfOnSDCard(const std::wstring& path, std::vector<uint8_t>& data, DoneCallback onDone)
+		{
+			if (path.compare(0, 6, L"sdmc:/") != 0)
+				return false;
+			writeFile(rmx::convertToUTF8(path), std::move(data), std::move(onDone));
+			return true;
+		}
+
 		bool isBusy()
 		{
 			if (nullptr == gThread)

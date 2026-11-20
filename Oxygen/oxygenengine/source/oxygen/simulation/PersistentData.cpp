@@ -9,6 +9,9 @@
 #include "oxygen/pch.h"
 #include "oxygen/simulation/PersistentData.h"
 #include "oxygen/application/Configuration.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSFileWriter.h"
+#endif
 
 
 namespace
@@ -271,6 +274,9 @@ std::wstring PersistentData::getFullFilePath(const File& file) const
 
 bool PersistentData::removeFile(File& file)
 {
+#if defined(PLATFORM_3DS)
+	n3ds::filewriter::waitUntilDone();		// It might still be getting written in the background
+#endif
 	return FTX::FileSystem->removeFile(getFullFilePath(file));
 }
 
@@ -281,6 +287,11 @@ bool PersistentData::saveFile(File& file)
 	if (!serializeFile(file, serializer))
 		return false;
 
+#if defined(PLATFORM_3DS)
+	// 3DS: written in the background, as the SD card is slow to respond at times (the game froze for seconds); failures get logged
+	if (n3ds::filewriter::writeFileIfOnSDCard(getFullFilePath(file), content))
+		return true;
+#endif
 	return FTX::FileSystem->saveFile(getFullFilePath(file), content);
 }
 

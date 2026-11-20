@@ -8,6 +8,9 @@
 
 #include "oxygen/pch.h"
 #include "oxygen/helper/JsonHelper.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSFileWriter.h"
+#endif
 
 
 namespace
@@ -37,6 +40,12 @@ Json::Value JsonHelper::loadFile(const std::wstring& filename)
 bool JsonHelper::saveFile(const std::wstring& filename, const Json::Value& value)
 {
 	const String output(value.toStyledString());
+#if defined(PLATFORM_3DS)
+	// 3DS: written in the background, as the SD card is slow to respond at times (the game froze for seconds); failures get logged
+	std::vector<uint8> data((const uint8*)*output, (const uint8*)*output + output.length());
+	if (n3ds::filewriter::writeFileIfOnSDCard(filename, data))
+		return true;
+#endif
 	return FTX::FileSystem->saveFile(filename, *output, output.length());
 }
 

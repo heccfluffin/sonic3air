@@ -374,11 +374,11 @@ void EngineMain::run()
 	//     must never end the process while a file is still being written
 	n3ds::exitguard::showExitMessage();
 	N3DS_PROFILE_FINISH();		// Gets written in the background meanwhile
-	n3ds::exitguard::step("finishing background file writes");
-	n3ds::filewriter::waitUntilDone();		// A save state or the 3DS menu's file may still be getting written
 	n3ds::exitguard::step("saving settings");
 	mInternal.mModManager.copyModSettingsToConfig();
 	Configuration::instance().saveSettings();
+	n3ds::exitguard::step("finishing background file writes");
+	n3ds::filewriter::waitUntilDone();		// The settings, and maybe a save state, the game's save data or the 3DS menu's file
 	n3ds::exitguard::start(5);
 	n3ds::exitguard::step("application cleanup");
 #endif
