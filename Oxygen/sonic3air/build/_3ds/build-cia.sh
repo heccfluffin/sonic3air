@@ -37,7 +37,7 @@ if [ -n "$BUILD_NUMBER" ]; then VERSION_ARGS="-ver $BUILD_NUMBER"; fi
 	-p "heccfluffin (3DS port) / Eukaryot (original)" \
 	-i icon.png -o build/icon.icn
 
-"$MAKEROM" -f cia -o build/sonic3air.cia -target t -exefslogo -logo cia/logo/s3air_logo.bcma.lz $VERSION_ARGS \
+"$MAKEROM" -f cia -o build/sonic3air.cia -target t -exefslogo $VERSION_ARGS \
 	-elf "$ELF" -rsf cia/sonic3air.rsf \
 	-icon build/icon.icn -banner build/banner.bnr
 

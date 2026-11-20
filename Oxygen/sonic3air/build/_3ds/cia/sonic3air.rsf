@@ -4,7 +4,7 @@
 BasicInfo:
   Title                   : "S3AIR"
   ProductCode             : "CTR-H-S3AR"
-  Logo                    : Homebrew     # Overridden by build-cia.sh with our own logo (cia/logo); a launch logo is needed, without one starting the CIA fails
+  Logo                    : Homebrew     # A launch logo is needed: without one, starting the CIA fails with "SD card was removed"
 
 TitleInfo:
   Category                : Application
