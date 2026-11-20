@@ -38,7 +38,10 @@
 	#include "oxygen/platform/3ds/N3DSBottomScreen.h"
 	#include "sonic3air/version.inc"
 	#include "oxygen/rendering/parts/RenderParts.h"
+	#include "oxygen/simulation/CodeExec.h"
+	#include "oxygen/simulation/LemonScriptRuntime.h"
 	#include "oxygen/simulation/SaveStateSerializer.h"
+	#include <lemon/runtime/Runtime.h>
 	#include <3ds.h>
 #endif
 
@@ -510,6 +513,21 @@ void GameApp::updateBottomScreen()
 			{
 				for (uint32 k = 0; k < range.mSize; ++k)
 					emulatorInterface.writeMemory8(range.mAddress + k, persistentBackup[index++]);
+			}
+
+			// Loading a state stops all sounds, and the game itself picks the music again only on certain events (like the
+			// next act or the end of a power-up), so it would stay silent until then. Start the fitting music right away,
+			// with the game's own logic: level music, or boss, Super or invincibility music. Blue Sphere in special stages.
+			LemonScriptRuntime& scriptRuntime = simulation.getCodeExec().getLemonScriptRuntime();
+			if (emulatorInterface.readMemory8(0xfffff600) == 0x34)
+			{
+				lemon::Runtime::FunctionCallParameters params;
+				params.mParams.emplace_back(lemon::PredefinedDataTypes::UINT_8, 0x1c);
+				scriptRuntime.getInternalLemonRuntime().callFunctionWithParameters("playMusic", params);
+			}
+			else
+			{
+				scriptRuntime.callFunctionByName("chooseFittingMusic", false);
 			}
 		}
 		RMX_LOG_INFO("Bottom screen: save state for save file " << slot << (success ? " loaded" : " FAILED to load") << " (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
