@@ -11,6 +11,7 @@
 #if defined(PLATFORM_3DS)
 
 #include "oxygen/platform/3ds/N3DSShop.h"
+#include "oxygen/platform/3ds/N3DSFileWriter.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -94,17 +95,19 @@ namespace n3ds
 		{
 			if (!gLoaded || !(gData != gSavedData))
 				return;
-			FILE* file = fopen(FILE_PATH, "w");
-			if (nullptr == file)
-			{
-				RMX_LOG_INFO("3DS shop: could not save " << FILE_PATH);
-				return;
-			}
-			fprintf(file, "owned_themes=%x\ntheme=%d\nowns_shield=%d\nshield=%d\nshow_menu=%d\n", (unsigned int)gData.mOwnedThemes, gData.mSelectedTheme,
-					gData.mOwnsShield ? 1 : 0, gData.mSelectedShield, gData.mShowMenu ? 1 : 0);
+
+			// Written in the background: the SD card can take seconds to respond at times, which froze the 3DS menu on selecting something
+			char text[256];
+			snprintf(text, sizeof(text), "owned_themes=%x\ntheme=%d\nowns_shield=%d\nshield=%d\nshow_menu=%d\n", (unsigned int)gData.mOwnedThemes, gData.mSelectedTheme,
+					 gData.mOwnsShield ? 1 : 0, gData.mSelectedShield, gData.mShowMenu ? 1 : 0);
+			std::string content = text;
 			if (!gData.mCustomTheme.empty())
-				fprintf(file, "custom_theme=%s\n", gData.mCustomTheme.c_str());
-			fclose(file);
+				content += "custom_theme=" + gData.mCustomTheme + "\n";
+			n3ds::filewriter::writeFile(FILE_PATH, std::vector<uint8_t>(content.begin(), content.end()), [](bool success, uint32_t)
+			{
+				if (!success)
+					RMX_LOG_INFO("3DS shop: could not save " << FILE_PATH);
+			});
 			gSavedData = gData;
 		}
 

@@ -32,6 +32,7 @@
 #include "oxygen/platform/3ds/N3DSProfiler.h"
 #if defined(PLATFORM_3DS)
 	#include "oxygen/platform/3ds/N3DSExitGuard.h"
+	#include "oxygen/platform/3ds/N3DSFileWriter.h"
 	#include "oxygen/platform/3ds/N3DSSplash.h"
 #endif
 #if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
@@ -373,6 +374,8 @@ void EngineMain::run()
 	//     must never end the process while a file is still being written
 	n3ds::exitguard::showExitMessage();
 	N3DS_PROFILE_FINISH();		// Gets written in the background meanwhile
+	n3ds::exitguard::step("finishing background file writes");
+	n3ds::filewriter::waitUntilDone();		// A save state or the 3DS menu's file may still be getting written
 	n3ds::exitguard::step("saving settings");
 	mInternal.mModManager.copyModSettingsToConfig();
 	Configuration::instance().saveSettings();

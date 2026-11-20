@@ -36,6 +36,7 @@
 #include "oxygen/simulation/Simulation.h"
 #if defined(PLATFORM_3DS)
 	#include "oxygen/platform/3ds/N3DSBottomScreen.h"
+	#include "oxygen/platform/3ds/N3DSFileWriter.h"
 	#include "sonic3air/version.inc"
 	#include "oxygen/rendering/parts/RenderParts.h"
 	#include "oxygen/simulation/CodeExec.h"
@@ -394,6 +395,7 @@ bool GameApp::openFileBrowser()
 void GameApp::updateBottomScreen()
 {
 	// 3DS bottom screen: controls overview with touch buttons for a save state per save file
+	n3ds::filewriter::update();		// Files written in the background (save states, 3DS menu choices): report finished ones
 	Simulation& simulation = Application::instance().getSimulation();
 	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
 
@@ -432,6 +434,7 @@ void GameApp::updateBottomScreen()
 				if (becameEmpty)
 				{
 					const std::wstring filename = getStateFilename(i + 1);
+					n3ds::filewriter::waitUntilDone();		// Its save state might still be getting written
 					if (FTX::FileSystem->exists(filename))
 					{
 						FTX::FileSystem->removeFile(filename);
@@ -471,15 +474,28 @@ void GameApp::updateBottomScreen()
 		// Directly with the serializer instead of "Simulation::saveState", which also saves a screenshot and shows an error dialog on failure
 		SaveStateSerializer serializer(simulation, RenderParts::instance());
 		std::vector<uint8> data;
-		const bool success = serializer.saveState(data) && FTX::FileSystem->saveFile(filename, data);
-		RMX_LOG_INFO("Bottom screen: save state for save file " << slot << (success ? " saved" : " FAILED") << ", " << (int)(data.size() / 1024) << " KB, "
-					 << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms");
-		if (success)
-			cachedHasState = true;
-		n3ds::bottomscreen::showResult(success ? n3ds::bottomscreen::Result::SAVED : n3ds::bottomscreen::Result::FAILED);
+		if (!serializer.saveState(data))
+		{
+			RMX_LOG_INFO("Bottom screen: save state for save file " << slot << " FAILED");
+			n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::FAILED);
+			return;
+		}
+
+		// The file gets written in the background, as the SD card sometimes takes seconds to respond (the game froze for that long).
+		// Loading waits for it if needed, so the state counts as there right away.
+		const uint32 serializeMs = (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
+		const int sizeKB = (int)(data.size() / 1024);
+		cachedHasState = true;
+		n3ds::filewriter::writeFile(rmx::convertToUTF8(filename), std::move(data), [slot, sizeKB, serializeMs](bool success, uint32 writeMs)
+		{
+			RMX_LOG_INFO("Bottom screen: save state for save file " << slot << (success ? " saved" : " FAILED") << ", " << sizeKB << " KB, "
+						 << serializeMs << " ms + " << writeMs << " ms writing in the background");
+			n3ds::bottomscreen::showResult(success ? n3ds::bottomscreen::Result::SAVED : n3ds::bottomscreen::Result::FAILED);
+		});
 	}
 	else if (request == n3ds::bottomscreen::Request::LOAD_STATE)
 	{
+		n3ds::filewriter::waitUntilDone();		// In case the state was just saved and is still getting written
 		if (!FTX::FileSystem->exists(filename))
 		{
 			n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::NO_STATE);
