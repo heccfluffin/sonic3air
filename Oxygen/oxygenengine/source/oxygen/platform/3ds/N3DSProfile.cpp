@@ -13,6 +13,7 @@
 #include "oxygen/platform/3ds/N3DSProfile.h"
 
 #include <3ds.h>
+#include <stdio.h>
 #include <time.h>
 
 
@@ -26,6 +27,7 @@ namespace n3ds
 			std::string gNickname;
 			int gBirthdayMonth = 0;
 			int gBirthdayDay = 0;
+			bool gUse12Hours = false;
 
 			void load()
 			{
@@ -58,6 +60,11 @@ namespace n3ds
 					if (printable)
 						gNickname = nickname;
 				}
+
+				// Clock format by region
+				u8 region = 0;
+				if (R_SUCCEEDED(CFGU_SecureInfoGetRegion(&region)))
+					gUse12Hours = (region == CFG_REGION_USA);
 
 				// Birthday: month, day
 				u8 birthday[2] = { 0, 0 };
@@ -98,6 +105,24 @@ namespace n3ds
 			result.mMinute = local.tm_min;
 			result.mDayOfYear = local.tm_yday;
 			return result;
+		}
+
+		bool uses12HourClock()
+		{
+			load();
+			return gUse12Hours;
+		}
+
+		std::string formatTime(int minutesAfterMidnight)
+		{
+			const int hour = (minutesAfterMidnight / 60) % 24;
+			const int minute = minutesAfterMidnight % 60;
+			char buffer[16];
+			if (uses12HourClock())
+				snprintf(buffer, sizeof(buffer), "%d:%02d %s", (hour % 12 == 0) ? 12 : (hour % 12), minute, (hour < 12) ? "AM" : "PM");
+			else
+				snprintf(buffer, sizeof(buffer), "%02d:%02d", hour, minute);
+			return buffer;
 		}
 
 		bool isBirthdayToday()

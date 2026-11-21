@@ -46,7 +46,7 @@ namespace n3ds
 		enum NightMode
 		{
 			NIGHT_MODE_OFF = 0,
-			NIGHT_MODE_AFTER_DARK,		// From 20:00 to 6:00
+			NIGHT_MODE_AFTER_DARK,		// From "mNightStart" to "mNightEnd", by default 20:00 to 6:00
 			NIGHT_MODE_ALWAYS,
 			_NUM_NIGHT_MODES
 		};
@@ -72,6 +72,8 @@ namespace n3ds
 			int mSelectedShield = SHIELD_OFF;
 			bool mShowMenu = true;		// The "3DS" entry in the main menu (option in the System tab of the options)
 			int mNightMode = NIGHT_MODE_OFF;
+			int mNightStart = 20 * 60;		// Minutes after midnight, for NIGHT_MODE_AFTER_DARK
+			int mNightEnd = 6 * 60;
 		};
 
 		Data& get();		// Loaded on first use

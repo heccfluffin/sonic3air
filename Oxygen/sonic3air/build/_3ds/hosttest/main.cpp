@@ -106,6 +106,8 @@ namespace
 		fake::advanceSeconds(6.0);
 		frames(40);
 		shot("clock_12h_1230pm_battery5");
+		check(n3ds::profile::formatTime(20 * 60) == "8:00 PM" && n3ds::profile::formatTime(30) == "12:30 AM" && n3ds::profile::formatTime(12 * 60) == "12:00 PM",
+			  "times shown as 8:00 PM / 12:30 AM / 12:00 PM on an American 3DS");
 	}
 
 	void idleRedraws()
@@ -206,6 +208,32 @@ namespace
 		check(!n3ds::shop::isNightModeActive(), "after dark: off again at 6:00");
 		fake::setTime(2026, 11, 21, 5, 59);
 		check(n3ds::shop::isNightModeActive(), "after dark: still on at 5:59");
+
+		// Own times: a night owl, 22:30 to 7:00 (over midnight)
+		n3ds::shop::get().mNightStart = 22 * 60 + 30;
+		n3ds::shop::get().mNightEnd = 7 * 60;
+		fake::setTime(2026, 11, 21, 22, 29);
+		check(!n3ds::shop::isNightModeActive(), "own times 22:30 - 7:00: off at 22:29");
+		fake::setTime(2026, 11, 21, 22, 30);
+		check(n3ds::shop::isNightModeActive(), "own times 22:30 - 7:00: on at 22:30");
+		fake::setTime(2026, 11, 21, 6, 59);
+		check(n3ds::shop::isNightModeActive(), "own times 22:30 - 7:00: still on at 6:59");
+		fake::setTime(2026, 11, 21, 7, 0);
+		check(!n3ds::shop::isNightModeActive(), "own times 22:30 - 7:00: off at 7:00");
+
+		// Not over midnight: 1:00 to 5:30
+		n3ds::shop::get().mNightStart = 1 * 60;
+		n3ds::shop::get().mNightEnd = 5 * 60 + 30;
+		fake::setTime(2026, 11, 21, 0, 59);
+		const bool before = n3ds::shop::isNightModeActive();
+		fake::setTime(2026, 11, 21, 3, 0);
+		const bool during = n3ds::shop::isNightModeActive();
+		fake::setTime(2026, 11, 21, 5, 30);
+		const bool after = n3ds::shop::isNightModeActive();
+		check(!before && during && !after, "own times 1:00 - 5:30: off at 0:59, on at 3:00, off at 5:30");
+
+		n3ds::shop::get().mNightStart = n3ds::shop::get().mNightEnd = 9 * 60;
+		check(!n3ds::shop::isNightModeActive(), "start = end: never on (instead of always)");
 	}
 
 	void taps()
@@ -377,15 +405,18 @@ namespace
 		n3ds::filewriter::waitUntilDone();
 		const std::string shopFile = readFile("sdmc:/3ds/sonic3air/savedata/3ds_shop.txt");
 		check(shopFile.find("theme=101\n") != std::string::npos && shopFile.find("night_mode=1\n") != std::string::npos, "3DS menu choices are saved (theme=101, night_mode=1)");
+		check(shopFile.find("night_start=1200\n") != std::string::npos && shopFile.find("night_end=360\n") != std::string::npos, "night times are saved too (defaults 20:00 / 6:00)");
 	}
 
 	void shopReload()
 	{
 		// Reading back what "fileWriter" saved: Time of Day and night mode survive a restart
 		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
-		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_shop.txt") << "owned_themes=1\ntheme=101\nowns_shield=0\nshield=0\nshow_menu=1\nnight_mode=2\n";
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_shop.txt") << "owned_themes=1\ntheme=101\nowns_shield=0\nshield=0\nshow_menu=1\nnight_mode=2\nnight_start=1350\nnight_end=420\n";
 		check(n3ds::shop::get().mSelectedTheme == n3ds::shop::THEME_AUTO, "Time of Day is kept after a restart");
 		check(n3ds::shop::get().mNightMode == n3ds::shop::NIGHT_MODE_ALWAYS, "night mode is kept after a restart");
+		check(n3ds::shop::get().mNightStart == 22 * 60 + 30 && n3ds::shop::get().mNightEnd == 7 * 60, "own night times are kept after a restart");
+		check(n3ds::profile::formatTime(22 * 60 + 30) == "22:30", "times shown as 22:30 on a European 3DS");
 	}
 }
 

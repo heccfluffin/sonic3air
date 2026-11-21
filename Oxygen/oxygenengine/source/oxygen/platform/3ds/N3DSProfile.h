@@ -38,6 +38,10 @@ namespace n3ds
 
 		bool isBirthdayToday();
 
+		// 12 hours with AM / PM on American 3DS systems, 24 hours for the others (like the clock on the bottom screen)
+		bool uses12HourClock();
+		std::string formatTime(int minutesAfterMidnight);		// "8:30 PM" or "20:30"
+
 		// "Good morning, Name!" and the like, depending on the time of day (and the birthday)
 		std::string getGreeting();
 	}

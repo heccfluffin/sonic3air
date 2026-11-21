@@ -34,7 +34,7 @@ namespace n3ds
 			{
 				return a.mOwnedThemes != b.mOwnedThemes || a.mSelectedTheme != b.mSelectedTheme || a.mOwnsShield != b.mOwnsShield ||
 					   a.mSelectedShield != b.mSelectedShield || a.mShowMenu != b.mShowMenu || a.mCustomTheme != b.mCustomTheme ||
-					   a.mNightMode != b.mNightMode;
+					   a.mNightMode != b.mNightMode || a.mNightStart != b.mNightStart || a.mNightEnd != b.mNightEnd;
 			}
 
 			void load()
@@ -70,6 +70,10 @@ namespace n3ds
 						gData.mShowMenu = (value != 0);
 					else if (sscanf(line, "night_mode=%u", &value) == 1)
 						gData.mNightMode = (value < _NUM_NIGHT_MODES) ? (int)value : NIGHT_MODE_OFF;
+					else if (sscanf(line, "night_start=%u", &value) == 1 && value < 24 * 60)
+						gData.mNightStart = (int)value;
+					else if (sscanf(line, "night_end=%u", &value) == 1 && value < 24 * 60)
+						gData.mNightEnd = (int)value;
 				}
 				fclose(file);
 
@@ -111,6 +115,8 @@ namespace n3ds
 					 gData.mOwnsShield ? 1 : 0, gData.mSelectedShield, gData.mShowMenu ? 1 : 0);
 			std::string content = text;
 			content += "night_mode=" + std::to_string(gData.mNightMode) + "\n";
+			content += "night_start=" + std::to_string(gData.mNightStart) + "\n";
+			content += "night_end=" + std::to_string(gData.mNightEnd) + "\n";
 			if (!gData.mCustomTheme.empty())
 				content += "custom_theme=" + gData.mCustomTheme + "\n";
 			n3ds::filewriter::writeFile(FILE_PATH, std::vector<uint8_t>(content.begin(), content.end()), [](bool success, uint32_t)
@@ -155,8 +161,15 @@ namespace n3ds
 					return true;
 				case NIGHT_MODE_AFTER_DARK:
 				{
-					const int hour = n3ds::profile::getLocalTime().mHour;
-					return (hour >= 20 || hour < 6);
+					const n3ds::profile::LocalTime now = n3ds::profile::getLocalTime();
+					const int minute = now.mHour * 60 + now.mMinute;
+					const int start = get().mNightStart;
+					const int end = get().mNightEnd;
+					if (start == end)
+						return false;
+					if (start < end)
+						return (minute >= start && minute < end);		// E.g. 1:00 to 7:00
+					return (minute >= start || minute < end);			// Over midnight, e.g. 20:00 to 6:00
 				}
 				default:
 					return false;

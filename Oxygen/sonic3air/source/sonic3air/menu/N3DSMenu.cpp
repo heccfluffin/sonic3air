@@ -45,7 +45,10 @@ namespace
 	static constexpr uint32 CUSTOM_THEME = 0x400;		// Plus the index in "mCustomThemes"
 	static constexpr uint32 CUSTOM_INFO = 0x4ff;		// Explanation entry for the player's own pictures
 	static constexpr uint32 AUTO_THEME = 0x4fe;			// The theme that follows the time of day (n3ds::shop::THEME_AUTO)
-	static constexpr uint32 NIGHT_MODE = 0x4fd;			// Setting for dimming the bottom screen
+	static constexpr uint32 NIGHT_MODE = 0x4fd;			// Setting for the warm night colors
+	static constexpr uint32 NIGHT_START = 0x4fc;		// When "after dark" starts, changed with left / right
+	static constexpr uint32 NIGHT_END = 0x4fb;			// ... and ends
+	static constexpr int NIGHT_TIME_STEP = 30;			// Minutes
 
 	const char* NIGHT_MODE_NAMES[n3ds::shop::_NUM_NIGHT_MODES] = { "OFF", "AFTER DARK", "ALWAYS" };
 
@@ -469,6 +472,14 @@ void N3DSMenu::rebuildTabs()
 			{
 				entries.addEntry("Time of Day", AUTO_THEME);
 				entries.addEntry("Night Mode", NIGHT_MODE);
+				for (const uint32 data : { NIGHT_START, NIGHT_END })
+				{
+					GameMenuEntry& entry = entries.addEntry((data == NIGHT_START) ? "Night Starts" : "Night Ends", data);
+					for (int minute = 0; minute < 24 * 60; minute += NIGHT_TIME_STEP)
+						entry.addOption(n3ds::profile::formatTime(minute), (uint32)minute);
+					const int value = (data == NIGHT_START) ? shop.mNightStart : shop.mNightEnd;
+					entry.setSelectedIndexByValue((uint32)(value / NIGHT_TIME_STEP * NIGHT_TIME_STEP));
+				}
 			}
 		}
 		for (size_t k = 0; k < mCustomThemes.size(); ++k)
@@ -521,6 +532,13 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 	switch (tabIndex)
 	{
 		case Tab::Id::THEMES:
+			if (data == NIGHT_START || data == NIGHT_END)
+			{
+				outItem.mName = (data == NIGHT_START) ? "Night Starts" : "Night Ends";
+				outItem.mPrice = 0;
+				outItem.mOwned = true;
+				return true;
+			}
 			if (data == NIGHT_MODE)
 			{
 				outItem.mName = "Night Mode";
@@ -655,6 +673,15 @@ void N3DSMenu::update(float timeElapsed)
 				mActiveTab = mTabMenuEntries[0].mSelectedIndex;
 				playMenuSound(0xb7);
 			}
+			else if (result == GameMenuEntries::UpdateResult::OPTION_CHANGED && (mActiveMenu->selected().mData == NIGHT_START || mActiveMenu->selected().mData == NIGHT_END))
+			{
+				// Night mode times: saved right away (in the background)
+				n3ds::shop::Data& shop = n3ds::shop::get();
+				const GameMenuEntry& entry = mActiveMenu->selected();
+				(entry.mData == NIGHT_START ? shop.mNightStart : shop.mNightEnd) = (int)entry.selected().mValue;
+				n3ds::shop::save();
+				playMenuSound(0x5b);
+			}
 			else
 			{
 				playMenuSound(0x5b);
@@ -736,13 +763,20 @@ void N3DSMenu::onAccept()
 		return;
 	}
 
+	if (mActiveTab == Tab::Id::THEMES && (data == NIGHT_START || data == NIGHT_END))
+	{
+		playMenuSound(0x5b);
+		showMessage("Change the time with Left and Right", false);
+		return;
+	}
 	if (mActiveTab == Tab::Id::THEMES && data == NIGHT_MODE)
 	{
 		shop.mNightMode = (shop.mNightMode + 1) % n3ds::shop::_NUM_NIGHT_MODES;
 		n3ds::shop::save();
 		playMenuSound(0x63);
 		showMessage((shop.mNightMode == n3ds::shop::NIGHT_MODE_OFF) ? "Night mode switched off" :
-					(shop.mNightMode == n3ds::shop::NIGHT_MODE_AFTER_DARK) ? "Night mode from 8 pm to 6 am" : "Night mode always on", false);
+					(shop.mNightMode == n3ds::shop::NIGHT_MODE_AFTER_DARK) ? ("Night mode from " + n3ds::profile::formatTime(shop.mNightStart) + " to " + n3ds::profile::formatTime(shop.mNightEnd)) :
+					std::string("Night mode always on"), false);
 		return;
 	}
 	if (mActiveTab == Tab::Id::THEMES && data == AUTO_THEME)
@@ -950,9 +984,33 @@ void N3DSMenu::render()
 					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontRegular, Recti(imageRect.x + 32, imageRect.y + 19, 0, 10), "PNG", 5, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 				}
+				else if (tabIndex == Tab::Id::THEMES && (entry.mData == NIGHT_START || entry.mData == NIGHT_END))
+				{
+					const bool isStart = (entry.mData == NIGHT_START);
+					description = isStart ? "When the night mode switches on by itself, with \"after dark\". Change it with Left and Right."
+										  : "When it switches off again in the morning. Change it with Left and Right.";
+					status = entry.hasSelected() ? ("< " + entry.selected().mText + " >") : std::string();
+					statusColor = (shop.mNightMode == n3ds::shop::NIGHT_MODE_AFTER_DARK) ? Color(0.4f, 1.0f, 1.0f, tabAlpha) : Color(0.8f, 0.8f, 0.8f, tabAlpha);
+
+					// Evening: dusk sky with a moon; morning: dawn with the sun coming up
+					const Color top    = isStart ? Color(0.10f, 0.08f, 0.30f, tabAlpha) : Color(0.35f, 0.55f, 0.90f, tabAlpha);
+					const Color bottom = isStart ? Color(0.75f, 0.35f, 0.30f, tabAlpha) : Color(1.00f, 0.70f, 0.35f, tabAlpha);
+					for (int k = 0; k < 6; ++k)
+						drawer.drawRect(Recti(imageRect.x, imageRect.y + k * 8, 64, 8), Color(top.r + (bottom.r - top.r) * k / 5.0f, top.g + (bottom.g - top.g) * k / 5.0f, top.b + (bottom.b - top.b) * k / 5.0f, tabAlpha));
+					if (isStart)
+					{
+						drawer.drawRect(Recti(imageRect.x + 40, imageRect.y + 8, 10, 10), Color(1.0f, 0.95f, 0.75f, tabAlpha));		// Moon
+						drawer.drawRect(Recti(imageRect.x + 43, imageRect.y + 6, 10, 10), top);									// Its shadow side
+					}
+					else
+					{
+						drawer.drawRect(Recti(imageRect.x + 24, imageRect.y + 36, 16, 8), Color(1.0f, 0.92f, 0.55f, tabAlpha));		// Sun on the horizon
+						drawer.drawRect(Recti(imageRect.x, imageRect.y + 44, 64, 4), Color(0.25f, 0.45f, 0.25f, tabAlpha));		// Hills
+					}
+				}
 				else if (tabIndex == Tab::Id::THEMES && entry.mData == NIGHT_MODE)
 				{
-					description = "Warmer colors on both screens, like a night light, gentler on the eyes in the dark. A switches: off, after dark (8 pm to 6 am), always.";
+					description = "Warmer colors on both screens, like a night light, gentler on the eyes in the dark. A switches: off, after dark (the times below), always.";
 					status = NIGHT_MODE_NAMES[clamp(shop.mNightMode, 0, (int)n3ds::shop::_NUM_NIGHT_MODES - 1)];
 					statusColor = (shop.mNightMode == n3ds::shop::NIGHT_MODE_OFF) ? Color(0.8f, 0.8f, 0.8f, tabAlpha) : Color(0.4f, 1.0f, 1.0f, tabAlpha);
 
