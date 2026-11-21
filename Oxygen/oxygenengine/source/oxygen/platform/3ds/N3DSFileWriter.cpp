@@ -31,6 +31,9 @@ namespace n3ds
 				std::string mPath;
 				std::vector<uint8_t> mData;
 				DoneCallback mOnDone;
+				std::function<void()> mWork;		// For "runInBackground" jobs instead of writing a file
+				std::function<void()> mOnWorkDone;
+				const char* mName = nullptr;
 				size_t mSize = 0;
 				bool mSuccess = false;
 				bool mReplaced = false;		// Never written, a newer write of the same file took its place
@@ -110,7 +113,16 @@ namespace n3ds
 						LightLock_Unlock(&gLock);
 
 						const uint64_t startTicks = svcGetSystemTick();
-						job.mSuccess = writeNow(job.mPath, job.mData);
+						if (job.mWork)
+						{
+							job.mWork();
+							job.mWork = nullptr;		// Release what it captured here already
+							job.mSuccess = true;
+						}
+						else
+						{
+							job.mSuccess = writeNow(job.mPath, job.mData);
+						}
 						job.mMs = ticksToMs(svcGetSystemTick() - startTicks);
 						job.mSize = job.mData.size();
 						std::vector<uint8_t>().swap(job.mData);		// The data isn't needed any more
@@ -131,11 +143,24 @@ namespace n3ds
 					LightLock_Init(&gLock);
 					LightEvent_Init(&gWakeEvent, RESET_ONESHOT);
 
-					// Slightly lower priority than the main thread (0x30): writing mostly waits for the SD card anyway, and the
-					// little CPU work it needs should not delay a game frame. Detached, it runs until the process ends.
+					// On the system core (core 1), of which the game may use 30% (see APT_SetAppCpuTimeLimit in PlatformSpecifics.cpp):
+					// there it doesn't have to wait for the main thread to be idle, which in slower menus it hardly ever is.
+					// If that's not possible, on the game's own core with slightly lower priority than the main thread.
+					// Detached, it runs until the process ends.
 					s32 mainPriority = 0x30;
 					svcGetThreadPriority(&mainPriority, CUR_THREAD_HANDLE);
-					gThread = threadCreate(threadFunc, nullptr, 0x4000, std::min<s32>(mainPriority + 1, 0x3f), -2, true);
+					const s32 priority = std::min<s32>(mainPriority + 1, 0x3f);
+					gThread = threadCreate(threadFunc, nullptr, 0x8000, priority, 1, true);
+					if (nullptr != gThread)
+					{
+						RMX_LOG_INFO("File writer: background thread runs on the system core");
+					}
+					else
+					{
+						gThread = threadCreate(threadFunc, nullptr, 0x8000, priority, -2, true);
+						if (nullptr != gThread)
+							RMX_LOG_INFO("File writer: background thread runs on the game's core (the system core was not available)");
+					}
 					if (nullptr == gThread)
 						RMX_LOG_INFO("File writer: could not start the background thread, writing files directly instead");
 				}
@@ -161,7 +186,7 @@ namespace n3ds
 			LightLock_Lock(&gLock);
 			for (Job& queued : gQueue)
 			{
-				if (queued.mPath == path)
+				if (!queued.mWork && queued.mPath == path)
 				{
 					// Not started yet: write the new data instead (only the new write's callback gets called)
 					queued.mReplaced = true;
@@ -179,6 +204,25 @@ namespace n3ds
 			job.mPath = path;
 			job.mData = std::move(data);
 			job.mOnDone = std::move(onDone);
+			LightLock_Unlock(&gLock);
+			LightEvent_Signal(&gWakeEvent);
+		}
+
+		void runInBackground(const char* name, std::function<void()> work, std::function<void()> onDone)
+		{
+			if (!startThread())
+			{
+				// Fallback: right here
+				work();
+				if (onDone)
+					onDone();
+				return;
+			}
+			LightLock_Lock(&gLock);
+			Job& job = gQueue.emplace_back();
+			job.mName = name;
+			job.mWork = std::move(work);
+			job.mOnWorkDone = std::move(onDone);
 			LightLock_Unlock(&gLock);
 			LightEvent_Signal(&gWakeEvent);
 		}
@@ -227,6 +271,15 @@ namespace n3ds
 
 			for (Job& job : finished)
 			{
+				if (nullptr != job.mName)
+				{
+					// A "runInBackground" job
+					if (job.mMs >= 200)
+						RMX_LOG_INFO("Background job: " << job.mName << " took " << job.mMs << " ms (the SD card or system storage was slow, but the game went on)");
+					if (job.mOnWorkDone)
+						job.mOnWorkDone();
+					continue;
+				}
 				if (job.mReplaced)
 				{
 					// Replaced by a newer write of the same file before it started

@@ -92,13 +92,14 @@ namespace n3ds
 			}
 		}
 
-		bool read(int& outCoins)
+		bool read(int& outCoins, bool log)
 		{
 			OpenFile file;
 			u8 data[FILE_SIZE];
 			if (!file.open(false) || !file.readAndCheck(data))
 			{
-				RMX_LOG_INFO("Play Coins: could not read the Play Coin data");
+				if (log)
+					RMX_LOG_INFO("Play Coins: could not read the Play Coin data");
 				return false;
 			}
 			outCoins = std::min(getCoins(data), MAX_COINS);

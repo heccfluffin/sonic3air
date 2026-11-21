@@ -14,7 +14,8 @@ namespace n3ds
 	namespace playcoins
 	{
 		// Reads the current number of Play Coins. Returns false if they can't be read (nothing gets changed then).
-		bool read(int& outCoins);
+		// "log" false: no log entry on failure, for reading on the background thread.
+		bool read(int& outCoins, bool log = true);
 
 		// Spends Play Coins: only if there are enough, and only after the file was checked to be valid. Returns false if nothing
 		// was spent. "outCoinsLeft" receives the number of coins afterwards (or the unchanged number if nothing was spent).

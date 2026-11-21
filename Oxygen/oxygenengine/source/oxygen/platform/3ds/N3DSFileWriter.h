@@ -33,7 +33,13 @@ namespace n3ds
 		// returns false, so the caller writes the file itself. "data" is moved from only if true is returned.
 		bool writeFileIfOnSDCard(const std::wstring& path, std::vector<uint8_t>& data, DoneCallback onDone = nullptr);
 
-		// Whether any write is waiting or running
+		// Runs other SD card / system storage work on the same background thread, like reading a folder or a file: "work" runs
+		// there, "onDone" afterwards on the main thread (in "update"). The work must not log, and must not touch anything the
+		// main thread uses meanwhile; hand results over through data captured by both (e.g. a shared_ptr). "name" is for the log.
+		// Jobs run in order with the writes, so a read queued after a write sees the written file.
+		void runInBackground(const char* name, std::function<void()> work, std::function<void()> onDone);
+
+		// Whether any write or job is waiting or running
 		bool isBusy();
 
 		// Blocks until all writes are done; needed before reading or deleting a file that may still be written, and at exit

@@ -72,7 +72,18 @@ private:
 	void showMessage(const std::string& text, bool isError);
 	void renderConfirmation(float alpha);
 	void createIcons();
-	void scanCustomThemes();
+
+	// Reading from the SD card and system storage happens on the background thread (it can take a second at times)
+	struct CustomThemeThumbnail
+	{
+		std::string mName;				// File name (UTF-8)
+		long long mSize = 0;			// For telling whether the file changed since the last scan
+		long long mModified = 0;
+		std::vector<uint32> mPixels;	// 64 x 48, ABGR
+	};
+	void startBackgroundLoading();
+	static void scanCustomThemesFolder(const std::vector<CustomThemeThumbnail>& previous, std::vector<CustomThemeThumbnail>& outThemes);
+	void applyCustomThemes(std::vector<CustomThemeThumbnail>&& themes);
 
 private:
 	MenuBackground* mMenuBackground = nullptr;
@@ -87,12 +98,15 @@ private:
 	GameMenuScrolling mScrolling;
 
 	int mPlayCoins = -1;			// -1 if they could not be read
+	bool mPlayCoinsLoading = false;	// Still being read in the background
 	std::string mPreviewedTheme;	// Theme currently shown on the bottom screen as preview ("t<number>" or "c<file name>")
 
 	// The player's own background pictures from the themes folder on the SD card
 	static const int MAX_CUSTOM_THEMES = 12;
 	std::vector<std::string> mCustomThemes;		// File names (UTF-8)
 	DrawerTexture mCustomIcons[MAX_CUSTOM_THEMES];	// Thumbnails
+	std::vector<CustomThemeThumbnail> mThumbnailCache;	// From the last scan, so unchanged pictures aren't decoded again
+	bool mScanRunning = false;
 
 	std::string mMessage;			// Short feedback at the bottom, like "Not enough Play Coins"
 	bool mMessageIsError = false;

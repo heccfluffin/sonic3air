@@ -24,9 +24,15 @@
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/helper/Utils.h"
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
+#include "oxygen/platform/3ds/N3DSFileWriter.h"
 #include "oxygen/platform/3ds/N3DSPlayCoins.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
+
+#include <3ds.h>
+#include <dirent.h>
+#include <memory>
+#include <sys/stat.h>
 
 
 namespace
@@ -167,16 +173,15 @@ void N3DSMenu::onFadeIn()
 {
 	mState = State::APPEAR;
 
-	// Read the Play Coins each time the menu opens (they may have changed while the game was suspended)
-	int coins = 0;
-	mPlayCoins = n3ds::playcoins::read(coins) ? coins : -1;
+	const uint64 startTicks = svcGetSystemTick();
 	mPreviewedTheme.clear();
 
 	// A little greeting, like "Good evening, Name!"
 	showMessage(n3ds::profile::getGreeting(), false);
 	mMessageTimeout = 5.0f;
 
-	scanCustomThemes();
+	// Play Coins and the player's own pictures get read in the background: the menu opens right away, they show up when ready
+	startBackgroundLoading();
 	rebuildTabs();
 	createIcons();
 
@@ -192,6 +197,10 @@ void N3DSMenu::onFadeIn()
 	}
 
 	AudioOut::instance().setMenuMusic(0x2f);
+
+	const uint32 ms = (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
+	if (ms >= 30)
+		RMX_LOG_INFO("3DS menu: opening took " << ms << " ms on the main thread");
 }
 
 bool N3DSMenu::canBeRemoved()
@@ -312,45 +321,127 @@ void N3DSMenu::createIcons()
 	}
 }
 
-void N3DSMenu::scanCustomThemes()
+void N3DSMenu::startBackgroundLoading()
 {
-	// The player's own PNG pictures in the themes folder (except the template), with thumbnails for the menu
-	mCustomThemes.clear();
-	std::wstring folder;
-	rmx::UTF8Conversion::convertFromUTF8(n3ds::shop::CUSTOM_THEMES_FOLDER, folder);
-	std::vector<rmx::FileIO::FileEntry> fileEntries;
-	FTX::FileSystem->listFilesByMask(folder + L"*.png", false, fileEntries);
-	std::vector<std::string> names;
-	for (const rmx::FileIO::FileEntry& fileEntry : fileEntries)
+	// Play Coins: read each time the menu opens (they may have changed while the game was suspended)
 	{
-		const std::string name = rmx::convertToUTF8(fileEntry.mFilename);
+		struct Result { bool mSuccess = false; int mCoins = 0; };
+		const std::shared_ptr<Result> result = std::make_shared<Result>();
+		mPlayCoinsLoading = true;
+		n3ds::filewriter::runInBackground("reading Play Coins",
+			[result]() { result->mSuccess = n3ds::playcoins::read(result->mCoins, false); },
+			[this, result]()
+			{
+				mPlayCoins = result->mSuccess ? result->mCoins : -1;
+				mPlayCoinsLoading = false;
+				if (!result->mSuccess)
+					RMX_LOG_INFO("Play Coins: could not read the Play Coin data");
+			});
+	}
+
+	// The player's own pictures in the themes folder
+	if (!mScanRunning)
+	{
+		mScanRunning = true;
+		const std::shared_ptr<std::vector<CustomThemeThumbnail>> previous = std::make_shared<std::vector<CustomThemeThumbnail>>(mThumbnailCache);
+		const std::shared_ptr<std::vector<CustomThemeThumbnail>> themes = std::make_shared<std::vector<CustomThemeThumbnail>>();
+		n3ds::filewriter::runInBackground("scanning the themes folder",
+			[previous, themes]() { scanCustomThemesFolder(*previous, *themes); },
+			[this, themes]()
+			{
+				mScanRunning = false;
+				applyCustomThemes(std::move(*themes));
+			});
+	}
+}
+
+void N3DSMenu::scanCustomThemesFolder(const std::vector<CustomThemeThumbnail>& previous, std::vector<CustomThemeThumbnail>& outThemes)
+{
+	// Background thread: plain file functions only (no engine file system, no logging)
+	const std::string folder = n3ds::shop::CUSTOM_THEMES_FOLDER;
+	DIR* dir = opendir(folder.c_str());
+	if (nullptr == dir)
+		return;
+	std::vector<std::string> names;
+	while (const dirent* entry = readdir(dir))
+	{
+		const std::string name = entry->d_name;
 		std::string lower = name;
 		for (char& c : lower)
 			c = (char)tolower((unsigned char)c);
-		if (lower != "template.png")
+		if (lower.length() > 4 && lower.compare(lower.length() - 4, 4, ".png") == 0 && lower != "template.png")
 			names.push_back(name);
 	}
+	closedir(dir);
 	std::sort(names.begin(), names.end());
+
 	for (const std::string& name : names)
 	{
-		if ((int)mCustomThemes.size() >= MAX_CUSTOM_THEMES)
+		if ((int)outThemes.size() >= MAX_CUSTOM_THEMES)
 			break;
+		const std::string path = folder + name;
+		struct stat info;
+		if (stat(path.c_str(), &info) != 0)
+			continue;
+
+		// Unchanged since the last scan: keep its thumbnail
+		const auto it = std::find_if(previous.begin(), previous.end(), [&](const CustomThemeThumbnail& thumbnail)
+			{ return thumbnail.mName == name && thumbnail.mSize == (long long)info.st_size && thumbnail.mModified == (long long)info.st_mtime; });
+		if (it != previous.end())
+		{
+			outThemes.push_back(*it);
+			continue;
+		}
+
+		std::vector<uint8> content;
+		FILE* file = fopen(path.c_str(), "rb");
+		if (nullptr == file)
+			continue;
+		content.resize((size_t)std::max<long long>(0, (long long)info.st_size));
+		const size_t bytesRead = content.empty() ? 0 : fread(content.data(), 1, content.size(), file);
+		fclose(file);
+		if (content.empty() || bytesRead != content.size())
+			continue;
+
 		Bitmap picture;
-		std::wstring path;
-		rmx::UTF8Conversion::convertFromUTF8(std::string(n3ds::shop::CUSTOM_THEMES_FOLDER) + name, path);
-		if (!FileHelper::loadBitmap(picture, path, false) || picture.getWidth() <= 0 || picture.getHeight() <= 0)
+		MemInputStream stream(content.data(), (int)content.size());
+		Bitmap::LoadResult loadResult;
+		if (!picture.decode(stream, loadResult, "png") || picture.getWidth() <= 0 || picture.getHeight() <= 0)
 			continue;
 
 		// Thumbnail: 64 x 48, the picture scaled down
+		CustomThemeThumbnail& thumbnail = outThemes.emplace_back();
+		thumbnail.mName = name;
+		thumbnail.mSize = (long long)info.st_size;
+		thumbnail.mModified = (long long)info.st_mtime;
+		thumbnail.mPixels.resize(64 * 48);
+		for (int y = 0; y < 48; ++y)
+			for (int x = 0; x < 64; ++x)
+				thumbnail.mPixels[y * 64 + x] = *picture.getPixelPointer(x * picture.getWidth() / 64, y * picture.getHeight() / 48) | 0xff000000;
+	}
+}
+
+void N3DSMenu::applyCustomThemes(std::vector<CustomThemeThumbnail>&& themes)
+{
+	// Main thread: show what the background scan found
+	bool changed = (themes.size() != mCustomThemes.size());
+	for (size_t k = 0; k < themes.size() && !changed; ++k)
+		changed = (themes[k].mName != mCustomThemes[k]) || (k >= mThumbnailCache.size()) || (themes[k].mModified != mThumbnailCache[k].mModified) || (themes[k].mSize != mThumbnailCache[k].mSize);
+	mThumbnailCache = std::move(themes);
+	if (!changed)
+		return;
+
+	mCustomThemes.clear();
+	for (const CustomThemeThumbnail& thumbnail : mThumbnailCache)
+	{
 		DrawerTexture& icon = mCustomIcons[mCustomThemes.size()];
 		Bitmap& bitmap = icon.accessBitmap();
 		bitmap.create(64, 48);
-		for (int y = 0; y < 48; ++y)
-			for (int x = 0; x < 64; ++x)
-				*bitmap.getPixelPointer(x, y) = *picture.getPixelPointer(x * picture.getWidth() / 64, y * picture.getHeight() / 48) | 0xff000000;
+		memcpy(bitmap.getData(), thumbnail.mPixels.data(), 64 * 48 * sizeof(uint32));
 		icon.bitmapUpdated();
-		mCustomThemes.push_back(name);
+		mCustomThemes.push_back(thumbnail.mName);
 	}
+	rebuildTabs();
 }
 
 void N3DSMenu::rebuildTabs()
@@ -690,6 +781,12 @@ void N3DSMenu::onAccept()
 		playMenuSound(0xad);
 		return;
 	}
+	if (mPlayCoinsLoading)
+	{
+		playMenuSound(0xad);
+		showMessage("Reading your Play Coins, one moment...", false);
+		return;
+	}
 	if (mPlayCoins < 0)
 	{
 		playMenuSound(0xad);
@@ -1013,7 +1110,7 @@ void N3DSMenu::render()
 	{
 		const int barY = (int)mRect.height - 16;
 		drawer.drawRect(Recti(anchorX - 200, barY, 400, 16), Color(0.0f, 0.05f, 0.2f, alpha * 0.85f));
-		const std::string coinsText = (mPlayCoins >= 0) ? String(0, "PLAY COINS: %d", mPlayCoins).toStdString() : std::string("PLAY COINS: ---");
+		const std::string coinsText = mPlayCoinsLoading ? std::string("PLAY COINS: ...") : (mPlayCoins >= 0) ? String(0, "PLAY COINS: %d", mPlayCoins).toStdString() : std::string("PLAY COINS: ---");
 		drawer.printText(global::mOxyfontSmall, Recti(anchorX - 192, barY + 3, 0, 10), coinsText, 1, Color(1.0f, 0.85f, 0.2f, alpha));
 
 		if (mMessageTimeout > 0.0f && !mMessage.empty())

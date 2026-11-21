@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <unistd.h>
 
 using Request = n3ds::bottomscreen::Request;
@@ -347,6 +348,18 @@ namespace
 		for (const std::string& line : fake::getLog())
 			slowLogged = slowLogged || (line.find("slow SD card") != std::string::npos);
 		check(slowLogged, "the slow write is noted in the log");
+
+		// A background job queued after a write sees the written file (they run in order)
+		fake::setSDCardDelay(300);
+		n3ds::filewriter::writeFile(path2, std::vector<uint8_t>{ 'l', 'a', 't', 'e', 's', 't' });
+		auto seen = std::make_shared<std::string>();
+		bool jobDone = false;
+		start = std::chrono::steady_clock::now();
+		n3ds::filewriter::runInBackground("reading back", [seen, path2]() { *seen = readFile(path2); }, [&jobDone]() { jobDone = true; });
+		ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+		check(ms < 50, "queuing a background job returns right away (" + std::to_string((int)ms) + " ms)");
+		n3ds::filewriter::waitUntilDone();
+		check(jobDone && *seen == "latest", "a background read after a write sees the new content ('" + *seen + "'), and reports back on the main thread");
 
 		// Missing folders get created
 		fake::setSDCardDelay(0);
