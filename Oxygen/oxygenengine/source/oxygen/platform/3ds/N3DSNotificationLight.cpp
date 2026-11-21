@@ -46,11 +46,13 @@ namespace n3ds
 			if (!initialize())
 				return;
 
-			// 32 steps of 1/8 second each, played once: three soft breaths of purple, then dark.
+			// 32 steps, played once: three soft breaths of purple over about 4 seconds, then dark.
 			// The MCU blends between the steps ("smoothing"), so it fades instead of stepping.
+			// Timing: libctru documents "delay" in 1/16 seconds, but on a New 2DS XL a delay of 2 played all 32 steps in about
+			// 1 second, i.e. the unit is closer to 1/64 second. So 8 gives about 1/8 second per step.
 			InfoLedPattern pattern;
 			memset(&pattern, 0, sizeof(pattern));
-			pattern.delay = 0x02;			// 2/16 = 1/8 second per step, so about 4 seconds in total
+			pattern.delay = 0x08;			// About 1/8 second per step (see above), so about 4 seconds in total
 			pattern.smoothing = 0x40;
 			pattern.loopDelay = 0xff;		// Only once
 			pattern.blinkSpeed = 0;
@@ -77,7 +79,7 @@ namespace n3ds
 				return;
 			InfoLedPattern pattern;
 			memset(&pattern, 0, sizeof(pattern));
-			pattern.delay = 0x01;			// 1/16 second per step
+			pattern.delay = 0x01;			// Very short steps (the unit is about 1/64 second, see "pulse"): a quick flash
 			pattern.smoothing = 0x10;
 			pattern.loopDelay = 0xff;		// Only once
 			static const u8 CURVE[6] = { 255, 200, 110, 50, 15, 0 };		// Bright at once, then a short fade
