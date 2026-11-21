@@ -153,7 +153,7 @@ namespace
 		{ "zone08_act2b", 170, "On top of the airship" },
 		{ "zone09_act1a", 160, "Sunset over the desert" },
 		{ "zone09_act1b", 20, "Inside the pyramid" },
-		{ "zone09_act2a", 220, "Lights out in the pyramid" },
+		{ "zone09_act2a", 220, "The torchlit halls" },
 		{ "zone09_act2b", 0, "Sinking sands" },
 		{ "zone10_act1a", 180, "The lava works" },
 		{ "zone10_act1b", 220, "The rocks of the reef" },
