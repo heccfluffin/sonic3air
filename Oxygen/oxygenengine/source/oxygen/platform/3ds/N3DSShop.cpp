@@ -15,6 +15,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include <initializer_list>
 
 
 namespace n3ds
@@ -69,7 +71,11 @@ namespace n3ds
 				fclose(file);
 
 				// Only allow what was bought
-				if (gData.mSelectedTheme == THEME_CUSTOM)
+				if (gData.mSelectedTheme == THEME_AUTO)
+				{
+					// Free, always allowed
+				}
+				else if (gData.mSelectedTheme == THEME_CUSTOM)
 				{
 					if (gData.mCustomTheme.empty())
 						gData.mSelectedTheme = THEME_BLUE;
@@ -109,6 +115,36 @@ namespace n3ds
 					RMX_LOG_INFO("3DS shop: could not save " << FILE_PATH);
 			});
 			gSavedData = gData;
+		}
+
+		int resolveTheme(int theme)
+		{
+			if (theme != THEME_AUTO)
+				return theme;
+
+			// The 3DS clock is local time, without a time zone, so "gmtime" gives the time as shown on the 3DS
+			const time_t now = time(nullptr);
+			struct tm local;
+			gmtime_r(&now, &local);
+			const int hour = local.tm_hour;
+
+			const uint32_t owned = get().mOwnedThemes;
+			const auto pick = [owned](std::initializer_list<int> themes)
+			{
+				for (int theme : themes)
+				{
+					if (owned & (1 << theme))
+						return theme;
+				}
+				return (int)THEME_BLUE;
+			};
+			if (hour >= 6 && hour < 9)
+				return pick({ THEME_AURORA, THEME_BLUE });
+			if (hour >= 9 && hour < 17)
+				return THEME_BLUE;
+			if (hour >= 17 && hour < 20)
+				return pick({ THEME_SUNSET, THEME_NIGHT, THEME_BLUE });
+			return pick({ THEME_NIGHT, THEME_SUNSET, THEME_BLUE });
 		}
 
 		uint8_t getShieldFlags(int shield)

@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <zlib.h>
 
 #include "oxygen/platform/3ds/N3DSShop.h"
@@ -27,6 +28,8 @@
 #include "s3air_bottom_screen_overlay_bin.h"
 // Template picture for the themes folder on the SD card
 #include "s3air_theme_template_png.h"
+// Digits and the battery for the clock in the title bar, see build/_3ds/bottomscreen/make_clock_glyphs.py
+#include "s3air_bottom_screen_clock_bin.h"
 
 // The artwork, one per theme, see build/_3ds/bottomscreen/make_bottom_screen.py
 #include "s3air_bottom_screen_blue_bin.h"
@@ -154,6 +157,7 @@ namespace n3ds
 				{ s3air_bottom_screen_sunset_bin,  s3air_bottom_screen_sunset_bin_size },
 			};
 			int gTheme = -1;		// Theme currently unpacked into "gData"
+			int gRequestedTheme = n3ds::shop::THEME_BLUE;	// What should be shown: can be THEME_AUTO, which changes with the time of day
 
 			bool parseParts(uLongf size)
 			{
@@ -285,6 +289,8 @@ namespace n3ds
 			// Unpacks the artwork of a theme (only one is kept in memory). Falls back to the default theme if that fails.
 			bool loadArtwork(int theme)
 			{
+				gRequestedTheme = theme;
+				theme = n3ds::shop::resolveTheme(theme);
 				if (theme == n3ds::shop::THEME_CUSTOM)
 				{
 					const std::string& name = n3ds::shop::get().mCustomTheme;
@@ -364,6 +370,233 @@ namespace n3ds
 				}
 			}
 
+			// --- Clock and battery in the title bar ---
+
+			// The order of the glyphs in s3air_bottom_screen_clock.bin, see make_clock_glyphs.py
+			enum Glyph
+			{
+				GLYPH_DIGIT_0 = 0,
+				GLYPH_COLON = 10,
+				GLYPH_AM,
+				GLYPH_PM,
+				GLYPH_BATTERY_0,			// Battery with 0 to 5 bars
+				GLYPH_BOLT = GLYPH_BATTERY_0 + 6,	// Charging
+				_NUM_GLYPHS
+			};
+
+			struct GlyphInfo
+			{
+				int mWidth = 0;
+				int mHeight = 0;
+				const uint8* mPixels = nullptr;		// RGBA, straight alpha, rows top to bottom
+			};
+
+			// Between the "CONTROLS" title and the STATS button
+			const Rect CLOCK_RECT = { 128, 6, 252, 29 };
+			const constexpr int CLOCK_GLYPH_Y = 8;
+
+			struct ClockState
+			{
+				int mHour = -1;			// -1 if not known yet
+				int mMinute = 0;
+				int mBattery = -1;		// 0 to 5 bars, -1 if not known
+				bool mCharging = false;
+
+				bool operator==(const ClockState& other) const
+				{
+					return mHour == other.mHour && mMinute == other.mMinute && mBattery == other.mBattery && mCharging == other.mCharging;
+				}
+			};
+
+			uint8* gGlyphData = nullptr;
+			GlyphInfo gGlyphs[_NUM_GLYPHS];
+			bool gGlyphsValid = false;
+			bool gUse12Hours = false;		// Like the 3DS in America, with AM / PM
+			bool gPtmInitialized = false;
+			ClockState gClock;
+			ClockState gShownClock;
+			bool gClockShown = false;
+			uint64_t gNextClockCheck = 0;		// System ticks
+			uint64_t gNextBatteryCheck = 0;
+
+			bool loadGlyphs()
+			{
+				const uLongf maxSize = 64 * 1024;
+				gGlyphData = (uint8*)malloc(maxSize);
+				if (nullptr == gGlyphData)
+					return false;
+				uLongf size = maxSize;
+				if (uncompress(gGlyphData, &size, s3air_bottom_screen_clock_bin, s3air_bottom_screen_clock_bin_size) != Z_OK || size < 8 + 8 * _NUM_GLYPHS ||
+					memcmp(gGlyphData, "S3BC", 4) != 0 || readU16(&gGlyphData[4]) != 1 || readU16(&gGlyphData[6]) != _NUM_GLYPHS)
+				{
+					free(gGlyphData);
+					gGlyphData = nullptr;
+					return false;
+				}
+				for (int i = 0; i < _NUM_GLYPHS; ++i)
+				{
+					const uint8* entry = &gGlyphData[8 + i * 8];
+					GlyphInfo& glyph = gGlyphs[i];
+					glyph.mWidth = readU16(&entry[0]);
+					glyph.mHeight = readU16(&entry[2]);
+					const uint32 offset = readU32(&entry[4]);
+					if (offset + (uLongf)glyph.mWidth * glyph.mHeight * 4 > size)
+					{
+						free(gGlyphData);
+						gGlyphData = nullptr;
+						return false;
+					}
+					glyph.mPixels = &gGlyphData[offset];
+				}
+				uint8* shrunk = (uint8*)realloc(gGlyphData, size);
+				if (nullptr != shrunk)
+				{
+					for (int i = 0; i < _NUM_GLYPHS; ++i)
+						gGlyphs[i].mPixels = shrunk + (gGlyphs[i].mPixels - gGlyphData);
+					gGlyphData = shrunk;
+				}
+				return true;
+			}
+
+			void initializeClock()
+			{
+				gGlyphsValid = loadGlyphs();
+				if (!gGlyphsValid)
+					RMX_LOG_INFO("Bottom screen: could not unpack the clock digits, the clock is not shown");
+
+				// 12 hours with AM / PM for American 3DS systems, 24 hours for the others
+				if (R_SUCCEEDED(cfguInit()))
+				{
+					u8 region = 0;
+					if (R_SUCCEEDED(CFGU_SecureInfoGetRegion(&region)))
+						gUse12Hours = (region == CFG_REGION_USA);
+					cfguExit();
+				}
+				gPtmInitialized = R_SUCCEEDED(ptmuInit());
+			}
+
+			// Returns true when it actually checked (twice a second)
+			bool updateClockState()
+			{
+				const uint64_t now = svcGetSystemTick();
+				if (now < gNextClockCheck)
+					return false;
+				gNextClockCheck = now + SYSCLOCK_ARM11 / 2;
+
+				// The 3DS clock is local time, without a time zone, so "gmtime" gives the time as shown on the 3DS
+				const time_t seconds = time(nullptr);
+				struct tm local;
+				gmtime_r(&seconds, &local);
+				gClock.mHour = local.tm_hour;
+				gClock.mMinute = local.tm_min;
+
+				// Asking the system for the battery is a bit slower, and it changes slowly anyway
+				if (gPtmInitialized && now >= gNextBatteryCheck)
+				{
+					gNextBatteryCheck = now + 5 * (uint64_t)SYSCLOCK_ARM11;
+					u8 level = 0;
+					u8 charging = 0;
+					if (R_SUCCEEDED(PTMU_GetBatteryLevel(&level)))
+						gClock.mBattery = std::min<int>(level, 5);
+					if (R_SUCCEEDED(PTMU_GetBatteryChargeState(&charging)))
+						gClock.mCharging = (charging != 0);
+				}
+				return true;
+			}
+
+			inline u16& framebufferPixel(u16* framebuffer, int x, int y)
+			{
+				return framebuffer[x * SCREEN_HEIGHT + (SCREEN_HEIGHT - 1 - y)];
+			}
+
+			void drawGlyph(int glyphIndex, int x0, int y0, u16* framebuffer)
+			{
+				const GlyphInfo& glyph = gGlyphs[glyphIndex];
+				for (int y = 0; y < glyph.mHeight; ++y)
+				{
+					const int py = y0 + y;
+					if (py < CLOCK_RECT.mY0 || py >= CLOCK_RECT.mY1)
+						continue;
+					const uint8* src = &glyph.mPixels[y * glyph.mWidth * 4];
+					for (int x = 0; x < glyph.mWidth; ++x, src += 4)
+					{
+						const int px = x0 + x;
+						const int alpha = src[3];
+						if (alpha == 0 || px < CLOCK_RECT.mX0 || px >= CLOCK_RECT.mX1)
+							continue;
+						u16& pixel = framebufferPixel(framebuffer, px, py);
+						const int r = ((pixel >> 11) & 0x1f) * 255 / 31;
+						const int g = ((pixel >> 5) & 0x3f) * 255 / 63;
+						const int b = (pixel & 0x1f) * 255 / 31;
+						const int outR = (src[0] * alpha + r * (255 - alpha)) / 255;
+						const int outG = (src[1] * alpha + g * (255 - alpha)) / 255;
+						const int outB = (src[2] * alpha + b * (255 - alpha)) / 255;
+						pixel = (u16)(((outR >> 3) << 11) | ((outG >> 2) << 5) | (outB >> 3));
+					}
+				}
+			}
+
+			void drawClock(u16* framebuffer)
+			{
+				// Background from the full screen picture first
+				const PartInfo& full = gParts[PART_FULL_SCREEN];
+				for (int y = CLOCK_RECT.mY0; y < CLOCK_RECT.mY1; ++y)
+				{
+					for (int x = CLOCK_RECT.mX0; x < CLOCK_RECT.mX1; ++x)
+					{
+						const uint8* src = &full.mPixels[(y * full.mWidth + x) * 2];
+						framebufferPixel(framebuffer, x, y) = (u16)(src[0] | (src[1] << 8));
+					}
+				}
+				if (gClock.mHour < 0)
+					return;
+
+				// From right to left: battery, then the time
+				int x = CLOCK_RECT.mX1;
+				if (gClock.mBattery >= 0)
+				{
+					x -= gGlyphs[GLYPH_BATTERY_0].mWidth;
+					drawGlyph(GLYPH_BATTERY_0 + gClock.mBattery, x, CLOCK_GLYPH_Y, framebuffer);
+					if (gClock.mCharging)
+					{
+						x -= gGlyphs[GLYPH_BOLT].mWidth - 1;
+						drawGlyph(GLYPH_BOLT, x, CLOCK_GLYPH_Y, framebuffer);
+					}
+					x -= 5;
+				}
+
+				int glyphs[6];
+				int count = 0;
+				int hour = gClock.mHour;
+				if (gUse12Hours)
+				{
+					hour = (hour % 12 == 0) ? 12 : (hour % 12);
+					if (hour >= 10)
+						glyphs[count++] = GLYPH_DIGIT_0 + hour / 10;
+				}
+				else
+				{
+					glyphs[count++] = GLYPH_DIGIT_0 + hour / 10;
+				}
+				glyphs[count++] = GLYPH_DIGIT_0 + hour % 10;
+				glyphs[count++] = GLYPH_COLON;
+				glyphs[count++] = GLYPH_DIGIT_0 + gClock.mMinute / 10;
+				glyphs[count++] = GLYPH_DIGIT_0 + gClock.mMinute % 10;
+				if (gUse12Hours)
+					glyphs[count++] = (gClock.mHour < 12) ? GLYPH_AM : GLYPH_PM;
+
+				// The glyphs have a margin for their outline, so they overlap by a pixel
+				int width = 0;
+				for (int i = 0; i < count; ++i)
+					width += gGlyphs[glyphs[i]].mWidth - 1;
+				x -= width;
+				for (int i = 0; i < count; ++i)
+				{
+					drawGlyph(glyphs[i], x, CLOCK_GLYPH_Y, framebuffer);
+					x += gGlyphs[glyphs[i]].mWidth - 1;
+				}
+			}
+
 			int gSlot = -1;					// Save file of the running game: 0 = "No Save", 1-8, or -1 if unknown
 			bool gSlotHasState = false;
 
@@ -394,7 +627,8 @@ namespace n3ds
 				const Part status = getStatusPart(saveStatesAllowed);
 
 				const bool fullRedraw = gNeedsFullRedraw;
-				if (!fullRedraw && save == gShownSave && load == gShownLoad && stats == gShownStats && status == gShownStatus)
+				const bool clockChanged = gGlyphsValid && !(gClockShown && gClock == gShownClock);
+				if (!fullRedraw && !clockChanged && save == gShownSave && load == gShownLoad && stats == gShownStats && status == gShownStatus)
 					return;
 				if (fullRedraw)
 					setupScreen();
@@ -410,12 +644,19 @@ namespace n3ds
 					gNeedsFullRedraw = false;
 					drawPart(PART_FULL_SCREEN, framebuffer);
 					gShownSave = gShownLoad = gShownStats = gShownStatus = _NUM_PARTS;
+					gClockShown = false;
 				}
 				// The parts overlap a little at their margins (for shadows), so draw changed ones in a fixed order
 				if (save != gShownSave)		drawPart(save, framebuffer);
 				if (load != gShownLoad)		drawPart(load, framebuffer);
 				if (stats != gShownStats)	drawPart(stats, framebuffer);
 				if (status != gShownStatus)	drawPart(status, framebuffer);
+				if (gGlyphsValid && !(gClockShown && gClock == gShownClock))
+				{
+					drawClock(framebuffer);
+					gShownClock = gClock;
+					gClockShown = true;
+				}
 				gShownSave = save;
 				gShownLoad = load;
 				gShownStats = stats;
@@ -453,6 +694,7 @@ namespace n3ds
 			{
 				gInitialized = true;
 				gDataValid = loadArtwork(n3ds::shop::get().mSelectedTheme);
+				initializeClock();
 				createCustomThemesFolder();
 
 			#if defined(N3DS_PROFILER)
@@ -514,9 +756,13 @@ namespace n3ds
 			gSlotHasState = slotHasState;
 			if (!gInitialized)
 				initialize();
-			if (!gDataValid)
-				return Request::NONE;
 			if (!aptIsActive() || aptShouldClose())		// The screens belong to the system right now
+				return Request::NONE;
+
+			// The clock, and the theme that follows it
+			if (updateClockState() && gRequestedTheme == n3ds::shop::THEME_AUTO && n3ds::shop::resolveTheme(n3ds::shop::THEME_AUTO) != gTheme)
+				gDataValid = loadArtwork(n3ds::shop::THEME_AUTO);
+			if (!gDataValid)
 				return Request::NONE;
 
 			// A request from the previous frame: "Saving..." / "Loading..." is visible by now

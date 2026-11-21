@@ -160,6 +160,9 @@ endforeach()
 dkp_add_embedded_binary_library(s3air_3ds_bottom_screen_overlay_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_bottom_screen_overlay.bin)
 dkp_add_embedded_binary_library(s3air_3ds_theme_template_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_theme_template.png)
 target_link_libraries(oxygen s3air_3ds_bottom_screen_overlay_data s3air_3ds_theme_template_data)
+# Digits and the battery for the clock in the title bar (see bottomscreen/make_clock_glyphs.py)
+dkp_add_embedded_binary_library(s3air_3ds_bottom_screen_clock_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_bottom_screen_clock.bin)
+target_link_libraries(oxygen s3air_3ds_bottom_screen_clock_data)
 
 # Presenting frames with the PICA200 GPU (citro3d) instead of SDL's CPU-side rotated copy
 option(S3AIR_3DS_GPU_PRESENT "Present frames via the 3DS GPU" ON)

@@ -37,6 +37,7 @@ namespace
 	static constexpr uint32 SHIELD_SELECT = 0x200;		// Plus the shield, see n3ds::shop::Shield
 	static constexpr uint32 CUSTOM_THEME = 0x400;		// Plus the index in "mCustomThemes"
 	static constexpr uint32 CUSTOM_INFO = 0x4ff;		// Explanation entry for the player's own pictures
+	static constexpr uint32 AUTO_THEME = 0x4fe;			// The theme that follows the time of day (n3ds::shop::THEME_AUTO)
 
 	struct ThemeInfo
 	{
@@ -358,6 +359,8 @@ void N3DSMenu::rebuildTabs()
 		{
 			if (nullptr != THEMES[theme].mName)		// Skip removed themes
 				entries.addEntry(THEMES[theme].mName, theme);
+			if (theme == n3ds::shop::THEME_BLUE)
+				entries.addEntry("Time of Day", AUTO_THEME);
 		}
 		for (size_t k = 0; k < mCustomThemes.size(); ++k)
 		{
@@ -409,6 +412,13 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 	switch (tabIndex)
 	{
 		case Tab::Id::THEMES:
+			if (data == AUTO_THEME)
+			{
+				outItem.mName = "Time of Day";
+				outItem.mPrice = 0;
+				outItem.mOwned = true;
+				return true;
+			}
 			if (data >= CUSTOM_THEME && data < CUSTOM_THEME + mCustomThemes.size())
 			{
 				outItem.mName = mCustomThemes[data - CUSTOM_THEME];
@@ -464,6 +474,11 @@ void N3DSMenu::updateThemePreview()
 		if (data < (uint32)n3ds::shop::_NUM_THEMES)
 		{
 			theme = (int)data;
+			custom.clear();
+		}
+		else if (data == AUTO_THEME)
+		{
+			theme = n3ds::shop::THEME_AUTO;
 			custom.clear();
 		}
 		else if (data >= CUSTOM_THEME && data < CUSTOM_THEME + mCustomThemes.size())
@@ -601,6 +616,18 @@ void N3DSMenu::onAccept()
 			n3ds::shop::save();
 			playMenuSound(0x63);
 			showMessage(name.substr(0, name.length() - 4) + " is now active", false);
+		}
+		return;
+	}
+
+	if (mActiveTab == Tab::Id::THEMES && data == AUTO_THEME)
+	{
+		if (shop.mSelectedTheme != n3ds::shop::THEME_AUTO)
+		{
+			shop.mSelectedTheme = n3ds::shop::THEME_AUTO;
+			n3ds::shop::save();
+			playMenuSound(0x63);
+			showMessage("The bottom screen now follows the time of day", false);
 		}
 		return;
 	}
@@ -791,6 +818,28 @@ void N3DSMenu::render()
 					status = "FREE";
 					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontRegular, Recti(imageRect.x + 32, imageRect.y + 19, 0, 10), "PNG", 5, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::THEMES && entry.mData == AUTO_THEME)
+				{
+					description = "Follows the 3DS clock: Aurora in the morning, Blue by day, Sunset Glow in the evening, Starry Night after dark. Uses the ones you own.";
+					if (shop.mSelectedTheme == n3ds::shop::THEME_AUTO)
+					{
+						status = "ACTIVE";
+						statusColor = Color(0.4f, 1.0f, 1.0f, tabAlpha);
+					}
+					else
+					{
+						status = "FREE";
+					}
+
+					// Four bands: morning, day, evening, night
+					const Color bands[4] = { THEMES[n3ds::shop::THEME_AURORA].mLight, THEMES[n3ds::shop::THEME_BLUE].mLight, THEMES[n3ds::shop::THEME_SUNSET].mLight, THEMES[n3ds::shop::THEME_NIGHT].mLight };
+					for (int k = 0; k < 4; ++k)
+					{
+						Color color = bands[k];
+						color.a = tabAlpha;
+						drawer.drawRect(Recti(imageRect.x + k * 16, imageRect.y, 16, 48), color);
+					}
 				}
 				else if (tabIndex == Tab::Id::THEMES && entry.mData >= CUSTOM_THEME)
 				{

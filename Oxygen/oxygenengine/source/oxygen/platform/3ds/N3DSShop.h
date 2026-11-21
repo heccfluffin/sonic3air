@@ -37,6 +37,10 @@ namespace n3ds
 
 		// The player's own background pictures: PNG files in this folder on the SD card (free, see "themes/README.txt" there)
 		static const int THEME_CUSTOM = 100;		// As "mSelectedTheme", with the file name in "mCustomTheme"
+
+		// Follows the 3DS clock (free): Aurora in the morning, Blue Zig-Zag by day, Sunset Glow in the evening and Starry Night
+		// at night - each one only if owned, otherwise one of the others
+		static const int THEME_AUTO = 101;
 		static const char* const CUSTOM_THEMES_FOLDER = "sdmc:/3ds/sonic3air/themes/";
 
 		// Starting shield, given at the start of each act and after losing a life (as flags of the game's "char.bonus" byte)
@@ -62,6 +66,9 @@ namespace n3ds
 
 		Data& get();		// Loaded on first use
 		void save();		// Writes the file only if something changed
+
+		// The theme to show right now: for THEME_AUTO, the one for the time of day; any other theme as it is
+		int resolveTheme(int theme);
 
 		uint8_t getShieldFlags(int shield);		// Flags for the game's "char.bonus" byte, 0 for SHIELD_OFF
 	}
