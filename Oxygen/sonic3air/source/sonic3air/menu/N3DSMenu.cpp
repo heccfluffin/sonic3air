@@ -555,7 +555,16 @@ void N3DSMenu::rebuildTabs()
 		GameMenuEntries& entries = mTabs[Tab::Id::THEMES].mMenuEntries;
 		const int selected = entries.mSelectedEntryIndex;
 		entries.resize(1);
+		// Listed in the order of the theme numbers, except Metallic Madness Act 2 (once Sky City), shown after Act 1
+		std::vector<int> order;
 		for (int theme = 0; theme < n3ds::shop::_NUM_THEMES; ++theme)
+		{
+			if (theme != n3ds::shop::THEME_CITY)
+				order.push_back(theme);
+			if (theme == n3ds::shop::THEME_METALLIC)
+				order.push_back(n3ds::shop::THEME_CITY);
+		}
+		for (const int theme : order)
 		{
 			if (nullptr != THEMES[theme].mName)		// Skip removed themes
 				entries.addEntry(THEMES[theme].mName, theme);
