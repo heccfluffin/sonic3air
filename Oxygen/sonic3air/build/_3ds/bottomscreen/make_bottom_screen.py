@@ -320,6 +320,11 @@ def framed_box(img, box, inner_fill, inner_alpha):
 def panel(img, box, radius=10, alpha=60):
 	"""A panel in the theme's frame style: glass, retro (flat, with a thin light outline), framed, or none (the picture has its own)."""
 	if THEME.get('frame') == 'none':
+		# The picture draws its own frames: just a flat, dark, see-through shade inside them, so the text stays easy to read
+		x0, y0, x1, y1 = box
+		layer = new_layer()
+		ImageDraw.Draw(layer).rectangle([v * S for v in (x0 + 2, y0 + 2, x1 - 2, y1 - 2)], fill=THEME.get('shade_panel', (0, 0, 20)) + (THEME.get('shade_alpha', 120),))
+		img.alpha_composite(layer)
 		return
 	if THEME.get('frame') == 'framed':
 		framed_box(img, box, THEME['panel'], 150)
@@ -358,7 +363,7 @@ THEMES = [
 	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
 	# Picture made by the port's author (themes/casino.png), with neon strips around the panels
 	{ 'id': 'casino',  'name': 'Casino Night',    'style': 'image', 'image': 'casino.png', 'frame': 'none', 'light': (90, 170, 255), 'dark': (8, 10, 40),
-	  'save': (0, 144, 0), 'load': (0, 36, 180), 'outline': (5, 15, 45) },		# Buttons in the picture's own neon green and casino blue
+	  'save': (0, 144, 0), 'load': (0, 36, 180), 'stats': (252, 0, 0), 'outline': (5, 15, 45) },		# Buttons in the picture's own neon green, casino blue and casino red
 ]
 THEME = THEMES[0]		# The theme being generated
 _background_cache = {}
@@ -792,6 +797,15 @@ def stats_button(img, state):
 	elif THEME.get('frame') == 'retro':
 		col = THEME.get('stats', STATS_COLOR)
 		outline_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, THEME['panel_outline'])
+	elif THEME.get('frame') == 'none':
+		# Flat, in one solid color like the big buttons
+		col = THEME.get('stats', STATS_COLOR)
+		x0, y0, x1, y1 = STATS_BOX
+		dy = 1 if state == 'pressed' else 0
+		layer = new_layer()
+		ImageDraw.Draw(layer).rounded_rectangle([v * S for v in (x0, y0 + dy, x1, y1 + dy)], radius=5 * S,
+												 fill=(mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col) + (255,))
+		img.alpha_composite(layer)
 	else:
 		glossy(img, STATS_BOX, 'rect', STATS_COLOR, pressed=(state == 'pressed'))
 	dy = 1 if state == 'pressed' else 0
