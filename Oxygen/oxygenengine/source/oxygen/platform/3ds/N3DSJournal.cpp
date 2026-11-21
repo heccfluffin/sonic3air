@@ -40,7 +40,8 @@ namespace n3ds
 
 			// The funny postcards, by name (the 3DS menu has their scenes and texts); new ones only ever go at the end
 			const char* FUNNY_POSTCARDS[] = { "staydry", "snowday", "photobomb", "sleepy", "wrongmonitor", "decoys", "speedlimit", "rolling",
-											  "skyhigh", "warm", "scenic", "carnival", "sinking", "airship", "bubble" };
+											  "skyhigh", "warm", "scenic", "carnival", "sinking", "airship", "bubble",
+											  "coldcall", "parking", "highfive", "bigone" };
 			const int NUM_FUNNY = (int)(sizeof(FUNNY_POSTCARDS) / sizeof(FUNNY_POSTCARDS[0]));
 
 			bool hasFunny(int index);

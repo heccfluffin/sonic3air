@@ -178,20 +178,88 @@ namespace
 		const char* mKey;
 		const wchar_t* mFile;		// A .bmp has palette index 0 (black) as transparency, a .png its alpha
 		int mX, mY, mWidth, mHeight;
+		bool mCutOut;				// A picture with a sky behind (the achievements' bosses): the sky is taken away first
 	};
+
+	// For the bosses from the achievement pictures: their sky is flooded away from the edges (bright or deep blues and pale ice),
+	// then specks too small to belong to the boss are dropped
+	void cutOutFromSky(Bitmap& bitmap)
+	{
+		const int width = bitmap.getWidth();
+		const int height = bitmap.getHeight();
+		const auto isSky = [](uint32 color)
+		{
+			const int r = color & 0xff;
+			const int g = (color >> 8) & 0xff;
+			const int b = (color >> 16) & 0xff;
+			return (b >= 248 && r < 200 && g < 240) || (r <= 30 && b >= 100 && g < b) || (r >= 150 && g > r + 15 && b > r + 25);
+		};
+		std::vector<bool> visited((size_t)(width * height), false);
+		std::vector<std::pair<int, int>> stack;
+		for (int x = 0; x < width; ++x)	{ stack.emplace_back(x, 0); stack.emplace_back(x, height - 1); }
+		for (int y = 0; y < height; ++y)	{ stack.emplace_back(0, y); stack.emplace_back(width - 1, y); }
+		while (!stack.empty())
+		{
+			const auto [x, y] = stack.back();
+			stack.pop_back();
+			if (x < 0 || y < 0 || x >= width || y >= height || visited[y * width + x])
+				continue;
+			visited[y * width + x] = true;
+			uint32& pixel = *bitmap.getPixelPointer(x, y);
+			if (!isSky(pixel))
+				continue;
+			pixel = 0;
+			stack.emplace_back(x + 1, y);
+			stack.emplace_back(x - 1, y);
+			stack.emplace_back(x, y + 1);
+			stack.emplace_back(x, y - 1);
+		}
+
+		std::vector<bool> seen((size_t)(width * height), false);
+		for (int sy = 0; sy < height; ++sy)
+		{
+			for (int sx = 0; sx < width; ++sx)
+			{
+				if (seen[sy * width + sx] || (*bitmap.getPixelPointer(sx, sy) >> 24) == 0)
+					continue;
+				std::vector<std::pair<int, int>> island;
+				stack.emplace_back(sx, sy);
+				while (!stack.empty())
+				{
+					const auto [x, y] = stack.back();
+					stack.pop_back();
+					if (x < 0 || y < 0 || x >= width || y >= height || seen[y * width + x] || (*bitmap.getPixelPointer(x, y) >> 24) == 0)
+						continue;
+					seen[y * width + x] = true;
+					island.emplace_back(x, y);
+					stack.emplace_back(x + 1, y);
+					stack.emplace_back(x - 1, y);
+					stack.emplace_back(x, y + 1);
+					stack.emplace_back(x, y - 1);
+				}
+				if (island.size() < 12)
+				{
+					for (const auto& [x, y] : island)
+						*bitmap.getPixelPointer(x, y) = 0;
+				}
+			}
+		}
+	}
 	const SceneSprite SCENE_SPRITES[] =
 	{
-		{ "sonic", L"data/sprites/characters/menu_characters_sonic.png", 0, 0, 40, 40 },
-		{ "tails", L"data/sprites/characters/menu_characters_tails.png", 0, 0, 40, 40 },
-		{ "knuckles", L"data/sprites/characters/menu_characters_knuckles.png", 0, 0, 40, 40 },
-		{ "sonictails", L"data/sprites/characters/menu_characters_sonic_tails.png", 0, 0, 56, 40 },
-		{ "peelout", L"data/sprites/characters/sonic_peelout.bmp", 40, 0, 40, 40 },
-		{ "ball", L"data/sprites/characters/sonic_dropdash.bmp", 0, 0, 32, 32 },
-		{ "yawn", L"data/images/menu/tails_yawning.png", 0, 0, 36, 32 },
-		{ "monitor", L"data/sprites/objects/monitors.bmp", 0, 0, 32, 32 },
-		{ "eggicon", L"data/sprites/objects/monitors.bmp", 80, 48, 16, 16 },
-		{ "shield", L"data/sprites/objects/shield_classic.png", 96, 0, 48, 48 },
-		{ "ring", L"data/sprites/objects/rings.bmp", 0, 0, 16, 16 },
+		{ "sonic", L"data/sprites/characters/menu_characters_sonic.png", 0, 0, 40, 40, false },
+		{ "tails", L"data/sprites/characters/menu_characters_tails.png", 0, 0, 40, 40, false },
+		{ "knuckles", L"data/sprites/characters/menu_characters_knuckles.png", 0, 0, 40, 40, false },
+		{ "sonictails", L"data/sprites/characters/menu_characters_sonic_tails.png", 0, 0, 56, 40, false },
+		{ "peelout", L"data/sprites/characters/sonic_peelout.bmp", 40, 0, 40, 40, false },
+		{ "ball", L"data/sprites/characters/sonic_dropdash.bmp", 0, 0, 32, 32, false },
+		{ "yawn", L"data/images/menu/tails_yawning.png", 0, 0, 36, 32, false },
+		{ "monitor", L"data/sprites/objects/monitors.bmp", 0, 0, 32, 32, false },
+		{ "eggicon", L"data/sprites/objects/monitors.bmp", 80, 48, 16, 16, false },
+		{ "shield", L"data/sprites/objects/shield_classic.png", 96, 0, 48, 48, false },
+		{ "ring", L"data/sprites/objects/rings.bmp", 0, 0, 16, 16, false },
+		{ "iceboss", L"data/images/achievements/icecap1boss.png", 0, 0, 64, 48, true },
+		{ "eggpod", L"data/images/achievements/decoys.png", 0, 0, 64, 48, true },
 	};
 
 	struct SceneActor
@@ -234,8 +302,12 @@ namespace
 		{ "scenic", "zone14_act1a", 100, "THE SCENIC ROUTE", "Hitched a ride on a missile. Best view of the stars!", { { "sonic", 102, 25, false, 0 } }, { { 2, 14, 64, 22, 66, 14 } } },
 		{ "carnival", "zone04_act1b", 100, "CARNIVAL FUN", "The carnival never closes. We've been here all week!", { { "sonictails", 58, 16, false, 0 } }, {  } },
 		{ "sinking", "zone09_act2b", 0, "SINKING FEELING", "I'll be finding sand in my shoes for weeks. - Knuckles", { { "knuckles", 100, 40, false, 66 } }, { { 123, 22, 14, 26, 155, 22 } } },
-		{ "airship", "zone08_act2b", 200, "ON DECK", "Tails says he could fly this airship better than Eggman.", { { "tails", 30, 24, false, 0 } }, {  } },
+		{ "airship", "zone08_act2b", 200, "ON DECK", "Tails says he could fly this airship better than Eggman.", { { "tails", 30, 19, false, 0 } }, { { 130, 40, 34, 17, 38, 40 } } },
 		{ "bubble", "zone02_act1b", 0, "WRONG SHIELD", "Brought the wrong shield. Holding my breath! - Sonic", { { "shield", 62, 18, false, 0 }, { "sonic", 68, 22, false, 0 } }, {  } },
+		{ "coldcall", "zone05_act1a", 0, "A COLD WELCOME", "Met a new friend in IceCap. A little frosty, though.", { { "sonic", 8, 23, false, 0 }, { "iceboss", 94, 14, false, 0 } }, {  } },
+		{ "parking", "zone09_act1a", 30, "PARKING TICKET", "Someone left their hover pod here. Tails wrote a ticket.", { { "eggpod", 26, 8, false, 0 }, { "tails", 100, 16, true, 0 } }, {  } },
+		{ "highfive", "zone12_act1b", 260, "HIGH FIVE", "Eggrobo wanted a high five. Sonic gave him a spin attack.", { { "ball", 26, 14, false, 0 } }, { { 0, 20, 58, 30, 0, 50 }, { 60, 20, 12, 4, 60, 76 } } },
+		{ "bigone", "zone14_act1b", 40, "THE BIG ONE", "Eggman's ship looked smaller in the brochure. - Sonic", { { "ball", 6, 4, false, 0 } }, {  } },
 	};
 
 	const FunnyPostcard* findFunnyPostcard(const n3ds::journal::Postcard& postcard)
@@ -299,8 +371,13 @@ namespace
 			}
 			if (nullptr == sprite)
 				continue;
-			if (sheets.count(sprite->mFile) == 0 && !FileHelper::loadBitmap(sheets[sprite->mFile], sprite->mFile, false))
-				continue;
+			if (sheets.count(sprite->mFile) == 0)
+			{
+				if (!FileHelper::loadBitmap(sheets[sprite->mFile], sprite->mFile, false))
+					continue;
+				if (sprite->mCutOut)
+					cutOutFromSky(sheets[sprite->mFile]);
+			}
 			const Bitmap& sheet = sheets[sprite->mFile];
 			if (sheet.getWidth() < sprite->mX + sprite->mWidth || sheet.getHeight() < sprite->mY + sprite->mHeight)
 				continue;
