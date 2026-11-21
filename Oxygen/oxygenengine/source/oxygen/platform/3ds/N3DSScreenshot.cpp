@@ -13,6 +13,7 @@
 #include "oxygen/platform/3ds/N3DSScreenshot.h"
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
+#include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSNotificationLight.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
 
@@ -154,6 +155,7 @@ namespace n3ds
 					if (result->mSuccess)
 					{
 						RMX_LOG_INFO("Screenshot saved: " << result->mPath);
+						n3ds::journal::addScreenshot();
 						n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::SCREENSHOT_SAVED);
 					}
 					else

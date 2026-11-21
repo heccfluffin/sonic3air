@@ -39,6 +39,7 @@
 	#include "oxygen/platform/3ds/N3DSFileWriter.h"
 	#include "oxygen/platform/3ds/N3DSNotificationLight.h"
 	#include "oxygen/platform/3ds/N3DSScreenshot.h"
+	#include "oxygen/platform/3ds/N3DSJournal.h"
 	#include "sonic3air/version.inc"
 	#include "oxygen/rendering/parts/RenderParts.h"
 	#include "oxygen/simulation/CodeExec.h"
@@ -409,6 +410,7 @@ void GameApp::updateBottomScreen()
 	// 3DS bottom screen: controls overview with touch buttons for a save state per save file
 	n3ds::filewriter::update();		// Files written in the background (save states, 3DS menu choices): report finished ones
 	n3ds::screenshot::update();		// L + R
+	n3ds::journal::update();		// Play time, and the day's stamp
 	Simulation& simulation = Application::instance().getSimulation();
 	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
 

@@ -25,6 +25,7 @@
 #include "oxygen/helper/Utils.h"
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
+#include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSPlayCoins.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
@@ -49,6 +50,25 @@ namespace
 	static constexpr uint32 NIGHT_START = 0x4fc;		// When "after dark" starts, changed with left / right
 	static constexpr uint32 NIGHT_END = 0x4fb;			// ... and ends
 	static constexpr int NIGHT_TIME_STEP = 30;			// Minutes
+
+	// Journal entries
+	static constexpr uint32 JOURNAL_STAMPS = 0x600;
+	static constexpr uint32 JOURNAL_PLAY_TIME = 0x601;
+	static constexpr uint32 JOURNAL_DAYS = 0x602;
+	static constexpr uint32 JOURNAL_STEPS = 0x603;
+	static constexpr uint32 JOURNAL_PLAY_COINS = 0x604;
+	static constexpr uint32 JOURNAL_ACHIEVEMENTS = 0x605;
+	static constexpr uint32 JOURNAL_SCREENSHOTS = 0x606;
+	static constexpr uint32 JOURNAL_STARTED = 0x607;
+
+	std::string formatNumber(uint32 value)
+	{
+		// With thousands separators, like "12,345"
+		std::string digits = std::to_string(value);
+		for (int pos = (int)digits.length() - 3; pos > 0; pos -= 3)
+			digits.insert((size_t)pos, ",");
+		return digits;
+	}
 
 	const char* NIGHT_MODE_NAMES[n3ds::shop::_NUM_NIGHT_MODES] = { "OFF", "AFTER DARK", "ALWAYS" };
 
@@ -135,9 +155,10 @@ N3DSMenu::N3DSMenu(MenuBackground& menuBackground) :
 	mTabMenuEntries.addEntry("", 0)
 					.addOption("THEMES",  Tab::Id::THEMES)
 					.addOption("SECRETS", Tab::Id::SECRETS)
-					.addOption("SHIELD",  Tab::Id::SHIELD);
+					.addOption("SHIELD",  Tab::Id::SHIELD)
+					.addOption("JOURNAL", Tab::Id::JOURNAL);
 
-	for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < NUM_TABS; ++i)
 	{
 		GameMenuEntries& entries = mTabs[i].mMenuEntries;
 		entries.reserve(10);
@@ -180,9 +201,13 @@ void N3DSMenu::onFadeIn()
 	const auto msSince = [](uint64 ticks)  { return (uint32)((svcGetSystemTick() - ticks) * 1000 / SYSCLOCK_ARM11); };
 	mPreviewedTheme.clear();
 
-	// A little greeting, like "Good evening, Name!"
-	showMessage(n3ds::profile::getGreeting(), false);
+	// A little greeting, like "Good evening, Name!" - and a hint at a new stamp
+	const std::string greeting = n3ds::profile::getGreeting();
+	showMessage(n3ds::journal::takeNewStampNotice() ? (greeting + " New stamp in your Journal!") : greeting, false);
 	mMessageTimeout = 5.0f;
+
+	// The 3DS step counter, for the journal (quick, no SD card involved)
+	mHasSteps = n3ds::journal::getSteps(mStepsToday, mStepsTotal);
 
 	// Play Coins and the player's own pictures get read in the background: the menu opens right away, they show up when ready
 	const uint32 greetingMs = msSince(startTicks);
@@ -196,7 +221,7 @@ void N3DSMenu::onFadeIn()
 	mMenuBackground->showPreview(false, false);
 	mMenuBackground->startTransition(MenuBackground::Target::BLUE);
 
-	for (size_t k = 0; k < 3; ++k)
+	for (size_t k = 0; k < NUM_TABS; ++k)
 	{
 		for (size_t i = 0; i < mTabs[k].mMenuEntries.size(); ++i)
 		{
@@ -239,6 +264,7 @@ void N3DSMenu::preload()
 	// The 3DS profile (nickname, birthday, region) for the greeting: read from the system settings, which can wait for the
 	// SD card when it's busy (seen taking 1.2 seconds), so also here during startup
 	n3ds::profile::getNickname();
+	n3ds::journal::get();		// The journal file, also from the SD card
 
 	const uint32 ms = (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
 	if (ms >= 30)
@@ -316,6 +342,37 @@ void N3DSMenu::createIcons()
 			mShieldIcons[shield].bitmapUpdated();
 		}
 		mHasShieldIcons = true;
+
+		// Journal: the stamps are the game's monitors with an item box icon, opened one per day played. Positions of the 16 x 16
+		// icons on the sheet: ring, Sonic, Tails, Knuckles, speed shoes, invincibility, and the Super "S" for the 7th day.
+		static const int STAMP_ICONS[7][2] = { { 64, 0 }, { 64, 32 }, { 80, 32 }, { 96, 32 }, { 80, 0 }, { 96, 0 }, { 112, 0 } };
+		for (int k = 0; k < 7; ++k)
+		{
+			Bitmap& bitmap = mStampIcons[k].accessBitmap();
+			bitmap.create(32, 32, 0);
+			copyRect(bitmap, 0, 0, 32, 32, 0, 0, false);
+			copyRect(bitmap, STAMP_ICONS[k][0], STAMP_ICONS[k][1], 16, 16, 8, 3, true);
+			mStampIcons[k].bitmapUpdated();
+		}
+		{
+			Bitmap& bitmap = mStampEmpty.accessBitmap();		// Not opened yet: the monitor with its static screen, see-through
+			bitmap.create(32, 32, 0);
+			copyRect(bitmap, 0, 0, 32, 32, 0, 0, false);
+			mStampEmpty.bitmapUpdated();
+		}
+
+		// Icons of the journal's numbers, in the order of the entries: play time (Sonic), days played (Tails), steps (speed shoes),
+		// Play Coins (ring), achievements (invincibility), screenshots (lightning, like a flash), journal started (Knuckles)
+		static const int JOURNAL_ICONS[NUM_JOURNAL_ICONS][2] = { { 64, 32 }, { 80, 32 }, { 80, 0 }, { 64, 0 }, { 96, 0 }, { 64, 16 }, { 96, 32 } };
+		for (int k = 0; k < NUM_JOURNAL_ICONS; ++k)
+		{
+			Bitmap& bitmap = mJournalIcons[k].accessBitmap();
+			bitmap.create(32, 32, 0);
+			copyRect(bitmap, 0, 0, 32, 32, 0, 0, false);
+			copyRect(bitmap, JOURNAL_ICONS[k][0], JOURNAL_ICONS[k][1], 16, 16, 8, 3, true);
+			mJournalIcons[k].bitmapUpdated();
+		}
+		mHasJournalIcons = true;
 	}
 
 	// Sonic's Drop Dash and Super Peel-Out sprites (definitions as in the game's "data/sprites/characters/sonic_additional.json")
@@ -538,6 +595,23 @@ void N3DSMenu::rebuildTabs()
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
+
+	// Journal
+	{
+		GameMenuEntries& entries = mTabs[Tab::Id::JOURNAL].mMenuEntries;
+		const int selected = entries.mSelectedEntryIndex;
+		entries.resize(1);
+		entries.addEntry("Stamp Card", JOURNAL_STAMPS);
+		entries.addEntry("Play Time", JOURNAL_PLAY_TIME);
+		entries.addEntry("Days Played", JOURNAL_DAYS);
+		entries.addEntry("Steps", JOURNAL_STEPS);
+		entries.addEntry("Play Coins", JOURNAL_PLAY_COINS);
+		entries.addEntry("Achievements", JOURNAL_ACHIEVEMENTS);
+		entries.addEntry("Screenshots", JOURNAL_SCREENSHOTS);
+		entries.addEntry("Journal Started", JOURNAL_STARTED);
+		entries.addEntry("Back", BACK);
+		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
+	}
 }
 
 bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
@@ -723,7 +797,7 @@ void N3DSMenu::update(float timeElapsed)
 	updateThemePreview();
 
 	// Update animation
-	for (size_t k = 0; k < 3; ++k)
+	for (size_t k = 0; k < NUM_TABS; ++k)
 	{
 		const float maxStep = timeElapsed * 10.0f;
 		for (size_t i = 0; i < mTabs[k].mMenuEntries.size(); ++i)
@@ -777,6 +851,10 @@ void N3DSMenu::onAccept()
 		return;
 	}
 
+	if (mActiveTab == Tab::Id::JOURNAL)
+	{
+		return;		// Just to look at
+	}
 	if (mActiveTab == Tab::Id::THEMES && (data == NIGHT_START || data == NIGHT_END))
 	{
 		playMenuSound(0x5b);
@@ -900,6 +978,7 @@ void N3DSMenu::buySelected()
 			break;
 	}
 	RMX_LOG_INFO("3DS menu: bought '" << item.mName << "' for " << item.mPrice << " Play Coins");
+	n3ds::journal::addPurchase(item.mPrice);
 
 	playMenuSound(0x33);	// Ring sound
 	showMessage(item.mName + " bought!", false);
@@ -938,6 +1017,7 @@ void N3DSMenu::render()
 		{
 			const char* text = (tabIndex == Tab::Id::THEMES) ? "Pick a look for the bottom screen" :
 							   (tabIndex == Tab::Id::SECRETS) ? "Unlock secrets early with Play Coins" :
+							   (tabIndex == Tab::Id::JOURNAL) ? "Your days with Sonic 3 A.I.R. on this 3DS" :
 							   shop.mOwnsShield ? "Start each act and life with this shield" : "Start each act and life with a shield";
 			py += 3;
 			drawer.printText(global::mSonicFontB, Recti(baseX, py, 0, 10), text, 5, Color(0.6f, 0.8f, 1.0f, tabAlpha));
@@ -974,6 +1054,7 @@ void N3DSMenu::render()
 				std::string description;
 				std::string status;
 				Color statusColor(1.0f, 1.0f, 1.0f, tabAlpha);
+				bool customText = false;		// The card drew its texts itself
 
 				Item item;
 				const bool isItem = getItem(tabIndex, entry.mData, item);
@@ -1167,6 +1248,82 @@ void N3DSMenu::render()
 							description += String(0, " (Or complete %d achievements.)", secret->mRequiredAchievements).toStdString();
 					}
 				}
+				else if (tabIndex == Tab::Id::JOURNAL && entry.mData == JOURNAL_STAMPS)
+				{
+					// The stamp card: drawn here entirely, with the game's Sonic 3 font
+					const n3ds::journal::Data& journal = n3ds::journal::get();
+					customText = true;
+					drawer.printText(global::mSonicFontB, Recti(px - 178, py + 5, 0, 10), "STAMP CARD", 1, color);
+					drawer.printText(global::mSonicFontB, Recti(px + 172, py + 5, 0, 10), String(0, "DAY %d OF %d", journal.mStamps, n3ds::journal::STAMPS_PER_CARD), 3,
+									 (journal.mStamps >= n3ds::journal::STAMPS_PER_CARD) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.6f, 0.9f, 1.0f, tabAlpha));
+					for (int k = 0; k < n3ds::journal::STAMPS_PER_CARD; ++k)
+					{
+						const Recti monitorRect(px - 180 + k * 37, py + 18, 32, 32);
+						if (!mHasJournalIcons)
+							drawer.drawRect(monitorRect, (k < journal.mStamps) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.3f, 0.3f, 0.4f, tabAlpha));
+						else if (k < journal.mStamps)
+							drawer.drawRect(monitorRect, mStampIcons[k], Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						else
+							drawer.drawRect(monitorRect, mStampEmpty, Color(1.0f, 1.0f, 1.0f, tabAlpha * 0.4f));
+					}
+					drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 26, 0, 10), (journal.mStamps >= n3ds::journal::STAMPS_PER_CARD) ? "Card complete!" : "One stamp per day", 3, color2);
+					drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 38, 0, 10), String(0, "Cards completed: %u", (unsigned)journal.mCardsCompleted), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::JOURNAL)
+				{
+					const n3ds::journal::Data& journal = n3ds::journal::get();
+					statusColor = Color(0.6f, 0.9f, 1.0f, tabAlpha);
+					switch (entry.mData)
+					{
+						case JOURNAL_PLAY_TIME:
+						{
+							const uint64 minutes = journal.mPlaySeconds / 60;
+							status = (minutes >= 60) ? String(0, "%u H %02u MIN", (unsigned)(minutes / 60), (unsigned)(minutes % 60)).toStdString() : String(0, "%u MIN", (unsigned)minutes).toStdString();
+							description = "Time spent playing on this 3DS since the journal began.";
+							break;
+						}
+						case JOURNAL_DAYS:
+							status = formatNumber(journal.mDaysPlayed);
+							description = "Days you played - they don't need to be in a row.";
+							break;
+						case JOURNAL_STEPS:
+							status = mHasSteps ? (formatNumber(mStepsToday) + " TODAY") : std::string("---");
+							description = mHasSteps ? ("Walked with your 3DS. In total: " + formatNumber(mStepsTotal) + " steps. Walking earns Play Coins, up to 10 a day.")
+													: std::string("The 3DS step counter could not be read.");
+							break;
+						case JOURNAL_PLAY_COINS:
+							status = formatNumber(journal.mPlayCoinsSpent) + " SPENT";
+							description = (journal.mThingsBought == 1) ? std::string("On 1 thing in this menu.") : ("On " + formatNumber(journal.mThingsBought) + " things in this menu.");
+							break;
+						case JOURNAL_ACHIEVEMENTS:
+						{
+							const std::vector<SharedDatabase::Achievement>& achievements = SharedDatabase::getAchievements();
+							int completed = 0;
+							for (const SharedDatabase::Achievement& achievement : achievements)
+							{
+								if (PlayerProgress::instance().mAchievements.getAchievementState(achievement.mType) != 0)
+									++completed;
+							}
+							status = String(0, "%d / %d", completed, (int)achievements.size()).toStdString();
+							description = "Completed achievements - the notification light glows purple for each new one.";
+							break;
+						}
+						case JOURNAL_SCREENSHOTS:
+							status = formatNumber(journal.mScreenshots);
+							description = "Taken with L + R, in the folder 3ds/sonic3air/screenshots on the SD card.";
+							break;
+						case JOURNAL_STARTED:
+							status = n3ds::journal::formatDate(journal.mStartedDate);
+							description = "When this journal began. Here's to many more days!";
+							break;
+					}
+
+					// The game's monitor with a fitting icon
+					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
+					const int iconIndex = clamp((int)(entry.mData - JOURNAL_PLAY_TIME), 0, NUM_JOURNAL_ICONS - 1);
+					if (mHasJournalIcons)
+						drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 8, 32, 32), mJournalIcons[iconIndex], Color(1.0f, 1.0f, 1.0f, tabAlpha));
+				}
 				else if (tabIndex == Tab::Id::SHIELD)
 				{
 					const int shield = (entry.mData == SHIELD_BUY) ? (int)n3ds::shop::SHIELD_CLASSIC : (int)(entry.mData - SHIELD_SELECT);
@@ -1201,11 +1358,13 @@ void N3DSMenu::render()
 				py += 7;
 				String name(title);
 				name.upperCase();
-				drawer.printText(global::mOxyfontRegular, Recti(px - 110, py, 0, 10), name, 1, color);
-				if (!status.empty())
+				if (!customText)
+					drawer.printText(global::mOxyfontRegular, Recti(px - 110, py, 0, 10), name, 1, color);
+				if (!status.empty() && !customText)
 					drawer.printText(global::mOxyfontSmall, Recti(px + 170, py + 1, 0, 10), status, 3, statusColor);
 
 				// Description, wrapped
+				if (!customText)
 				{
 					std::vector<std::string_view> textLines;
 					utils::splitTextIntoLines(textLines, description, global::mOxyfontTiny, 260);

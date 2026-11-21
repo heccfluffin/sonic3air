@@ -54,7 +54,8 @@ private:
 		{
 			THEMES	= 0,
 			SECRETS	= 1,
-			SHIELD	= 2
+			SHIELD	= 2,
+			JOURNAL	= 3
 		};
 		GameMenuEntries mMenuEntries;
 	};
@@ -93,7 +94,8 @@ private:
 	MenuBackground* mMenuBackground = nullptr;
 
 	GameMenuEntries mTabMenuEntries;
-	Tab mTabs[3];
+	static const int NUM_TABS = 4;
+	Tab mTabs[NUM_TABS];
 	size_t mActiveTab = 0;
 	float mActiveTabAnimated = 0.0f;
 	GameMenuEntries* mActiveMenu = &mTabMenuEntries;
@@ -121,6 +123,16 @@ private:
 	DrawerTexture mThemeIcons[n3ds::shop::_NUM_THEMES];		// Sized by the theme count (a fixed size here once overflowed when themes were added)
 	DrawerTexture mShieldIcons[n3ds::shop::_NUM_SHIELDS];
 	bool mHasShieldIcons = false;
+
+	// Journal: the stamps (the game's monitors with an icon), an unopened one, and icons for the numbers
+	static const int NUM_JOURNAL_ICONS = 7;
+	DrawerTexture mStampIcons[7];
+	DrawerTexture mStampEmpty;
+	DrawerTexture mJournalIcons[NUM_JOURNAL_ICONS];
+	bool mHasJournalIcons = false;
+	uint32_t mStepsToday = 0;		// Read when the menu opens
+	uint32_t mStepsTotal = 0;
+	bool mHasSteps = false;
 
 	// Sonic's move sprites for the Drop Dash and Super Peel-Out secrets (animated)
 	DrawerTexture mDropDashFrames[2];

@@ -14,9 +14,15 @@ namespace n3ds
 {
 	namespace notificationlight
 	{
-		// Lets the light glow in soft purple pulses for a few seconds, then go dark again - e.g. for an achievement or a secret.
+		enum class Color
+		{
+			PURPLE,		// Achievements and secrets
+			PINK		// The journal's stamp of the day
+		};
+
+		// Lets the light glow in three soft breaths for a few seconds, then go dark again.
 		// Does nothing if the light can't be used (the result gets logged once).
-		void pulse();
+		void pulse(Color color = Color::PURPLE);
 
 		// One quick white blink, like a camera flash (for screenshots)
 		void flash();

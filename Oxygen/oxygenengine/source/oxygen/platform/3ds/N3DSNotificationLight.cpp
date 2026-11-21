@@ -35,6 +35,7 @@ namespace n3ds
 			LightLock gLock;			// Guards the animation state and the writes to the light
 			LightEvent gWakeEvent;
 			Animation gAnimation = Animation::NONE;
+			Color gColor = Color::PURPLE;
 			uint64_t gAnimationStart = 0;		// System ticks
 			bool gLit = false;
 
@@ -116,6 +117,10 @@ namespace n3ds
 							setColor(0, 0, 0);
 							gAnimation = Animation::NONE;
 						}
+						else if (animation == Animation::PULSE && gColor == Color::PINK)
+						{
+							setColor((u8)(brightness * 255.0f), (u8)(brightness * 40.0f), (u8)(brightness * 110.0f));		// Pink: mostly red, a bit of blue
+						}
 						else if (animation == Animation::PULSE)
 						{
 							setColor((u8)(brightness * 150.0f), 0, (u8)(brightness * 255.0f));		// Purple: red and blue, no green
@@ -167,21 +172,22 @@ namespace n3ds
 				return (gState == State::READY);
 			}
 
-			void start(Animation animation)
+			void start(Animation animation, Color color = Color::PURPLE)
 			{
 				if (!initialize())
 					return;
 				LightLock_Lock(&gLock);
 				gAnimation = animation;
+				gColor = color;
 				gAnimationStart = svcGetSystemTick();
 				LightLock_Unlock(&gLock);
 				LightEvent_Signal(&gWakeEvent);
 			}
 		}
 
-		void pulse()
+		void pulse(Color color)
 		{
-			start(Animation::PULSE);
+			start(Animation::PULSE, color);
 		}
 
 		void flash()
