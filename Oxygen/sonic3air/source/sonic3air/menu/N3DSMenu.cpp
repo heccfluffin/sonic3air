@@ -203,6 +203,9 @@ namespace
 		// Super Sonic flying (character_graphics.lemon, intro_sonic.lemon): his art is copied per frame, then his gold colors from the palette cycle
 		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x148378, 0x21, 0x100000 } }, 0x0a8a3c,
 		  { { 0x146816, 0x0000, 0x21, 0, 0, 0x100 } }, 0x0039be },
+		// Tails jumping back in shock (his hurt frame)
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x14a08a, 0x89, 0x3200e0 } }, 0x0a8a3c,
+		  { { 0x148eb8, 0x0000, 0x89, 0, 0, 0x100 } } },
 	};
 
 	// The bosses' arenas, drawn from the level in the ROM (positions from the boss scripts and the level object lists)
@@ -210,7 +213,7 @@ namespace
 	const LevelView ARENAS[] =
 	{
 		{ 3, 0, LevelView::Setup::NONE,      620, 830, false, 0, 0 },					// Carnival Night 1: the miniboss room is in the background layer
-		{ 7, 0, LevelView::Setup::NONE,       60, 400, true, 0x42f2, 0x070d },		// Mushroom Hill 1: Hey Ho's clearing
+		{ 7, 0, LevelView::Setup::NONE,       60, 412, true, 0x42f2, 0x073d },		// Mushroom Hill 1: Hey Ho's clearing
 		{ 0, 1, LevelView::Setup::AIZ2_BOSS,  60, 330, true, 0x4180, 0x0190 },		// Angel Island 2: the burning jungle where Sonic meets the flame craft
 		{ 5, 0, LevelView::Setup::NONE,      260,  20, true, 0x075a, 0x0250 },		// IceCap 1: the snowy slope
 	};
@@ -233,6 +236,7 @@ namespace
 		{ "firecraft", nullptr, 0, 0, 0, 0, 2 },
 		{ "icecapboss", nullptr, 0, 0, 0, 0, 3 },
 		{ "supersonic", nullptr, 0, 0, 0, 0, 4 },
+		{ "tailsshock", nullptr, 0, 0, 0, 0, 5 },
 	};
 
 	struct SceneActor
@@ -265,7 +269,7 @@ namespace
 	};
 	const FunnyPostcard FUNNY_POSTCARDS[] =
 	{
-		{ "staydry", "zone02_act1a", 312, "WISH YOU WERE HERE", "Hydrocity is lovely! I'm keeping to the dry bits. - Tails", { { "tails", 24, 24, false, 0 } }, {  } },
+		{ "staydry", "zone02_act1a", 312, "WISH YOU WERE HERE", "Hydrocity is lovely! I'm keeping to the dry bits. - Tails", { { "tailsshock", 30, 31, false, 0 } }, {  } },
 		{ "snowday", "zone05_act1b", 100, "SNOW DAY", "Forgot my coat. Too fast to get cold anyway. - Sonic", { { "sonic", 30, 25, false, 0 } }, {  } },
 		{ "photobomb", "zone01_act1a", 170, "PHOTOBOMB", "Our beach holiday picture. Someone snuck into it.", { { "sonictails", 44, 27, false, 0 }, { "knuckles", 136, 26, true, 0 } }, {  } },
 		{ "sleepy", "zone07_act2a", 312, "SLEEPY DAYS", "Tails is napping in the autumn leaves. Shh!", { { "yawn", 58, 41, false, 0 } }, { { 18, 12, 16, 18, 18, 36 }, { 42, 12, 40, 18, 42, 36 } } },
@@ -281,7 +285,7 @@ namespace
 		{ "airship", "zone08_act2b", 200, "ON DECK", "Tails says he could fly this airship better than Eggman.", { { "tails", 30, 19, false, 0 } }, { { 130, 40, 34, 17, 38, 40 } } },
 		{ "bubble", "zone02_act1b", 0, "WRONG SHIELD", "Brought the wrong shield. Holding my breath! - Sonic", { { "shield", 62, 18, false, 0 }, { "sonic", 68, 22, false, 0 } }, {  } },
 		{ "coldcall", nullptr, 0, "A COLD WELCOME", "Met a new friend in IceCap. A little frosty, though.", { { "icecapboss", 200, 30, false, 0 }, { "ball", 80, 69, false, 0 } }, {  }, 3, 70, 30 },
-		{ "heyho", nullptr, 0, "LUMBERJACK", "Met a lumberjack in the woods. He really likes his axe.", { { "heyho", 110, 40, false, 0 }, { "knuckles", 250, 77, true, 0 } }, {  }, 1, 100, 36 },
+		{ "heyho", nullptr, 0, "LUMBERJACK", "Met a lumberjack in the woods. He really likes his axe.", { { "heyho", 110, 50, false, 0 }, { "knuckles", 250, 95, true, 0 } }, {  }, 1, 100, 56 },
 		{ "highfive", "zone12_act1b", 260, "HIGH FIVE", "Eggrobo wanted a high five. Sonic gave him a spin attack.", { { "ball", 26, 14, false, 0 } }, { { 0, 20, 58, 30, 0, 50 }, { 60, 20, 12, 4, 60, 76 } } },
 		{ "bigone", "zone14_act1b", 40, "THE BIG ONE", "Eggman's ship looked smaller in the brochure. - Sonic", { { "supersonic", 6, 30, false, 0 } }, {  } },
 		{ "spintop", nullptr, 0, "TOP OF THE SHOW", "This top spins faster than me. Almost. - Sonic", { { "spintop", 200, 57, false, 0 }, { "sonic", 70, 91, false, 0 } }, {  }, 0, 66, 52 },
