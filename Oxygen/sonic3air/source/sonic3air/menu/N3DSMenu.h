@@ -45,6 +45,7 @@ private:
 		APPEAR,
 		SHOW,
 		CONFIRM,		// Asking whether to buy the selected item
+		POSTCARD,		// Looking at a postcard of the journal, big
 		FADE_TO_MENU
 	};
 
@@ -76,6 +77,8 @@ private:
 	bool getItem(size_t tabIndex, uint32 data, Item& outItem) const;
 	void showMessage(const std::string& text, bool isError);
 	void renderConfirmation(float alpha);
+	void openPostcard();
+	void renderPostcard(float alpha);
 	void createIcons();
 
 	// Reading from the SD card and system storage happens on the background thread (it can take a second at times)
@@ -137,6 +140,10 @@ private:
 	DrawerTexture mDropDashFrames[2];
 	DrawerTexture mPeelOutFrames[4];
 	bool mHasMoveSprites = false;
+
+	// The postcard being looked at: its view of the zone picture, doubled in size when drawn
+	DrawerTexture mPostcardPicture;
+	bool mHasPostcardPicture = false;
 };
 
 #endif

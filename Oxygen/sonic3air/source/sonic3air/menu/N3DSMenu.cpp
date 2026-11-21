@@ -108,6 +108,67 @@ namespace
 		{ "Sandopolis",	 "A desert sunset over the pyramids, with boxes carved into sandstone.",	40, rgb(252, 216, 0), rgb(108, 0, 0),   rgb(0, 144, 0),    rgb(108, 36, 216) },
 	};
 
+	// The postcards' views: where in each zone picture (480 pixels wide) the postcard looks, and what it shows
+	struct PostcardView
+	{
+		const char* mSpriteName;
+		int mOffset;			// Left edge of the 200 pixels wide view
+		const char* mCaption;
+	};
+	const PostcardView POSTCARD_VIEWS[] =
+	{
+		{ "zone01_act1a", 40, "The jungle by the sea" },
+		{ "zone01_act1b", 60, "The jungle on fire" },
+		{ "zone01_act2a", 180, "After the fire" },
+		{ "zone01_act2b", 220, "Deep in the jungle" },
+		{ "zone02_act1a", 60, "Hydrocity's waterfalls" },
+		{ "zone02_act1b", 0, "Under the water" },
+		{ "zone02_act2a", 50, "The big water slide" },
+		{ "zone02_act2b", 200, "Down the waterways" },
+		{ "zone03_act1a", 180, "The fruit trees of the ruins" },
+		{ "zone03_act1b", 60, "Over the green hills" },
+		{ "zone03_act2a", 100, "Among the old pillars" },
+		{ "zone03_act2b", 180, "Palm trees and ruins" },
+		{ "zone04_act1a", 120, "Carnival lights" },
+		{ "zone04_act1b", 280, "The striped barrel" },
+		{ "zone04_act2a", 100, "Balloons at the carnival" },
+		{ "zone04_act2b", 160, "The carnival after dark" },
+		{ "zone05_act1a", 160, "Ice crystals" },
+		{ "zone05_act1b", 120, "The snowfields" },
+		{ "zone05_act2a", 60, "Below the ice cliffs" },
+		{ "zone05_act2b", 140, "Glittering ice caves" },
+		{ "zone06_act1a", 200, "The towers of the base" },
+		{ "zone06_act1b", 280, "The flying saucer" },
+		{ "zone06_act2a", 80, "The launch pool" },
+		{ "zone06_act2b", 200, "Inside the base" },
+		{ "zone07_act1a", 200, "The mushroom woods" },
+		{ "zone07_act1b", 140, "Among the tall trees" },
+		{ "zone07_act2a", 120, "Autumn leaves" },
+		{ "zone07_act2b", 180, "Giant mushrooms" },
+		{ "zone08_act1a", 220, "The airship in the sky" },
+		{ "zone08_act1b", 0, "Inside the airship" },
+		{ "zone08_act2a", 60, "The engine rooms" },
+		{ "zone08_act2b", 170, "On top of the airship" },
+		{ "zone09_act1a", 160, "Sunset over the desert" },
+		{ "zone09_act1b", 20, "Inside the pyramid" },
+		{ "zone09_act2a", 220, "Lights out in the pyramid" },
+		{ "zone09_act2b", 0, "Sinking sands" },
+		{ "zone10_act1a", 180, "The lava works" },
+		{ "zone10_act1b", 220, "The rocks of the reef" },
+		{ "zone10_act2a", 180, "Crystals of the reef" },
+		{ "zone10_act2b", 160, "Deep in the reef" },
+		{ "zone11_act1a", 280, "The palace walls" },
+		{ "zone11_act1b", 140, "The Master Emerald" },
+		{ "zone12_act1a", 0, "Ruins above the clouds" },
+		{ "zone12_act1b", 260, "High in the sky" },
+		{ "zone13_act1a", 140, "Aboard the Death Egg" },
+		{ "zone13_act1b", 140, "The Death Egg's machines" },
+		{ "zone13_act2a", 0, "A view of the planet" },
+		{ "zone13_act2b", 80, "Looking down on the world" },
+		{ "zone14_act1a", 260, "Asteroids in space" },
+		{ "zone14_act1b", 40, "Eggman's last ship" },
+	};
+
 	struct SecretInfo
 	{
 		uint32 mSecret;
@@ -183,6 +244,7 @@ GameMenuBase::BaseState N3DSMenu::getBaseState() const
 		case State::APPEAR:		  return BaseState::FADE_IN;
 		case State::SHOW:		  return BaseState::SHOW;
 		case State::CONFIRM:	  return BaseState::SHOW;
+		case State::POSTCARD:	  return BaseState::SHOW;
 		case State::FADE_TO_MENU: return BaseState::FADE_OUT;
 		default:				  return BaseState::INACTIVE;
 	}
@@ -775,7 +837,28 @@ void N3DSMenu::update(float timeElapsed)
 	const bool accept = (keys.Start.justPressed() || keys.A.justPressed() || keys.X.justPressed());
 	const bool back = (keys.Back.justPressed() || keys.B.justPressed());
 
-	if (mState == State::CONFIRM)
+	if (mState == State::POSTCARD)
+	{
+		// Left / right for the other postcards, any button back to the journal
+		GameMenuEntry& entry = mActiveMenu->selected();
+		const int direction = keys.Left.justPressedOrRepeat() ? -1 : keys.Right.justPressedOrRepeat() ? 1 : 0;
+		if (direction != 0 && entry.mData == JOURNAL_POSTCARDS)
+		{
+			const int index = (int)entry.mSelectedIndex + direction;
+			if (index >= 0 && index < (int)entry.mOptions.size())
+			{
+				entry.mSelectedIndex = index;
+				playMenuSound(0x5b);
+				openPostcard();
+			}
+		}
+		else if (accept || back)
+		{
+			playMenuSound(0xad);
+			mState = State::SHOW;
+		}
+	}
+	else if (mState == State::CONFIRM)
 	{
 		if (accept)
 		{
@@ -896,7 +979,14 @@ void N3DSMenu::onAccept()
 
 	if (mActiveTab == Tab::Id::JOURNAL)
 	{
-		return;		// Just to look at
+		// The postcards can be looked at big; the rest is just to look at
+		if (data == JOURNAL_POSTCARDS && mActiveMenu->selected().hasSelected())
+		{
+			playMenuSound(0x63);
+			mState = State::POSTCARD;
+			openPostcard();
+		}
+		return;
 	}
 	if (mActiveTab == Tab::Id::THEMES && (data == NIGHT_START || data == NIGHT_END))
 	{
@@ -1037,7 +1127,7 @@ void N3DSMenu::render()
 
 	int anchorX = 200;
 	float alpha = 1.0f;
-	if (mState != State::SHOW && mState != State::CONFIRM)
+	if (mState != State::SHOW && mState != State::CONFIRM && mState != State::POSTCARD)
 	{
 		anchorX += roundToInt((1.0f - mVisibility) * 300.0f);
 		alpha = mVisibility;
@@ -1328,10 +1418,16 @@ void N3DSMenu::render()
 						const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
 						const uint64 spriteKey = rmx::getMurmur2_64(postcard.getSpriteName());
 
-						// Back and forth over the 480 pixels wide picture, easing at both ends
-						const float phase = (float)std::fmod(FTX::getTime() / 14.0, 2.0);
-						const float f = (phase < 1.0f) ? phase : (2.0f - phase);
-						const int pan = roundToInt(f * f * (3.0f - 2.0f * f) * (float)(480 - window.width));
+						// The picture's best view, drifting gently a little to each side
+						const std::string spriteName = postcard.getSpriteName();
+						const PostcardView* view = nullptr;
+						for (const PostcardView& candidate : POSTCARD_VIEWS)
+						{
+							if (spriteName == candidate.mSpriteName)
+								view = &candidate;
+						}
+						const int baseOffset = (nullptr != view) ? view->mOffset : (480 - window.width) / 2;
+						const int pan = clamp(baseOffset + roundToInt(std::sin(FTX::getTime() * 0.35) * 10.0), 0, 480 - window.width);
 						drawer.drawRect(window, Color(0.1f, 0.1f, 0.15f, tabAlpha));
 						drawer.pushScissor(window);
 						drawer.drawSprite(Vec2i(window.x - pan, window.y), spriteKey, spriteKey, Color(1.0f, 1.0f, 1.0f, tabAlpha));
@@ -1353,14 +1449,18 @@ void N3DSMenu::render()
 
 						drawer.printText(global::mSonicFontB, Recti(px + 34, py + 7, 0, 10), "POSTCARDS", 1, color);
 						drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 8, 0, 10), String(0, "%d / %d", (int)postcards.size(), n3ds::journal::getNumPossiblePostcards()), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
-						drawer.printText(global::mOxyfontSmall, Recti(px + 34, py + 30, 0, 10), name, 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
-						drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 44, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 1, color2);
+						drawer.printText(global::mOxyfontSmall, Recti(px + 34, py + 26, 0, 10), name, 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+						if (nullptr != view)
+							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 39, 0, 10), view->mCaption, 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 53, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 1, color2);
 						if (postcards.size() > 1)
 						{
 							const String flip(0, "%s %d of %d %s", (entry.mSelectedIndex > 0) ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)postcards.size(),
 											  (entry.mSelectedIndex + 1 < entry.mOptions.size()) ? ">" : " ");
 							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 70, 0, 10), flip, 1, isSelected ? color : color2);
 						}
+						if (isSelected)
+							drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 70, 0, 10), "A: Look closer", 3, color);
 					}
 					else
 					{
@@ -1546,8 +1646,118 @@ void N3DSMenu::render()
 
 	if (mState == State::CONFIRM)
 		renderConfirmation(alpha);
+	else if (mState == State::POSTCARD)
+		renderPostcard(alpha);
 
 	drawer.performRendering();
+}
+
+namespace
+{
+	const PostcardView* findPostcardView(const std::string& spriteName)
+	{
+		for (const PostcardView& view : POSTCARD_VIEWS)
+		{
+			if (spriteName == view.mSpriteName)
+				return &view;
+		}
+		return nullptr;
+	}
+
+	// Like "Marble Garden", without " Zone"
+	std::string getPostcardZoneName(const std::string& spriteName)
+	{
+		std::string zoneName = "Somewhere";
+		for (const SharedDatabase::Zone& zone : SharedDatabase::getAllZones())
+		{
+			if (zone.mShortName.compare(0, 6, spriteName, 0, 6) == 0)
+				zoneName = zone.mDisplayName;
+		}
+		if (zoneName.length() > 5 && zoneName.compare(zoneName.length() - 5, 5, " Zone") == 0)
+			zoneName.resize(zoneName.length() - 5);
+		return zoneName;
+	}
+
+	const int POSTCARD_VIEW_WIDTH = 168;		// Of the zone picture, drawn twice as big
+}
+
+void N3DSMenu::openPostcard()
+{
+	// The zone picture straight from its file, just the postcard's view of it (the drawer can't scale palette sprites)
+	mHasPostcardPicture = false;
+	const GameMenuEntry& entry = mActiveMenu->selected();
+	const std::vector<n3ds::journal::Postcard>& postcards = n3ds::journal::get().mPostcards;
+	if (!entry.hasSelected() || entry.selected().mValue >= postcards.size())
+		return;
+	const std::string spriteName = postcards[entry.selected().mValue].getSpriteName();
+
+	Bitmap picture;
+	if (!FileHelper::loadBitmap(picture, L"data/sprites/zone_preview/" + std::wstring(spriteName.begin(), spriteName.end()) + L".bmp", false) || picture.getWidth() < POSTCARD_VIEW_WIDTH || picture.getHeight() < 80)
+		return;
+	const PostcardView* view = findPostcardView(spriteName);
+	const int center = (nullptr != view) ? (view->mOffset + 100) : (picture.getWidth() / 2);
+	const int x0 = clamp(center - POSTCARD_VIEW_WIDTH / 2, 0, picture.getWidth() - POSTCARD_VIEW_WIDTH);
+
+	Bitmap& bitmap = mPostcardPicture.accessBitmap();
+	bitmap.create(POSTCARD_VIEW_WIDTH, 80);
+	for (int y = 0; y < 80; ++y)
+	{
+		for (int x = 0; x < POSTCARD_VIEW_WIDTH; ++x)
+			*bitmap.getPixelPointer(x, y) = *picture.getPixelPointer(x0 + x, y) | 0xff000000;
+	}
+	mPostcardPicture.bitmapUpdated();
+	mHasPostcardPicture = true;
+}
+
+void N3DSMenu::renderPostcard(float alpha)
+{
+	Drawer& drawer = EngineMain::instance().getDrawer();
+	const GameMenuEntry& entry = mActiveMenu->selected();
+	const std::vector<n3ds::journal::Postcard>& postcards = n3ds::journal::get().mPostcards;
+	if (!entry.hasSelected() || entry.selected().mValue >= postcards.size())
+		return;
+	const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
+	const std::string spriteName = postcard.getSpriteName();
+	const PostcardView* view = findPostcardView(spriteName);
+
+	// Darken everything, then the card: cream, with a slight shadow, and the picture doubled in size
+	drawer.drawRect(Recti(0, 0, (int)mRect.width, (int)mRect.height), Color(0.0f, 0.0f, 0.0f, 0.7f * alpha));
+	const Recti card(24, 4, 352, 202);
+	drawer.drawRect(Recti(card.x + 4, card.y + 4, card.width, card.height), Color(0.0f, 0.0f, 0.0f, 0.4f * alpha));
+	drawer.drawRect(card, Color(0.98f, 0.95f, 0.86f, alpha));
+	const Recti pictureRect(card.x + 8, card.y + 6, POSTCARD_VIEW_WIDTH * 2, 160);
+	if (mHasPostcardPicture)
+		drawer.drawRect(pictureRect, mPostcardPicture, Color(1.0f, 1.0f, 1.0f, alpha));
+	else
+		drawer.drawRect(pictureRect, Color(0.2f, 0.25f, 0.35f, alpha));
+
+	// A stamp in the corner: the stamp card's monitor of the day it arrived, with a postmark ring over it
+	if (mHasJournalIcons)
+	{
+		const Recti stampRect(card.x + card.width - 46, card.y + 3, 40, 40);
+		drawer.drawRect(Recti(stampRect.x - 2, stampRect.y - 2, stampRect.width + 4, stampRect.height + 4), Color(0.98f, 0.95f, 0.86f, alpha));
+		drawer.drawRect(Recti(stampRect.x + 4, stampRect.y + 4, 32, 32), mStampIcons[(postcard.mDate % 7)], Color(1.0f, 1.0f, 1.0f, alpha));
+	}
+
+	// "Greetings from Hydrocity" and the view's caption, on a dark band (the game's fonts have dark outlines, made for light text)
+	const int bandY = pictureRect.y + pictureRect.height + 2;
+	drawer.drawRect(Recti(pictureRect.x, bandY, pictureRect.width, 30), Color(0.22f, 0.1f, 0.05f, alpha));
+	String greeting(getPostcardZoneName(spriteName));
+	greeting.upperCase();
+	drawer.printText(global::mSonicFontB, Recti(card.x + 14, bandY + 3, 0, 10), String(0, "GREETINGS FROM %s", greeting.toStdString().c_str()), 1, Color(1.0f, 0.85f, 0.2f, alpha));
+	const int acts = (postcard.mZone == 11 || postcard.mZone == 12 || postcard.mZone == 14) ? 1 : 2;
+	std::string line = (nullptr != view) ? view->mCaption : std::string();
+	if (acts > 1)
+		line += (line.empty() ? "Act " : "  -  Act ") + std::to_string(postcard.mAct);
+	drawer.printText(global::mOxyfontSmall, Recti(card.x + 14, bandY + 17, 0, 10), line, 1, Color(1.0f, 1.0f, 1.0f, alpha));
+	drawer.printText(global::mOxyfontTiny, Recti(card.x + card.width - 14, bandY + 18, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 3, Color(0.9f, 0.8f, 0.7f, alpha));
+
+	// How to flip and go back
+	const bool canGoLeft = (entry.mSelectedIndex > 0);
+	const bool canGoRight = (entry.mSelectedIndex + 1 < entry.mOptions.size());
+	const String hint(0, "%s  %d of %d  %s        B: Back", canGoLeft ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)entry.mOptions.size(), canGoRight ? ">" : " ");
+	drawer.drawRect(Recti(0, (int)mRect.height - 16, (int)mRect.width, 16), Color(0.0f, 0.0f, 0.0f, 0.9f * alpha));
+	drawer.printText(global::mOxyfontSmall, Recti(200, (int)mRect.height - 12, 0, 10), hint, 5, Color(1.0f, 1.0f, 1.0f, alpha));
 }
 
 void N3DSMenu::renderConfirmation(float alpha)
