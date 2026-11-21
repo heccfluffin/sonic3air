@@ -191,8 +191,10 @@ namespace n3ds
 			save();
 		}
 
-		bool getSteps(uint32_t& outToday, uint32_t& outTotal)
+		bool getSteps(uint32_t& outTotal)
 		{
+			// Only the total: libctru's PTMU_GetStepHistory (for "steps today") describes its buffer with a size the PTM service
+			// doesn't expect (the Azahar emulator stops on that, expecting 2 bytes per hour), so it's not used
 			if (!gPtmInitialized)
 				gPtmInitialized = R_SUCCEEDED(ptmuInit());
 			if (!gPtmInitialized)
@@ -201,16 +203,6 @@ namespace n3ds
 			if (R_FAILED(PTMU_GetTotalStepCount(&total)))
 				return false;
 			outTotal = total;
-
-			// Today: the step history of the hours since midnight, including the current one
-			const int hours = n3ds::profile::getLocalTime().mHour + 1;
-			u16 history[24] = { 0 };
-			outToday = 0;
-			if (R_SUCCEEDED(PTMU_GetStepHistory((u32)hours, history)))
-			{
-				for (int i = 0; i < hours; ++i)
-					outToday += history[i];
-			}
 			return true;
 		}
 

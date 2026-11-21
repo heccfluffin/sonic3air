@@ -207,7 +207,7 @@ void N3DSMenu::onFadeIn()
 	mMessageTimeout = 5.0f;
 
 	// The 3DS step counter, for the journal (quick, no SD card involved)
-	mHasSteps = n3ds::journal::getSteps(mStepsToday, mStepsTotal);
+	mHasSteps = n3ds::journal::getSteps(mStepsTotal);
 
 	// Play Coins and the player's own pictures get read in the background: the menu opens right away, they show up when ready
 	const uint32 greetingMs = msSince(startTicks);
@@ -1287,8 +1287,8 @@ void N3DSMenu::render()
 							description = "Days you played - they don't need to be in a row.";
 							break;
 						case JOURNAL_STEPS:
-							status = mHasSteps ? (formatNumber(mStepsToday) + " TODAY") : std::string("---");
-							description = mHasSteps ? ("Walked with your 3DS. In total: " + formatNumber(mStepsTotal) + " steps. Walking earns Play Coins, up to 10 a day.")
+							status = mHasSteps ? formatNumber(mStepsTotal) : std::string("---");
+							description = mHasSteps ? std::string("Walked with your 3DS, as counted by its step counter. Walking earns Play Coins, up to 10 a day.")
 													: std::string("The 3DS step counter could not be read.");
 							break;
 						case JOURNAL_PLAY_COINS:

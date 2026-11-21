@@ -49,8 +49,8 @@ namespace n3ds
 		void addPurchase(int playCoins);
 		void addScreenshot();
 
-		// The 3DS step counter: steps today, and in total (false if they can't be read)
-		bool getSteps(uint32_t& outToday, uint32_t& outTotal);
+		// The 3DS step counter: steps in total (false if they can't be read)
+		bool getSteps(uint32_t& outTotal);
 
 		std::string formatDate(uint32_t yyyymmdd);		// Like "21 Nov 2026"
 	}

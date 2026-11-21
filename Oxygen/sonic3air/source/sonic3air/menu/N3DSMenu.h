@@ -130,8 +130,7 @@ private:
 	DrawerTexture mStampEmpty;
 	DrawerTexture mJournalIcons[NUM_JOURNAL_ICONS];
 	bool mHasJournalIcons = false;
-	uint32_t mStepsToday = 0;		// Read when the menu opens
-	uint32_t mStepsTotal = 0;
+	uint32_t mStepsTotal = 0;		// Read when the menu opens
 	bool mHasSteps = false;
 
 	// Sonic's move sprites for the Drop Dash and Super Peel-Out secrets (animated)
