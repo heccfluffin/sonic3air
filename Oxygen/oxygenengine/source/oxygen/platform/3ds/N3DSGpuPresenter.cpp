@@ -54,6 +54,7 @@ namespace n3ds
 			State gState = State::UNINITIALIZED;
 			C3D_RenderTarget* gTarget = nullptr;
 			DVLB_s* gShaderDvlb = nullptr;
+			u32 gTint = 0xFFFFFFFF;		// See "setTint", white for none
 			shaderProgram_s gProgram;
 			int gProjectionLocation = -1;
 			C3D_Mtx gProjection;
@@ -150,7 +151,20 @@ namespace n3ds
 					C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
 					C3D_TexEnvColor(env, 0xFFFF0000);	// Blue = 1
 				}
-				for (int stage = 3; stage < 6; ++stage)
+				{
+					// Stage 3: the tint (night mode), previous * constant color
+					C3D_TexEnv* env = C3D_GetTexEnv(3);
+					C3D_TexEnvInit(env);
+					if (gTint != 0xFFFFFFFF)
+					{
+						C3D_TexEnvSrc(env, C3D_RGB, GPU_PREVIOUS, GPU_CONSTANT, GPU_PRIMARY_COLOR);
+						C3D_TexEnvFunc(env, C3D_RGB, GPU_MODULATE);
+						C3D_TexEnvSrc(env, C3D_Alpha, GPU_PREVIOUS, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
+						C3D_TexEnvFunc(env, C3D_Alpha, GPU_REPLACE);
+						C3D_TexEnvColor(env, gTint);
+					}
+				}
+				for (int stage = 4; stage < 6; ++stage)
 				{
 					// Pass-through for the remaining stages
 					C3D_TexEnvInit(C3D_GetTexEnv(stage));
@@ -162,6 +176,11 @@ namespace n3ds
 				C3D_ImmSendAttrib(x, y, 0.5f, 0.0f);
 				C3D_ImmSendAttrib(u, v, 0.0f, 0.0f);
 			}
+		}
+
+		void setTint(uint8_t red, uint8_t green, uint8_t blue)
+		{
+			gTint = 0xFF000000 | ((u32)blue << 16) | ((u32)green << 8) | (u32)red;		// Format 0xAABBGGRR
 		}
 
 		void shutdown()

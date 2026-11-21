@@ -188,9 +188,11 @@ namespace
 		fake::setTime(2026, 11, 21, 19, 59);
 		frames(5);
 		shot("nightmode_off_sea");
+		check(fake::getTopScreenTint() == 0xffffff, "night mode off: the top screen has no tint");
 		n3ds::shop::get().mNightMode = n3ds::shop::NIGHT_MODE_ALWAYS;
 		frames(40);
 		shot("nightmode_always_sea");
+		check(fake::getTopScreenTint() != 0xffffff, "night mode on: the top screen gets the warm tint");
 
 		n3ds::shop::get().mNightMode = n3ds::shop::NIGHT_MODE_AFTER_DARK;
 		frames(40);
@@ -198,6 +200,7 @@ namespace
 		fake::advanceSeconds(61);
 		frames(40);
 		check(n3ds::shop::isNightModeActive(), "after dark: active at 20:00");
+		check(fake::getTopScreenTint() != 0xffffff, "... with the warm tint on the top screen too");
 		shot("nightmode_afterdark_2000_sea");
 		fake::setTime(2026, 11, 21, 6, 0);
 		check(!n3ds::shop::isNightModeActive(), "after dark: off again at 6:00");

@@ -28,6 +28,7 @@ namespace
 	u16 gFramebuffer[240 * 320];
 	GSPGPU_FramebufferFormat gFormat = GSP_BGR8_OES;
 	int gSwapCount = 0;
+	uint32_t gTopTint = 0xffffff;
 	std::vector<std::string> gLog;
 	std::mutex gLogMutex;
 
@@ -57,6 +58,7 @@ namespace fake
 	void setTouch(bool touching, int x, int y)	{ gNextTouching = touching; if (touching) { gTouchX = x; gTouchY = y; } }
 	void setSDCardDelay(int ms)			{ gSDCardDelayMs = ms; }
 	int getSwapCount()					{ return gSwapCount; }
+	uint32_t getTopScreenTint()			{ return gTopTint; }
 
 	bool saveScreenshot(const std::string& filename)
 	{
@@ -189,6 +191,10 @@ Result PTMU_GetBatteryLevel(u8* out)		{ *out = (u8)gBatteryLevel; return 0; }
 Result PTMU_GetBatteryChargeState(u8* out)	{ *out = gCharging ? 1 : 0; return 0; }
 
 // --- Engine stand-ins ---
+
+namespace n3ds { namespace gpu {
+	void setTint(uint8_t red, uint8_t green, uint8_t blue)	{ gTopTint = ((uint32_t)red << 16) | ((uint32_t)green << 8) | blue; }
+} }
 
 std::string rmx::convertToUTF8(const std::wstring& string)	{ return std::string(string.begin(), string.end()); }
 void rmx::UTF8Conversion::convertFromUTF8(const std::string& input, std::wstring& output)	{ output.assign(input.begin(), input.end()); }

@@ -16,7 +16,8 @@ namespace fake
 	void setTouch(bool touching, int x = 0, int y = 0);		// For the next "hidScanInput"
 	void setSDCardDelay(int ms);					// Extra time each write to the SD card takes
 
-	int getSwapCount();							// How often the bottom screen was presented
+	int getSwapCount();
+	uint32_t getTopScreenTint();				// As set by the night mode, 0xRRGGBB							// How often the bottom screen was presented
 	bool saveScreenshot(const std::string& filename);	// Bottom screen as a 320 x 240 PPM picture
 	const std::vector<std::string>& getLog();
 }

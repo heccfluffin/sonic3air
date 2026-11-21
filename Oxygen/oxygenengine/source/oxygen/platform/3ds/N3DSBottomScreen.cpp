@@ -22,6 +22,7 @@
 
 #include "oxygen/platform/3ds/N3DSShop.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
+#include "oxygen/platform/3ds/N3DSGpuPresenter.h"
 #include "oxygen/helper/FileHelper.h"
 
 // Overlay for the player's own background pictures: panels, buttons and texts with transparency (see make_bottom_screen.py)
@@ -157,7 +158,26 @@ namespace n3ds
 				{ s3air_bottom_screen_sunset_bin,  s3air_bottom_screen_sunset_bin_size },
 			};
 			int gTheme = -1;		// Theme currently unpacked into "gData"
-			bool gDimmed = false;		// Night mode: everything drawn at half brightness
+			bool gDimmed = false;		// Night mode: everything drawn in warmer, dimmer colors
+
+			// Night mode colors, as factors of 256 for red, green, blue. The bottom screen is mostly static and bright, so it gets
+			// dimmed as well; the top screen only gets warmer, the game should stay easy to see.
+			const constexpr int NIGHT_BOTTOM[3] = { 160, 128, 92 };
+			const constexpr uint8 NIGHT_TOP[3] = { 255, 212, 156 };
+			uint8 gNightTable5R[32];	// 5-bit red / blue and 6-bit green values, scaled
+			uint8 gNightTable6G[64];
+			uint8 gNightTable5B[32];
+
+			void initNightTables()
+			{
+				for (int i = 0; i < 32; ++i)
+				{
+					gNightTable5R[i] = (uint8)((i * NIGHT_BOTTOM[0] + 128) >> 8);
+					gNightTable5B[i] = (uint8)((i * NIGHT_BOTTOM[2] + 128) >> 8);
+				}
+				for (int i = 0; i < 64; ++i)
+					gNightTable6G[i] = (uint8)((i * NIGHT_BOTTOM[1] + 128) >> 8);
+			}
 			int gRequestedTheme = n3ds::shop::THEME_BLUE;	// What should be shown: can be THEME_AUTO, which changes with the time of day
 
 			bool parseParts(uLongf size)
@@ -354,10 +374,12 @@ namespace n3ds
 				gfxSetDoubleBuffering(GFX_BOTTOM, false);
 			}
 
-			// Half brightness for the night mode: each RGB565 channel shifted down by one bit
+			// Night mode colors for an RGB565 pixel
 			inline u16 dimmed(u16 pixel)
 			{
-				return gDimmed ? (u16)((pixel >> 1) & 0x7bef) : pixel;
+				if (!gDimmed)
+					return pixel;
+				return (u16)((gNightTable5R[pixel >> 11] << 11) | (gNightTable6G[(pixel >> 5) & 0x3f] << 5) | gNightTable5B[pixel & 0x1f]);
 			}
 
 			// Draws a part into the framebuffer, which is rotated: 240 x 320, screen pixel (x, y) is at index x * 240 + (239 - y)
@@ -530,10 +552,13 @@ namespace n3ds
 						const int r = ((pixel >> 11) & 0x1f) * 255 / 31;
 						const int g = ((pixel >> 5) & 0x3f) * 255 / 63;
 						const int b = (pixel & 0x1f) * 255 / 31;
-						const int shift = gDimmed ? 1 : 0;		// The background is dimmed already
-						const int outR = ((src[0] >> shift) * alpha + r * (255 - alpha)) / 255;
-						const int outG = ((src[1] >> shift) * alpha + g * (255 - alpha)) / 255;
-						const int outB = ((src[2] >> shift) * alpha + b * (255 - alpha)) / 255;
+						// The background has the night mode colors already, the glyph gets them here
+						const int srcR = gDimmed ? (src[0] * NIGHT_BOTTOM[0]) >> 8 : src[0];
+						const int srcG = gDimmed ? (src[1] * NIGHT_BOTTOM[1]) >> 8 : src[1];
+						const int srcB = gDimmed ? (src[2] * NIGHT_BOTTOM[2]) >> 8 : src[2];
+						const int outR = (srcR * alpha + r * (255 - alpha)) / 255;
+						const int outG = (srcG * alpha + g * (255 - alpha)) / 255;
+						const int outB = (srcB * alpha + b * (255 - alpha)) / 255;
 						pixel = (u16)(((outR >> 3) << 11) | ((outG >> 2) << 5) | (outB >> 3));
 					}
 				}
@@ -696,6 +721,7 @@ namespace n3ds
 			void initialize()
 			{
 				gInitialized = true;
+				initNightTables();
 				gDataValid = loadArtwork(n3ds::shop::get().mSelectedTheme);
 				initializeClock();
 				createCustomThemesFolder();
@@ -772,6 +798,10 @@ namespace n3ds
 				{
 					gDimmed = dim;
 					gNeedsFullRedraw = true;
+					if (dim)
+						n3ds::gpu::setTint(NIGHT_TOP[0], NIGHT_TOP[1], NIGHT_TOP[2]);
+					else
+						n3ds::gpu::setTint(255, 255, 255);
 				}
 			}
 			if (!gDataValid)

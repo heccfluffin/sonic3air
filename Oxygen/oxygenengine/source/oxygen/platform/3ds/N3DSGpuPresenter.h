@@ -9,6 +9,9 @@
 #pragma once
 
 
+#include <stdint.h>
+
+
 namespace n3ds
 {
 	namespace gpu
@@ -21,6 +24,9 @@ namespace n3ds
 		//  - Returns false if the GPU path is not available (e.g. initialization failed, or unsupported sizes);
 		//    the caller should then present via SDL
 		bool present(const void* pixels, int width, int height, int pitchBytes, int targetX, int targetY, int targetWidth, int targetHeight);
+
+		// Color the top screen gets multiplied with, e.g. warmer colors for the night mode; 255, 255, 255 for none
+		void setTint(uint8_t red, uint8_t green, uint8_t blue);
 
 		// Releases all GPU resources and shuts down citro3d; call before the graphics system (gfx) gets shut down on exit.
 		// Presenting is not available anymore afterwards.
