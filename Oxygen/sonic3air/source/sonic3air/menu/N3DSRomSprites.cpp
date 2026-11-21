@@ -279,6 +279,27 @@ namespace n3ds
 						}
 						return true;
 					}
+
+					case ArtLoad::Type::CHARACTER_FRAME:
+					{
+						// The players' art isn't compressed: for each frame, a list of tile runs to copy (character_graphics.lemon)
+						uint32 address = artLoad.mAddress + rom.read16(artLoad.mAddress + artLoad.mTarget * 2);
+						const int count = std::min<int>(rom.read16(address), 16);
+						uint16 target = 0;
+						for (int i = 0; i < count; ++i)
+						{
+							address += 2;
+							const uint16 entry = rom.read16(address);
+							const uint32 source = artLoad.mSource + ((entry & 0x0fff) << 5);
+							const int bytes = (0x10 + ((entry & 0xf000) >> 8)) * 2;
+							data.resize(bytes);
+							for (int k = 0; k < bytes; ++k)
+								data[k] = rom.read8(source + k);
+							vram.put(target, data);
+							target += bytes;
+						}
+						return true;
+					}
 				}
 				return false;
 			}
@@ -375,6 +396,13 @@ namespace n3ds
 
 			uint32 palettes[4][16];
 			readPaletteLine(rom, MAIN_PALETTE, palettes[0]);
+			if (sprite.mSuperColors != 0)
+			{
+				uint32 superColors[16];
+				readPaletteLine(rom, sprite.mSuperColors, superColors);
+				for (int i = 0; i < 3; ++i)
+					palettes[0][2 + i] = superColors[i];
+			}
 			readPaletteLine(rom, sprite.mPaletteLine1, palettes[1]);
 			for (int line = 2; line < 4; ++line)
 				for (int i = 0; i < 16; ++i)

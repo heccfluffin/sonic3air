@@ -19,10 +19,11 @@ namespace n3ds
 	{
 		struct ArtLoad
 		{
-			enum class Type : uint8 { NONE, KOSINSKI_MODULED, NEMESIS, PATTERN_LOADING_CUE };
+			enum class Type : uint8 { NONE, KOSINSKI_MODULED, NEMESIS, PATTERN_LOADING_CUE, CHARACTER_FRAME };
 			Type mType = Type::NONE;
-			uint32 mAddress = 0;		// In the ROM, or the cue's index
-			uint16 mTarget = 0;			// In VRAM
+			uint32 mAddress = 0;		// In the ROM, or the cue's index; for CHARACTER_FRAME the table of art pieces per frame
+			uint16 mTarget = 0;			// In VRAM; for CHARACTER_FRAME the frame (its art goes to the start of VRAM)
+			uint32 mSource = 0;			// CHARACTER_FRAME only: the uncompressed art the pieces are copied from
 		};
 
 		// One sprite of a boss: like a child object the game spawns, with its mappings, tiles, frame and offset
@@ -42,6 +43,7 @@ namespace n3ds
 			ArtLoad mLoads[3];
 			uint32 mPaletteLine1 = 0;
 			SpritePart mParts[8];
+			uint32 mSuperColors = 0;	// If set: colors 2 to 4 of palette line 0 come from here (like Super Sonic's gold)
 		};
 
 		// Draws the whole sprite into the bitmap (sized to fit it, see-through around it); false if the ROM data doesn't look right
