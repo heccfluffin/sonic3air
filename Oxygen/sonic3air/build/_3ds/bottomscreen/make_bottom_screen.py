@@ -357,6 +357,43 @@ def metal_box(img, box, fill, fill_alpha=255, pressed=False):
 	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
 
 
+def tower_box(img, box, fill, fill_alpha=255, pressed=False, orbs=False, highlight=None):
+	"""A frame shaded like the towers in the theme's picture - lit from the left, like a cylinder: light purple on the left,
+	fading to dark on the right - with a dark outline, and optionally an orb on the two top corners like on the zone's poles.
+	The inside can be see-through; "highlight" draws a light line along the inside's top. Crisp pixel art, drawn at 1:1."""
+	x0, y0, x1, y1 = box
+	if pressed:
+		y0 += 1
+		y1 += 1
+	outline = THEME.get('tower_outline', (0, 0, 36))
+	left = THEME.get('tower_light', (144, 72, 252))
+	right = THEME.get('tower_dark', (36, 36, 144))
+	layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+	d = ImageDraw.Draw(layer)
+	x1 -= 1
+	y1 -= 1
+	d.rounded_rectangle((x0, y0, x1, y1), radius=3, fill=outline + (255,))
+	# The border: each column in its color between light (left) and dark (right)
+	for x in range(x0 + 1, x1):
+		t = (x - x0) / max(1, x1 - x0)
+		col = mix(left, right, t)
+		top, bottom = y0 + 1, y1 - 1
+		if x in (x0 + 1, x1 - 1):
+			top, bottom = y0 + 2, y1 - 2		# Rounded corners
+		d.line((x, top, x, bottom), fill=col + (255,))
+	d.rectangle((x0 + 3, y0 + 3, x1 - 3, y1 - 3), fill=outline + (255,))					# Inner outline
+	d.rectangle((x0 + 4, y0 + 4, x1 - 4, y1 - 4), fill=fill + (fill_alpha,))				# Inside (replaces pixels: can be see-through)
+	if highlight is not None:
+		d.line((x0 + 5, y0 + 5, x1 - 5, y0 + 5), fill=highlight + (255,))
+	if orbs:
+		orb = THEME.get('tower_orb', (216, 180, 252))
+		for cx in (x0 + 3, x1 - 3):
+			d.ellipse((cx - 3, y0 - 2, cx + 3, y0 + 4), fill=outline + (255,))
+			d.ellipse((cx - 2, y0 - 1, cx + 2, y0 + 3), fill=orb + (255,))
+			d.point((cx - 1, y0), fill=(255, 255, 255, 255))
+	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
+
+
 def framed_box(img, box, inner_fill, inner_alpha):
 	"""Thick light frame with a drop shadow to the bottom right, around a translucent tinted inside."""
 	x0, y0, x1, y1 = box
@@ -379,6 +416,9 @@ def panel(img, box, radius=10, alpha=60):
 		return
 	if THEME.get('frame') == 'metal':
 		metal_box(img, box, THEME.get('panel', (16, 8, 70)), THEME.get('panel_alpha', 190))
+		return
+	if THEME.get('frame') == 'tower':
+		tower_box(img, box, THEME.get('panel', (0, 0, 36)), THEME.get('panel_alpha', 170), orbs=True)
 		return
 	if THEME.get('frame') == 'none':
 		# The picture draws its own frames: just a flat, dark, see-through shade inside them, so the text stays easy to read
@@ -416,8 +456,9 @@ THEMES = [
 	  'frame_light': (236, 236, 252), 'frame_shadow': (150, 148, 214), 'panel': (130, 126, 200), 'stats': (130, 126, 200),
 	  'save': (80, 170, 120), 'load': (120, 110, 210), 'outline': (70, 60, 150) },
 	# Picture made by the port's author (themes/skycity.png), replacing the drawn clouds and towers: purple towers above green fields
-	{ 'id': 'city',    'name': 'Sky City',        'style': 'image', 'image': 'skycity.png', 'light': (144, 72, 252), 'dark': (36, 0, 180),
-	  'save': (36, 180, 0), 'load': (108, 36, 216), 'outline': (36, 0, 100) },		# The picture's green and purple
+	{ 'id': 'city',    'name': 'Sky City',        'style': 'image', 'image': 'skycity.png', 'frame': 'tower', 'light': (144, 72, 252), 'dark': (36, 0, 180),
+	  'panel': (0, 0, 36), 'panel_alpha': 170, 'tower_light': (144, 72, 252), 'tower_dark': (36, 36, 144), 'tower_orb': (216, 180, 252),
+	  'save': (36, 180, 0), 'load': (108, 36, 216), 'stats': (72, 180, 144), 'outline': (20, 0, 70) },	# Bush green, tower purple, floor teal
 	{ 'id': 'aurora',  'name': 'Aurora',          'style': 'gradient', 'corners': ((40, 150, 215), (150, 110, 210), (60, 130, 90), (120, 70, 150)),
 	  'light': (120, 150, 215), 'dark': (60, 70, 140), 'save': (60, 180, 110), 'load': (110, 120, 230), 'outline': (40, 40, 110) },
 	{ 'id': 'sunset',  'name': 'Sunset Glow',     'style': 'gradient', 'corners': ((255, 170, 80), (240, 110, 120), (200, 90, 140), (110, 60, 150)),
@@ -853,6 +894,9 @@ def big_button(img, box, rgb, word, state):
 		sign_box(img, box, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	elif THEME.get('frame') == 'metal':
 		metal_box(img, box, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
+	elif THEME.get('frame') == 'tower':
+		fill = mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col
+		tower_box(img, box, fill, 255, pressed=(state == 'pressed'), highlight=mix(fill, (255, 255, 255), 0.45))
 	else:
 		glossy(img, box, 'rect', col, radius=14, pressed=(state == 'pressed'))
 	cx = (box[0] + box[2]) / 2
@@ -880,6 +924,9 @@ def stats_button(img, state):
 	elif THEME.get('frame') == 'metal':
 		col = THEME.get('stats', STATS_COLOR)
 		metal_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
+	elif THEME.get('frame') == 'tower':
+		col = THEME.get('stats', STATS_COLOR)
+		tower_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	elif THEME.get('frame') == 'none':
 		# Flat, in one solid color like the big buttons; the picture may want it a bit elsewhere to fit inside its frame
 		col = THEME.get('stats', STATS_COLOR)
