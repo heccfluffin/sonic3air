@@ -51,7 +51,7 @@ namespace n3ds
 				}
 			};
 
-			// Kosinski moduled: like the engine's own sprite decoding (SpriteCollection, encoding KOSINSKI)
+			// Kosinski moduled: the size, then blocks of up to 0x1000 bytes, each padded to 16 bytes counted from the start of the data
 			bool decompressKosinskiModuled(const Rom& rom, uint32 address, std::vector<uint8>& output)
 			{
 				if (!rom.valid(address, 2))
@@ -60,7 +60,8 @@ namespace n3ds
 				uint16 size = rom.read16(address);
 				if (size == 0xa000)
 					size = 0x8000;
-				uint32 inputAddress = address + 2;
+				const uint32 start = address + 2;
+				uint32 inputAddress = start;
 				static uint8 buffer[0x2000];
 				while (size > 0)
 				{
@@ -70,10 +71,10 @@ namespace n3ds
 					Kosinski::decompress(emulatorInterface, pointer, inputAddress);
 					const uint16 bytes = std::min<uint16>(size, 0x1000);
 					output.insert(output.end(), buffer, buffer + bytes);
-					if (size < 0x1000)
+					if (size <= 0x1000)
 						break;
 					size -= bytes;
-					inputAddress += 8;		// As the engine does it
+					inputAddress = start + ((inputAddress - start + 15) & ~15u);
 				}
 				return true;
 			}
