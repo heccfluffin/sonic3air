@@ -163,10 +163,10 @@ namespace
 		{ "zone11_act1b", 140, "The Master Emerald" },
 		{ "zone12_act1a", 0, "Ruins above the clouds" },
 		{ "zone12_act1b", 260, "High in the sky" },
-		{ "zone13_act1a", 140, "Aboard the Death Egg" },
-		{ "zone13_act1b", 140, "The Death Egg's machines" },
-		{ "zone13_act2a", 0, "A view of the planet" },
-		{ "zone13_act2b", 80, "Looking down on the world" },
+		{ "zone13_act1a", 0, "A spiky welcome" },
+		{ "zone13_act1b", 0, "The conveyor halls" },
+		{ "zone13_act2a", 280, "Eggman's monitors" },
+		{ "zone13_act2b", 0, "Critters in capsules" },
 		{ "zone14_act1a", 260, "Asteroids in space" },
 		{ "zone14_act1b", 40, "Eggman's last ship" },
 	};
@@ -200,6 +200,13 @@ namespace
 		int mX = 0;					// In the zone picture's view (168 x 80)
 		int mY = 0;
 		bool mFlip = false;
+		int mClipY = 0;				// If not 0: only drawn above this row (sunk into sand)
+	};
+
+	struct ScenePatch				// Copies a part of the view over another, to hide an enemy or rings that aren't part of the scene
+	{
+		int mSourceX = 0, mSourceY = 0, mWidth = 0, mHeight = 0;
+		int mTargetX = 0, mTargetY = 0;
 	};
 
 	struct FunnyPostcard
@@ -210,24 +217,25 @@ namespace
 		const char* mHeadline;
 		const char* mMessage;
 		SceneActor mActors[7];
+		ScenePatch mPatches[2];
 	};
 	const FunnyPostcard FUNNY_POSTCARDS[] =
 	{
-		{ "staydry", "zone02_act1a", 312, "WISH YOU WERE HERE", "Hydrocity is lovely! I'm keeping to the dry bits. - Tails", { { "tails", 4, 26, false } } },
-		{ "snowday", "zone05_act1b", 100, "SNOW DAY", "Forgot my coat. Too fast to get cold anyway. - Sonic", { { "sonic", 30, 26, false } } },
-		{ "photobomb", "zone01_act1a", 170, "PHOTOBOMB", "Our beach holiday picture. Someone snuck into it.", { { "sonictails", 20, 32, false }, { "knuckles", 140, 32, true } } },
-		{ "sleepy", "zone07_act2a", 312, "SLEEPY DAYS", "Tails is napping in the autumn leaves. Shh!", { { "yawn", 58, 42, false } } },
-		{ "wrongmonitor", "zone06_act1a", 312, "SURPRISE INSIDE", "Knuckles opened the wrong monitor. Again.", { { "monitor", 36, 38, false }, { "eggicon", 44, 41, false }, { "knuckles", 76, 30, true } } },
-		{ "decoys", "zone13_act1a", 200, "SPOT THE REAL ONE", "Eggman sent his very best. All of them.", { { "monitor", 8, 36, false }, { "eggicon", 16, 39, false }, { "monitor", 44, 36, false }, { "eggicon", 52, 39, false }, { "monitor", 80, 36, false }, { "eggicon", 88, 39, false }, { "sonic", 120, 28, true } } },
-		{ "speedlimit", "zone09_act1a", 100, "SPEED LIMIT", "Written at top speed. Sorry about the handwriting!", { { "peelout", 50, 34, false } } },
-		{ "rolling", "zone03_act1b", 100, "ROLLING ALONG", "Saw Marble Garden from every angle. Mostly upside down.", { { "ball", 70, 40, false } } },
-		{ "skyhigh", "zone12_act1b", 0, "HIGH IN THE SKY", "Great view up here. The edge is closer than it looks.", { { "sonictails", 56, 20, false } } },
-		{ "warm", "zone10_act1b", 0, "A WARM WELCOME", "It's not hot down here. It's warm. - Knuckles", { { "knuckles", 110, 34, true } } },
-		{ "scenic", "zone14_act1a", 100, "THE SCENIC ROUTE", "Hitched a ride on a missile. Best view of the stars!", { { "sonic", 102, 25, false } } },
-		{ "carnival", "zone04_act1a", 0, "CARNIVAL FUN", "We rode the barrel 400 times. Tails wants to go again.", { { "sonictails", 106, 29, true } } },
-		{ "sinking", "zone09_act2b", 0, "SINKING FEELING", "I'll be finding sand in my shoes for weeks. - Knuckles", { { "knuckles", 100, 50, false } } },
-		{ "airship", "zone08_act2b", 200, "ON DECK", "Tails says he could fly this airship better than Eggman.", { { "tails", 30, 18, false } } },
-		{ "bubble", "zone02_act1b", 0, "UNDER THE SEA", "Brought my own air. The fish were jealous. - Sonic", { { "shield", 64, 24, false }, { "sonic", 68, 28, false } } },
+		{ "staydry", "zone02_act1a", 312, "WISH YOU WERE HERE", "Hydrocity is lovely! I'm keeping to the dry bits. - Tails", { { "tails", 4, 24, false, 0 } }, {  } },
+		{ "snowday", "zone05_act1b", 100, "SNOW DAY", "Forgot my coat. Too fast to get cold anyway. - Sonic", { { "sonic", 30, 25, false, 0 } }, {  } },
+		{ "photobomb", "zone01_act1a", 170, "PHOTOBOMB", "Our beach holiday picture. Someone snuck into it.", { { "sonictails", 44, 27, false, 0 }, { "knuckles", 136, 26, true, 0 } }, {  } },
+		{ "sleepy", "zone07_act2a", 312, "SLEEPY DAYS", "Tails is napping in the autumn leaves. Shh!", { { "yawn", 58, 41, false, 0 } }, {  } },
+		{ "wrongmonitor", "zone06_act1a", 312, "SURPRISE INSIDE", "Knuckles opened the wrong monitor. Again.", { { "monitor", 30, 32, false, 0 }, { "eggicon", 38, 35, false, 0 }, { "knuckles", 70, 24, true, 0 } }, {  } },
+		{ "decoys", "zone13_act1b", 100, "SPOT THE REAL ONE", "Eggman sent his very best. All of them.", { { "monitor", 10, 24, false, 0 }, { "eggicon", 18, 27, false, 0 }, { "monitor", 44, 24, false, 0 }, { "eggicon", 52, 27, false, 0 }, { "monitor", 78, 24, false, 0 }, { "eggicon", 86, 27, false, 0 }, { "sonic", 118, 16, true, 0 } }, {  } },
+		{ "speedlimit", "zone09_act1a", 100, "SPEED LIMIT", "Written at top speed. Sorry about the handwriting!", { { "peelout", 92, 33, false, 0 } }, { { 120, 6, 20, 26, 148, 6 } } },
+		{ "rolling", "zone03_act1b", 100, "ROLLING ALONG", "Saw Marble Garden from every angle. Mostly upside down.", { { "ball", 70, 40, false, 0 } }, {  } },
+		{ "skyhigh", "zone12_act1b", 0, "HIGH IN THE SKY", "Great view up here. The edge is closer than it looks.", { { "sonictails", 24, 3, false, 0 } }, {  } },
+		{ "warm", "zone10_act1b", 0, "A WARM WELCOME", "It's not hot down here. It's warm. - Knuckles", { { "knuckles", 46, 27, false, 0 } }, {  } },
+		{ "scenic", "zone14_act1a", 100, "THE SCENIC ROUTE", "Hitched a ride on a missile. Best view of the stars!", { { "sonic", 102, 25, false, 0 } }, { { 2, 14, 64, 22, 66, 14 } } },
+		{ "carnival", "zone04_act1b", 100, "CARNIVAL FUN", "The carnival never closes. We've been here all week!", { { "sonictails", 58, 16, false, 0 } }, {  } },
+		{ "sinking", "zone09_act2b", 0, "SINKING FEELING", "I'll be finding sand in my shoes for weeks. - Knuckles", { { "knuckles", 100, 40, false, 66 } }, { { 123, 22, 14, 26, 155, 22 } } },
+		{ "airship", "zone08_act2b", 200, "ON DECK", "Tails says he could fly this airship better than Eggman.", { { "tails", 30, 24, false, 0 } }, {  } },
+		{ "bubble", "zone02_act1b", 0, "UNDER THE SEA", "Brought my own air. The fish were jealous. - Sonic", { { "shield", 62, 18, false, 0 }, { "sonic", 68, 22, false, 0 } }, {  } },
 	};
 
 	const FunnyPostcard* findFunnyPostcard(const n3ds::journal::Postcard& postcard)
@@ -260,6 +268,24 @@ namespace
 				*bitmap.getPixelPointer(x, y) = *zone.getPixelPointer(funny.mViewX + x, y) | 0xff000000;
 		}
 
+		for (const ScenePatch& patch : funny.mPatches)
+		{
+			if (patch.mWidth <= 0)
+				break;
+			std::vector<uint32> copy;
+			for (int y = 0; y < patch.mHeight; ++y)
+				for (int x = 0; x < patch.mWidth; ++x)
+					copy.push_back(*bitmap.getPixelPointer(clamp(patch.mSourceX + x, 0, 167), clamp(patch.mSourceY + y, 0, 79)));
+			for (int y = 0; y < patch.mHeight; ++y)
+				for (int x = 0; x < patch.mWidth; ++x)
+				{
+					const int tx = patch.mTargetX + x;
+					const int ty = patch.mTargetY + y;
+					if (tx >= 0 && tx < 168 && ty >= 0 && ty < 80)
+						*bitmap.getPixelPointer(tx, ty) = copy[y * patch.mWidth + x];
+				}
+		}
+
 		std::map<const wchar_t*, Bitmap> sheets;
 		for (const SceneActor& actor : funny.mActors)
 		{
@@ -283,7 +309,7 @@ namespace
 			for (int y = 0; y < sprite->mHeight; ++y)
 			{
 				const int ty = actor.mY + y;
-				if (ty < 0 || ty >= 80)
+				if (ty < 0 || ty >= 80 || (actor.mClipY > 0 && ty >= actor.mClipY))
 					continue;
 				for (int x = 0; x < sprite->mWidth; ++x)
 				{
