@@ -1006,15 +1006,38 @@ void N3DSMenu::render()
 					const Color bottom = isStart ? Color(0.75f, 0.35f, 0.30f, tabAlpha) : Color(1.00f, 0.70f, 0.35f, tabAlpha);
 					for (int k = 0; k < 6; ++k)
 						drawer.drawRect(Recti(imageRect.x, imageRect.y + k * 8, 64, 8), Color(top.r + (bottom.r - top.r) * k / 5.0f, top.g + (bottom.g - top.g) * k / 5.0f, top.b + (bottom.b - top.b) * k / 5.0f, tabAlpha));
+					// Little pixel art, 2 x 2 screen pixels per "X"
+					const auto drawPixelArt = [&](std::initializer_list<const char*> rows, int x0, int y0, const Color& color)
+					{
+						int y = y0;
+						for (const char* row : rows)
+						{
+							for (int x = 0; row[x] != 0; ++x)
+							{
+								if (row[x] == 'X')
+									drawer.drawRect(Recti(imageRect.x + x0 + x * 2, imageRect.y + y, 2, 2), color);
+							}
+							y += 2;
+						}
+					};
 					if (isStart)
 					{
-						drawer.drawRect(Recti(imageRect.x + 40, imageRect.y + 8, 10, 10), Color(1.0f, 0.95f, 0.75f, tabAlpha));		// Moon
-						drawer.drawRect(Recti(imageRect.x + 43, imageRect.y + 6, 10, 10), top);									// Its shadow side
+						// Crescent moon and a few stars
+						drawPixelArt({ "....XXXX..", "..XXXX....", ".XXX......", ".XXX......", "XXX.......", "XXX.......", "XXX.......", ".XXX......", ".XXX......", "..XXXX....", "....XXXX.." },
+									 36, 6, Color(1.0f, 0.95f, 0.75f, tabAlpha));
+						static const int STARS[][2] = { { 10, 8 }, { 22, 16 }, { 14, 26 }, { 28, 6 } };
+						for (const auto& star : STARS)
+							drawer.drawRect(Recti(imageRect.x + star[0], imageRect.y + star[1], 2, 2), Color(1.0f, 0.96f, 0.8f, tabAlpha));
 					}
 					else
 					{
-						drawer.drawRect(Recti(imageRect.x + 24, imageRect.y + 36, 16, 8), Color(1.0f, 0.92f, 0.55f, tabAlpha));		// Sun on the horizon
-						drawer.drawRect(Recti(imageRect.x, imageRect.y + 44, 64, 4), Color(0.25f, 0.45f, 0.25f, tabAlpha));		// Hills
+						// The sun coming up over green hills, with a soft glow around it
+						drawPixelArt({ "..XXXXXXXXXXXX..", "XXXXXXXXXXXXXXXX" }, 16, 32, Color(1.0f, 0.84f, 0.55f, tabAlpha));
+						drawPixelArt({ "....XXXX....", "..XXXXXXXX..", ".XXXXXXXXXX.", "XXXXXXXXXXXX" }, 20, 32, Color(1.0f, 0.94f, 0.6f, tabAlpha));
+						const Color hills(0.25f, 0.45f, 0.25f, tabAlpha);
+						drawer.drawRect(Recti(imageRect.x, imageRect.y + 40, 64, 8), hills);
+						drawer.drawRect(Recti(imageRect.x, imageRect.y + 38, 19, 2), hills);
+						drawer.drawRect(Recti(imageRect.x + 44, imageRect.y + 37, 20, 3), hills);
 					}
 				}
 				else if (tabIndex == Tab::Id::THEMES && entry.mData == NIGHT_MODE)
