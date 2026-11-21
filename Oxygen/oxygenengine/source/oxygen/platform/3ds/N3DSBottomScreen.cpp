@@ -47,6 +47,7 @@
 #include "s3air_bottom_screen_casino_bin.h"
 #include "s3air_bottom_screen_collision_bin.h"
 #include "s3air_bottom_screen_metallic_bin.h"
+#include "s3air_bottom_screen_metallicpast_bin.h"
 
 
 namespace n3ds
@@ -163,6 +164,7 @@ namespace n3ds
 				{ s3air_bottom_screen_casino_bin,  s3air_bottom_screen_casino_bin_size },
 				{ s3air_bottom_screen_collision_bin, s3air_bottom_screen_collision_bin_size },
 				{ s3air_bottom_screen_metallic_bin, s3air_bottom_screen_metallic_bin_size },
+				{ s3air_bottom_screen_metallicpast_bin, s3air_bottom_screen_metallicpast_bin_size },
 			};
 			int gTheme = -1;		// Theme currently unpacked into "gData"
 			bool gDimmed = false;		// Night mode: everything drawn in warmer, dimmer colors

@@ -478,6 +478,11 @@ THEMES = [
 	  'light': (108, 180, 252), 'dark': (32, 0, 168), 'panel': (16, 8, 70), 'panel_alpha': 190,
 	  'metal_dark': (36, 36, 72), 'metal_light': (204, 228, 252), 'metal_mid': (108, 180, 252), 'metal_shade': (72, 108, 180),
 	  'save': (0, 144, 0), 'load': (63, 90, 153), 'stats': (45, 54, 99), 'outline': (20, 20, 50) },
+	# Picture made by the port's author (themes/metallicpast.png, Metallic Madness Act 2's past background); frames in the gold of its girders
+	{ 'id': 'metallicpast', 'name': 'Metallic Madness Past', 'style': 'image', 'image': 'metallicpast.png', 'frame': 'metal',
+	  'light': (252, 180, 0), 'dark': (68, 0, 170), 'panel': (24, 0, 64), 'panel_alpha': 190,
+	  'metal_dark': (72, 36, 0), 'metal_light': (252, 216, 108), 'metal_mid': (252, 180, 0), 'metal_shade': (144, 108, 0),
+	  'save': (0, 144, 0), 'load': (108, 0, 252), 'stats': (0, 72, 252), 'outline': (36, 18, 0) },
 ]
 THEME = THEMES[0]		# The theme being generated
 _background_cache = {}

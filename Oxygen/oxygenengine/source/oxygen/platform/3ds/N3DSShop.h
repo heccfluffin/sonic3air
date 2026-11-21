@@ -35,6 +35,7 @@ namespace n3ds
 			THEME_CASINO,		// Pictures made by the port's author
 			THEME_COLLISION,
 			THEME_METALLIC,
+			THEME_METALLIC_PAST,
 			_NUM_THEMES
 		};
 
