@@ -174,6 +174,7 @@ void N3DSMenu::onFadeIn()
 	mState = State::APPEAR;
 
 	const uint64 startTicks = svcGetSystemTick();
+	const auto msSince = [](uint64 ticks)  { return (uint32)((svcGetSystemTick() - ticks) * 1000 / SYSCLOCK_ARM11); };
 	mPreviewedTheme.clear();
 
 	// A little greeting, like "Good evening, Name!"
@@ -181,9 +182,13 @@ void N3DSMenu::onFadeIn()
 	mMessageTimeout = 5.0f;
 
 	// Play Coins and the player's own pictures get read in the background: the menu opens right away, they show up when ready
+	const uint32 greetingMs = msSince(startTicks);
 	startBackgroundLoading();
 	rebuildTabs();
+	const uint64 iconTicks = svcGetSystemTick();
 	createIcons();
+	const uint32 iconMs = msSince(iconTicks);
+	const uint64 backgroundTicks = svcGetSystemTick();
 
 	mMenuBackground->showPreview(false, false);
 	mMenuBackground->startTransition(MenuBackground::Target::BLUE);
@@ -196,11 +201,14 @@ void N3DSMenu::onFadeIn()
 		}
 	}
 
+	const uint32 backgroundMs = msSince(backgroundTicks);
+	const uint64 musicTicks = svcGetSystemTick();
 	AudioOut::instance().setMenuMusic(0x2f);
+	const uint32 musicMs = msSince(musicTicks);
 
-	const uint32 ms = (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
+	const uint32 ms = msSince(startTicks);
 	if (ms >= 30)
-		RMX_LOG_INFO("3DS menu: opening took " << ms << " ms on the main thread");
+		RMX_LOG_INFO("3DS menu: opening took " << ms << " ms on the main thread (greeting " << greetingMs << ", icons " << iconMs << ", background " << backgroundMs << ", music " << musicMs << ")");
 }
 
 bool N3DSMenu::canBeRemoved()
