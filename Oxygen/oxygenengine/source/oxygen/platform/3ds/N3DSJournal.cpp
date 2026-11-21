@@ -38,6 +38,13 @@ namespace n3ds
 			// The zone preview pictures there are: acts per zone, for zones 1 to 14 (Hidden Palace, Sky Sanctuary and Doomsday have one)
 			const int ACTS_PER_ZONE[14] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1 };
 
+			// The funny postcards, by the name of their picture (the 3DS menu has their texts); new ones only ever go at the end
+			const char* FUNNY_POSTCARDS[] = { "electrocution", "decoys", "staydry", "icecap1boss", "jackpot", "monitors", "continues", "animals",
+											  "snowboarding", "hyperform", "giantrings_mgz1", "perfect", "tails_yawning", "score", "gamebeaten" };
+			const int NUM_FUNNY = (int)(sizeof(FUNNY_POSTCARDS) / sizeof(FUNNY_POSTCARDS[0]));
+
+			bool hasFunny(int index);
+
 			uint64_t gLastTick = 0;
 			uint64_t gPlayTicks = 0;		// Not counted in whole seconds yet
 			uint64_t gNextDayCheck = 0;
@@ -71,7 +78,17 @@ namespace n3ds
 			{
 				for (const Postcard& postcard : gData.mPostcards)
 				{
-					if (postcard.mZone == zone && postcard.mAct == act && postcard.mImage == image)
+					if (postcard.mFunny < 0 && postcard.mZone == zone && postcard.mAct == act && postcard.mImage == image)
+						return true;
+				}
+				return false;
+			}
+
+			bool hasFunny(int index)
+			{
+				for (const Postcard& postcard : gData.mPostcards)
+				{
+					if (postcard.mFunny == index)
 						return true;
 				}
 				return false;
@@ -81,18 +98,30 @@ namespace n3ds
 			{
 				for (const Postcard& postcard : gData.mPostcards)
 				{
-					if (postcard.mZone == zone)
+					if (postcard.mFunny < 0 && postcard.mZone == zone)
 						return true;
 				}
 				return false;
 			}
 
-			// A random picture not collected yet, preferring zones without any postcard; false once all are collected
+			// A random picture not collected yet, preferring zones without any postcard (and funny ones mixed in); false once all are collected
 			bool addPostcard()
 			{
 				std::vector<Postcard> candidates;
-				for (int pass = 0; pass < 2 && candidates.empty(); ++pass)
+				for (int index = 0; index < NUM_FUNNY; ++index)
 				{
+					if (!hasFunny(index))
+					{
+						Postcard postcard;
+						postcard.mFunny = index;
+						candidates.push_back(postcard);
+					}
+				}
+				for (int pass = 0; pass < 2; ++pass)
+				{
+					// More pictures of zones already visited only once no new zone (or funny one) is left
+					if (pass == 1 && !candidates.empty())
+						break;
 					for (int zone = 1; zone <= 14; ++zone)
 					{
 						if (pass == 0 && hasZone(zone))
@@ -165,7 +194,21 @@ namespace n3ds
 							int zone = 0;
 							int act = 0;
 							char image = 0;
-							if (sscanf(line, "postcard=zone%2d_act%1d%c %u", &zone, &act, &image, &value) == 4 && zone >= 1 && zone <= 14 &&
+							char funnyName[32] = { 0 };
+							if (sscanf(line, "postcard=funny_%31s %u", funnyName, &value) == 2)
+							{
+								for (int index = 0; index < NUM_FUNNY; ++index)
+								{
+									if (strcmp(funnyName, FUNNY_POSTCARDS[index]) == 0 && !hasFunny(index))
+									{
+										Postcard postcard;
+										postcard.mFunny = index;
+										postcard.mDate = value;
+										gData.mPostcards.push_back(postcard);
+									}
+								}
+							}
+							else if (sscanf(line, "postcard=zone%2d_act%1d%c %u", &zone, &act, &image, &value) == 4 && zone >= 1 && zone <= 14 &&
 								act >= 1 && act <= ACTS_PER_ZONE[zone - 1] && (image == 'a' || image == 'b') && !hasPostcard(zone, act, image))
 							{
 								Postcard postcard;
@@ -275,6 +318,8 @@ namespace n3ds
 
 		std::string Postcard::getSpriteName() const
 		{
+			if (mFunny >= 0)
+				return std::string("funny_") + ((mFunny < NUM_FUNNY) ? FUNNY_POSTCARDS[mFunny] : "unknown");
 			char name[16];
 			snprintf(name, sizeof(name), "zone%02d_act%d%c", mZone, mAct, mImage);
 			return name;
@@ -282,10 +327,20 @@ namespace n3ds
 
 		int getNumPossiblePostcards()
 		{
-			int count = 0;
+			int count = NUM_FUNNY;
 			for (int acts : ACTS_PER_ZONE)
 				count += acts * 2;
 			return count;
+		}
+
+		int getNumFunnyPostcards()
+		{
+			return NUM_FUNNY;
+		}
+
+		const char* getFunnyPostcardName(int index)
+		{
+			return (index >= 0 && index < NUM_FUNNY) ? FUNNY_POSTCARDS[index] : nullptr;
 		}
 
 		bool takeNewPostcardNotice()

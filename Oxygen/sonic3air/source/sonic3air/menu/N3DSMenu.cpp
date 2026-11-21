@@ -169,6 +169,56 @@ namespace
 		{ "zone14_act1b", 40, "Eggman's last ship" },
 	};
 
+	// The funny postcards: a picture of the game (its achievements), a headline and a message, like on the back of a postcard
+	struct FunnyPostcard
+	{
+		const char* mName;			// As in n3ds::journal
+		const wchar_t* mFile;
+		const char* mHeadline;
+		const char* mMessage;
+	};
+	const FunnyPostcard FUNNY_POSTCARDS[] =
+	{
+		{ "electrocution",	 L"data/images/achievements/electrocution.png",	  "SHOCKING NEWS",		"Note to self: lightning shields and water don't mix. - Sonic" },
+		{ "decoys",			 L"data/images/achievements/decoys.png",		  "SPOT THE REAL ONE",	"Eggman sent his very best. All of them." },
+		{ "staydry",		 L"data/images/achievements/staydry.png",		  "WISH YOU WERE HERE",	"Hydrocity is lovely! I'm staying on the dry bits, though. - Tails" },
+		{ "icecap1boss",	 L"data/images/achievements/icecap1boss.png",	  "A COLD WELCOME",		"Made a new friend in IceCap. He was a little frosty." },
+		{ "jackpot",		 L"data/images/achievements/jackpot.png",		  "FEELING LUCKY",		"Spent the whole trip at the slot machines. No regrets!" },
+		{ "monitors",		 L"data/images/achievements/monitors.png",		  "SURPRISE INSIDE",	"Knuckles opened the wrong monitor. Again." },
+		{ "continues",		 L"data/images/achievements/continues.png",		  "FAMILY REUNION",		"Knuckles brought the whole family to the continue screen." },
+		{ "animals",		 L"data/images/achievements/animals.png",		  "THANK YOU NOTE",		"The little critters say thanks for the rescue!" },
+		{ "snowboarding",	 L"data/images/achievements/snowboarding.png",	  "HITTING THE SLOPES",	"No brakes, no problem! - Sonic" },
+		{ "hyperform",		 L"data/images/achievements/hyperform.png",		  "TOO BRIGHT",			"Sorry about all the flashing. Couldn't help it. - Hyper Sonic" },
+		{ "giantrings_mgz1", L"data/images/achievements/giantrings_mgz1.png", "BIG FIND",			"Tails found a ring bigger than himself!" },
+		{ "perfect",		 L"data/images/achievements/perfect.png",		  "PERFECT",			"Not a single ring left behind!" },
+		{ "tails_yawning",	 L"data/images/menu/tails_yawning.png",			  "SLEEPY DAYS",		"Tails is taking a little nap. Shh, don't wake him." },
+		{ "score",			 L"data/images/achievements/score.png",			  "A MILLION POINTS",	"Framing this one for the fridge." },
+		{ "gamebeaten",		 L"data/images/achievements/gamebeaten.png",	  "HOME SWEET HOME",	"Back on Angel Island. Knuckles says hi... grudgingly." },
+	};
+
+	const FunnyPostcard* findFunnyPostcard(const n3ds::journal::Postcard& postcard)
+	{
+		const char* name = n3ds::journal::getFunnyPostcardName(postcard.mFunny);
+		if (nullptr == name)
+			return nullptr;
+		for (const FunnyPostcard& funny : FUNNY_POSTCARDS)
+		{
+			if (strcmp(funny.mName, name) == 0)
+				return &funny;
+		}
+		return nullptr;
+	}
+
+	bool loadFunnyPicture(const FunnyPostcard& funny, DrawerTexture& texture)
+	{
+		Bitmap bitmap;
+		if (!FileHelper::loadBitmap(bitmap, funny.mFile, false) || bitmap.getWidth() <= 0)
+			return false;
+		texture.accessBitmap() = bitmap;
+		texture.bitmapUpdated();
+		return true;
+	}
+
 	struct SecretInfo
 	{
 		uint32 mSecret;
@@ -1413,7 +1463,48 @@ void N3DSMenu::render()
 					const Recti window(card.x + 3, card.y + 3, card.width - 6, card.height - 6);
 					const bool hasPostcard = entry.hasSelected() && entry.selected().mValue < postcards.size();
 					drawer.drawRect(card, hasPostcard ? Color(0.98f, 0.95f, 0.86f, tabAlpha) : Color(0.98f, 0.95f, 0.86f, tabAlpha * 0.3f));
-					if (hasPostcard)
+					const FunnyPostcard* funny = hasPostcard ? findFunnyPostcard(postcards[entry.selected().mValue]) : nullptr;
+					if (nullptr != funny)
+					{
+						// A funny one: the picture with a white border, and the message beside it
+						const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
+						if (mAlbumFunnyName != funny->mName)
+						{
+							mAlbumFunnyName = funny->mName;
+							mHasAlbumFunnyPicture = loadFunnyPicture(*funny, mAlbumFunnyPicture);
+						}
+						drawer.drawRect(window, Color(0.12f, 0.2f, 0.45f, tabAlpha));
+						int textX = window.x + 8;
+						if (mHasAlbumFunnyPicture)
+						{
+							const int w = mAlbumFunnyPicture.getWidth();
+							const int h = mAlbumFunnyPicture.getHeight();
+							const Recti pictureRect(window.x + 8, window.y + (window.height - h) / 2, w, h);
+							drawer.drawRect(Recti(pictureRect.x - 2, pictureRect.y - 2, w + 4, h + 4), Color(1.0f, 1.0f, 1.0f, tabAlpha));
+							drawer.drawRect(pictureRect, mAlbumFunnyPicture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+							textX = pictureRect.x + w + 8;
+						}
+						std::vector<std::string_view> textLines;
+						utils::splitTextIntoLines(textLines, funny->mMessage, global::mOxyfontTiny, window.x + window.width - textX - 4);
+						const int textY = window.y + (window.height - (int)std::min<size_t>(textLines.size(), 6) * 10) / 2;
+						for (size_t k = 0; k < textLines.size() && k < 6; ++k)
+							drawer.printText(global::mOxyfontTiny, Recti(textX, textY + (int)k * 10, 0, 10), textLines[k], 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+
+						drawer.printText(global::mSonicFontB, Recti(px + 34, py + 7, 0, 10), "POSTCARDS", 1, color);
+						drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 8, 0, 10), String(0, "%d / %d", (int)postcards.size(), n3ds::journal::getNumPossiblePostcards()), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
+						drawer.printText(global::mOxyfontSmall, Recti(px + 34, py + 26, 0, 10), funny->mHeadline, 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+						drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 39, 0, 10), "A funny postcard", 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 53, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 1, color2);
+						if (postcards.size() > 1)
+						{
+							const String flip(0, "%s %d of %d %s", (entry.mSelectedIndex > 0) ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)postcards.size(),
+											  (entry.mSelectedIndex + 1 < entry.mOptions.size()) ? ">" : " ");
+							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 70, 0, 10), flip, 1, isSelected ? color : color2);
+						}
+						if (isSelected)
+							drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 70, 0, 10), "A: Look closer", 3, color);
+					}
+					else if (hasPostcard)
 					{
 						const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
 						const uint64 spriteKey = rmx::getMurmur2_64(postcard.getSpriteName());
@@ -1690,6 +1781,12 @@ void N3DSMenu::openPostcard()
 	if (!entry.hasSelected() || entry.selected().mValue >= postcards.size())
 		return;
 	const std::string spriteName = postcards[entry.selected().mValue].getSpriteName();
+	const FunnyPostcard* funny = findFunnyPostcard(postcards[entry.selected().mValue]);
+	if (nullptr != funny)
+	{
+		mHasPostcardPicture = loadFunnyPicture(*funny, mPostcardPicture);
+		return;
+	}
 
 	Bitmap picture;
 	if (!FileHelper::loadBitmap(picture, L"data/sprites/zone_preview/" + std::wstring(spriteName.begin(), spriteName.end()) + L".bmp", false) || picture.getWidth() < POSTCARD_VIEW_WIDTH || picture.getHeight() < 80)
@@ -1719,6 +1816,7 @@ void N3DSMenu::renderPostcard(float alpha)
 	const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
 	const std::string spriteName = postcard.getSpriteName();
 	const PostcardView* view = findPostcardView(spriteName);
+	const FunnyPostcard* funny = findFunnyPostcard(postcard);
 
 	// Darken everything, then the card: cream, with a slight shadow, and the picture doubled in size
 	drawer.drawRect(Recti(0, 0, (int)mRect.width, (int)mRect.height), Color(0.0f, 0.0f, 0.0f, 0.7f * alpha));
@@ -1726,7 +1824,28 @@ void N3DSMenu::renderPostcard(float alpha)
 	drawer.drawRect(Recti(card.x + 4, card.y + 4, card.width, card.height), Color(0.0f, 0.0f, 0.0f, 0.4f * alpha));
 	drawer.drawRect(card, Color(0.98f, 0.95f, 0.86f, alpha));
 	const Recti pictureRect(card.x + 8, card.y + 6, POSTCARD_VIEW_WIDTH * 2, 160);
-	if (mHasPostcardPicture)
+	if (nullptr != funny)
+	{
+		// A funny one: the picture three times as big with a white border, and the message beside it, like handwriting
+		drawer.drawRect(pictureRect, Color(0.12f, 0.2f, 0.45f, alpha));
+		int textX = pictureRect.x + 12;
+		if (mHasPostcardPicture)
+		{
+			const int w = mPostcardPicture.getWidth() * 3;
+			const int h = mPostcardPicture.getHeight() * 3;
+			const Recti photo(pictureRect.x + 10, pictureRect.y + (pictureRect.height - h) / 2, w, h);
+			drawer.drawRect(Recti(photo.x - 3, photo.y - 3, w + 6, h + 6), Color(1.0f, 1.0f, 1.0f, alpha));
+			drawer.drawRect(photo, mPostcardPicture, Color(1.0f, 1.0f, 1.0f, alpha));
+			textX = photo.x + w + 12;
+		}
+		std::vector<std::string_view> textLines;
+		utils::splitTextIntoLines(textLines, funny->mMessage, global::mOxyfontSmall, pictureRect.x + pictureRect.width - textX - 8);
+		const int lines = (int)std::min<size_t>(textLines.size(), 9);
+		const int textY = pictureRect.y + 34 + (pictureRect.height - 34 - lines * 13) / 2;
+		for (int k = 0; k < lines; ++k)
+			drawer.printText(global::mOxyfontSmall, Recti(textX, textY + k * 13, 0, 10), textLines[k], 1, Color(1.0f, 1.0f, 1.0f, alpha));
+	}
+	else if (mHasPostcardPicture)
 		drawer.drawRect(pictureRect, mPostcardPicture, Color(1.0f, 1.0f, 1.0f, alpha));
 	else
 		drawer.drawRect(pictureRect, Color(0.2f, 0.25f, 0.35f, alpha));
@@ -1742,13 +1861,22 @@ void N3DSMenu::renderPostcard(float alpha)
 	// "Greetings from Hydrocity" and the view's caption, on a dark band (the game's fonts have dark outlines, made for light text)
 	const int bandY = pictureRect.y + pictureRect.height + 2;
 	drawer.drawRect(Recti(pictureRect.x, bandY, pictureRect.width, 30), Color(0.22f, 0.1f, 0.05f, alpha));
-	String greeting(getPostcardZoneName(spriteName));
-	greeting.upperCase();
-	drawer.printText(global::mSonicFontB, Recti(card.x + 14, bandY + 3, 0, 10), String(0, "GREETINGS FROM %s", greeting.toStdString().c_str()), 1, Color(1.0f, 0.85f, 0.2f, alpha));
-	const int acts = (postcard.mZone == 11 || postcard.mZone == 12 || postcard.mZone == 14) ? 1 : 2;
-	std::string line = (nullptr != view) ? view->mCaption : std::string();
-	if (acts > 1)
-		line += (line.empty() ? "Act " : "  -  Act ") + std::to_string(postcard.mAct);
+	std::string line;
+	if (nullptr != funny)
+	{
+		drawer.printText(global::mSonicFontB, Recti(card.x + 14, bandY + 3, 0, 10), funny->mHeadline, 1, Color(1.0f, 0.85f, 0.2f, alpha));
+		line = "A funny postcard";
+	}
+	else
+	{
+		String greeting(getPostcardZoneName(spriteName));
+		greeting.upperCase();
+		drawer.printText(global::mSonicFontB, Recti(card.x + 14, bandY + 3, 0, 10), String(0, "GREETINGS FROM %s", greeting.toStdString().c_str()), 1, Color(1.0f, 0.85f, 0.2f, alpha));
+		const int acts = (postcard.mZone == 11 || postcard.mZone == 12 || postcard.mZone == 14) ? 1 : 2;
+		line = (nullptr != view) ? view->mCaption : std::string();
+		if (acts > 1)
+			line += (line.empty() ? "Act " : "  -  Act ") + std::to_string(postcard.mAct);
+	}
 	drawer.printText(global::mOxyfontSmall, Recti(card.x + 14, bandY + 17, 0, 10), line, 1, Color(1.0f, 1.0f, 1.0f, alpha));
 	drawer.printText(global::mOxyfontTiny, Recti(card.x + card.width - 14, bandY + 18, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 3, Color(0.9f, 0.8f, 0.7f, alpha));
 

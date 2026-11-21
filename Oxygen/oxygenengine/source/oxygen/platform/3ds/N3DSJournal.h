@@ -21,17 +21,21 @@ namespace n3ds
 	{
 		static const int STAMPS_PER_CARD = 7;
 
-		// A postcard for each completed stamp card: one of the game's zone preview pictures (sprites like "zone03_act1a")
+		// A postcard for each completed stamp card: one of the game's zone preview pictures (sprites like "zone03_act1a"),
+		// or a funny one with a picture from the game's achievements
 		struct Postcard
 		{
+			int mFunny = -1;			// Index of a funny postcard, or -1 for a zone picture
 			int mZone = 1;				// 1 to 14, as in the sprite names
 			int mAct = 1;				// 1 or 2
 			char mImage = 'a';			// Each act has two pictures, 'a' and 'b'
 			uint32_t mDate = 0;			// YYYYMMDD, when it arrived
 
-			std::string getSpriteName() const;
+			std::string getSpriteName() const;		// Or "funny_<name>"
 		};
 		int getNumPossiblePostcards();
+		int getNumFunnyPostcards();
+		const char* getFunnyPostcardName(int index);		// Like "decoys", nullptr if there's no such one
 
 		struct Data
 		{

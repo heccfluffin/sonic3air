@@ -144,6 +144,9 @@ private:
 	// The postcard being looked at: its view of the zone picture, doubled in size when drawn
 	DrawerTexture mPostcardPicture;
 	bool mHasPostcardPicture = false;
+	DrawerTexture mAlbumFunnyPicture;		// The funny postcard shown in the album, if any
+	std::string mAlbumFunnyName;			// Which one is loaded into it
+	bool mHasAlbumFunnyPicture = false;
 };
 
 #endif

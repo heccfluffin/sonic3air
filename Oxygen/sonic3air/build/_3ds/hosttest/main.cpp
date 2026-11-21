@@ -12,6 +12,7 @@
 #include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <fstream>
@@ -442,8 +443,8 @@ namespace
 		bool distinct = true;
 		for (size_t i = 0; i < journal.mPostcards.size(); ++i)
 			for (size_t k = 0; k < i; ++k)
-				distinct = distinct && (journal.mPostcards[i].mZone != journal.mPostcards[k].mZone);
-		check(distinct, "... each from a different zone");
+				distinct = distinct && (journal.mPostcards[i].mFunny >= 0 || journal.mPostcards[k].mFunny >= 0 || journal.mPostcards[i].mZone != journal.mPostcards[k].mZone);
+		check(distinct, "... the zone ones each from a different zone");
 
 		for (int i = 0; i < 4 * 60; ++i)
 		{
@@ -469,20 +470,20 @@ namespace
 	{
 		// Loads of cards: every zone first, then the rest, and never more than there are pictures
 		fake::setTime(2026, 11, 21, 21, 0);
-		writeJournal("started=20250101\nlast_day=20261121\ndays_played=420\nstamps=0\ncards_completed=60\npostcard=zone05_act2b 20250108\n");
+		writeJournal("started=20250101\nlast_day=20261121\ndays_played=420\nstamps=0\ncards_completed=80\npostcard=zone05_act2b 20250108\npostcard=funny_decoys 20250115\n");
 		const n3ds::journal::Data& journal = n3ds::journal::get();
-		check(n3ds::journal::getNumPossiblePostcards() == 50, "50 zone pictures to collect");
-		check((int)journal.mPostcards.size() == 50, "60 cards: all 50 postcards, no more (" + std::to_string(journal.mPostcards.size()) + ")");
+		check(n3ds::journal::getNumPossiblePostcards() == 65 && n3ds::journal::getNumFunnyPostcards() == 15, "65 postcards to collect: 50 zone pictures and 15 funny ones");
+		check((int)journal.mPostcards.size() == 65, "80 cards: all 65 postcards, no more (" + std::to_string(journal.mPostcards.size()) + ")");
 		check(journal.mPostcards[0].getSpriteName() == "zone05_act2b" && journal.mPostcards[0].mDate == 20250108, "a saved postcard is read back (IceCap Act 2, 8 Jan 2025)");
-		bool firstAllZones = true;
-		for (int zone = 1; zone <= 14; ++zone)
-		{
-			bool found = false;
-			for (size_t k = 0; k < 14 && k < journal.mPostcards.size(); ++k)
-				found = found || (journal.mPostcards[k].mZone == zone);
-			firstAllZones = firstAllZones && found;
-		}
-		check(firstAllZones, "the first 14 postcards are one from each zone");
+		check(journal.mPostcards[1].getSpriteName() == "funny_decoys" && journal.mPostcards[1].mDate == 20250115, "... and a funny one (decoys, 15 Jan 2025)");
+		std::vector<int> zoneOrder;
+		for (const n3ds::journal::Postcard& postcard : journal.mPostcards)
+			if (postcard.mFunny < 0)
+				zoneOrder.push_back(postcard.mZone);
+		bool firstAllZones = (zoneOrder.size() >= 14);
+		for (int zone = 1; zone <= 14 && firstAllZones; ++zone)
+			firstAllZones = (std::find(zoneOrder.begin(), zoneOrder.begin() + 14, zone) != zoneOrder.begin() + 14);
+		check(firstAllZones, "the first 14 zone postcards are one from each zone");
 		bool unique = true;
 		for (size_t i = 0; i < journal.mPostcards.size(); ++i)
 			for (size_t k = 0; k < i; ++k)
