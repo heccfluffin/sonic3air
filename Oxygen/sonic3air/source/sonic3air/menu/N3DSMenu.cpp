@@ -285,7 +285,7 @@ namespace
 		{ "airship", "zone08_act2b", 200, "ON DECK", "Tails says he could fly this airship better than Eggman.", { { "tails", 30, 19, false, 0 } }, { { 130, 40, 34, 17, 38, 40 } } },
 		{ "bubble", "zone02_act1b", 0, "WRONG SHIELD", "Brought the wrong shield. Holding my breath! - Sonic", { { "shield", 62, 18, false, 0 }, { "sonic", 68, 22, false, 0 } }, {  } },
 		{ "coldcall", nullptr, 0, "A COLD WELCOME", "Met a new friend in IceCap. A little frosty, though.", { { "icecapboss", 200, 30, false, 0 }, { "ball", 80, 69, false, 0 } }, {  }, 3, 70, 30 },
-		{ "heyho", nullptr, 0, "LUMBERJACK", "Met a lumberjack in the woods. He really likes his axe.", { { "heyho", 110, 50, false, 0 }, { "knuckles", 250, 95, true, 0 } }, {  }, 1, 100, 56 },
+		{ "heyho", nullptr, 0, "LUMBERJACK", "Met a lumberjack in the woods. He really likes his axe.", { { "heyho", 110, 50, false, 0 }, { "knuckles", 250, 91, true, 0 } }, {  }, 1, 100, 56 },
 		{ "highfive", "zone12_act1b", 260, "HIGH FIVE", "Eggrobo wanted a high five. Sonic gave him a spin attack.", { { "ball", 26, 14, false, 0 } }, { { 0, 20, 58, 30, 0, 50 }, { 60, 20, 12, 4, 60, 76 } } },
 		{ "bigone", "zone14_act1b", 40, "THE BIG ONE", "Eggman's ship looked smaller in the brochure. - Sonic", { { "supersonic", 6, 30, false, 0 } }, {  } },
 		{ "spintop", nullptr, 0, "TOP OF THE SHOW", "This top spins faster than me. Almost. - Sonic", { { "spintop", 200, 57, false, 0 }, { "sonic", 70, 91, false, 0 } }, {  }, 0, 66, 52 },
