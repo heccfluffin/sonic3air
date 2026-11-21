@@ -38,9 +38,9 @@ namespace n3ds
 			// The zone preview pictures there are: acts per zone, for zones 1 to 14 (Hidden Palace, Sky Sanctuary and Doomsday have one)
 			const int ACTS_PER_ZONE[14] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1 };
 
-			// The funny postcards, by the name of their picture (the 3DS menu has their texts); new ones only ever go at the end
-			const char* FUNNY_POSTCARDS[] = { "electrocution", "decoys", "staydry", "icecap1boss", "jackpot", "monitors", "continues", "animals",
-											  "snowboarding", "hyperform", "giantrings_mgz1", "perfect", "tails_yawning", "score", "gamebeaten" };
+			// The funny postcards, by name (the 3DS menu has their scenes and texts); new ones only ever go at the end
+			const char* FUNNY_POSTCARDS[] = { "staydry", "snowday", "photobomb", "sleepy", "wrongmonitor", "decoys", "speedlimit", "rolling",
+											  "skyhigh", "warm", "scenic", "carnival", "sinking", "airship", "bubble" };
 			const int NUM_FUNNY = (int)(sizeof(FUNNY_POSTCARDS) / sizeof(FUNNY_POSTCARDS[0]));
 
 			bool hasFunny(int index);
@@ -68,6 +68,8 @@ namespace n3ds
 				std::string result = text;
 				for (const Postcard& postcard : data.mPostcards)
 				{
+					if (postcard.mTest)
+						continue;		// Only for trying out, never saved
 					snprintf(text, sizeof(text), "postcard=%s %u\n", postcard.getSpriteName().c_str(), (unsigned)postcard.mDate);
 					result += text;
 				}
@@ -105,7 +107,7 @@ namespace n3ds
 			}
 
 			// A random picture not collected yet, preferring zones without any postcard (and funny ones mixed in); false once all are collected
-			bool addPostcard()
+			bool addPostcard(bool test = false)
 			{
 				std::vector<Postcard> candidates;
 				for (int index = 0; index < NUM_FUNNY; ++index)
@@ -150,6 +152,7 @@ namespace n3ds
 				random = random * 1103515245u + 12345u;
 				Postcard postcard = candidates[(random >> 8) % candidates.size()];
 				postcard.mDate = today();
+				postcard.mTest = test;
 				gData.mPostcards.push_back(postcard);
 				gNewPostcardNotice = true;
 				RMX_LOG_INFO("Journal: a postcard arrived, " << postcard.getSpriteName() << " (" << gData.mPostcards.size() << " of " << getNumPossiblePostcards() << ")");
@@ -159,7 +162,14 @@ namespace n3ds
 			// One postcard per completed card (also for cards completed before there were postcards)
 			void catchUpPostcards()
 			{
-				while (gData.mPostcards.size() < gData.mCardsCompleted && (int)gData.mPostcards.size() < getNumPossiblePostcards())
+				const auto countReal = []()
+				{
+					size_t count = 0;
+					for (const Postcard& postcard : gData.mPostcards)
+						count += postcard.mTest ? 0 : 1;
+					return count;
+				};
+				while (countReal() < gData.mCardsCompleted && (int)gData.mPostcards.size() < getNumPossiblePostcards())
 				{
 					if (!addPostcard())
 						break;
@@ -341,6 +351,12 @@ namespace n3ds
 		const char* getFunnyPostcardName(int index)
 		{
 			return (index >= 0 && index < NUM_FUNNY) ? FUNNY_POSTCARDS[index] : nullptr;
+		}
+
+		bool addTestPostcard()
+		{
+			load();
+			return addPostcard(true);
 		}
 
 		bool takeNewPostcardNotice()

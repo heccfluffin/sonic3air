@@ -460,7 +460,7 @@ namespace
 		n3ds::filewriter::waitUntilDone();
 		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt");
 		size_t lines = 0;
-		for (size_t pos = saved.find("postcard=zone"); pos != std::string::npos; pos = saved.find("postcard=zone", pos + 1))
+		for (size_t pos = saved.find("postcard="); pos != std::string::npos; pos = saved.find("postcard=", pos + 1))
 			++lines;
 		check(lines == 4, "the postcards are saved in the journal file (" + std::to_string(lines) + " lines)");
 		check(saved.find("postcard=" + journal.mPostcards.back().getSpriteName() + " 20261121\n") != std::string::npos, "... like \"postcard=" + journal.mPostcards.back().getSpriteName() + " 20261121\"");

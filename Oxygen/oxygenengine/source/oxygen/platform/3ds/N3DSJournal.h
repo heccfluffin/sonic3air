@@ -30,6 +30,7 @@ namespace n3ds
 			int mAct = 1;				// 1 or 2
 			char mImage = 'a';			// Each act has two pictures, 'a' and 'b'
 			uint32_t mDate = 0;			// YYYYMMDD, when it arrived
+			bool mTest = false;			// From the test entry in the 3DS menu: shown, but never saved
 
 			std::string getSpriteName() const;		// Or "funny_<name>"
 		};
@@ -65,6 +66,9 @@ namespace n3ds
 
 		// Whether a postcard arrived since this was last asked (then the newest one in "mPostcards" is new)
 		bool takeNewPostcardNotice();
+
+		// For trying out the postcards before a card is full (temporary): a random new one, shown until the game closes, never saved
+		bool addTestPostcard();
 
 		// Counters
 		void addPurchase(int playCoins);
