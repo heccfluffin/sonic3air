@@ -434,9 +434,14 @@ void GameApp::updateBottomScreen()
 
 	// When a save file gets deleted in data select (its first byte gets the "empty" flag 0x80), delete its save state as well.
 	// Not if all of them are empty at once: that's the default data before the save files are loaded (or nothing could be loaded).
+	// And not for the save files that are empty when the save data first gets loaded: that only tried to delete save states that
+	// don't exist (7 SD card accesses at startup, seen taking a second), keeping the SD card busy. Before the save data is loaded,
+	// the memory is all zeros - which is also what save files in use look like. So the watching starts once some save file shows
+	// as empty (the save data is there then), or after 5 seconds (all 8 save files in use, nothing would change at loading).
 	{
 		static uint8 lastFlags[8] = { 0 };
 		static bool initialized = false;
+		static const uint64 firstTicks = svcGetSystemTick();
 		uint8 flags[8];
 		int numEmpty = 0;
 		for (int i = 0; i < 8; ++i)
@@ -445,11 +450,15 @@ void GameApp::updateBottomScreen()
 			if (flags[i] & 0x80)
 				++numEmpty;
 		}
-		if (numEmpty < 8)
+		if (!initialized && ((numEmpty > 0 && numEmpty < 8) || svcGetSystemTick() - firstTicks > 5 * (uint64)SYSCLOCK_ARM11))
+		{
+			initialized = true;		// From now on, a save file that becomes empty was deleted in data select
+		}
+		else if (initialized && numEmpty < 8)
 		{
 			for (int i = 0; i < 8; ++i)
 			{
-				const bool becameEmpty = (flags[i] & 0x80) && (!initialized || !(lastFlags[i] & 0x80));
+				const bool becameEmpty = (flags[i] & 0x80) && !(lastFlags[i] & 0x80);
 				if (becameEmpty)
 				{
 					// In the background, in order after a write of it that may still be pending
@@ -470,7 +479,6 @@ void GameApp::updateBottomScreen()
 					}
 				}
 			}
-			initialized = true;
 		}
 		memcpy(lastFlags, flags, 8);
 	}

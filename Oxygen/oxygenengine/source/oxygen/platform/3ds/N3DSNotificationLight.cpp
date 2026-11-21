@@ -17,6 +17,10 @@
 #include <string.h>
 
 
+// The light is animated by a little thread here, with one steady color at a time, updated 20 times per second.
+// Handing the MCU a whole 32-step pattern did not work out on a New 2DS XL: it always played in about 1 second, whether the
+// "delay" value was 2 or 8 (libctru documents it as 1/16 seconds per step). Steady colors, timed here, don't depend on that.
+
 namespace n3ds
 {
 	namespace notificationlight
@@ -24,80 +28,176 @@ namespace n3ds
 		namespace
 		{
 			enum class State { UNINITIALIZED, READY, UNAVAILABLE };
+			enum class Animation { NONE, PULSE, FLASH };
+
 			State gState = State::UNINITIALIZED;
+			Thread gThread = nullptr;
+			LightLock gLock;			// Guards the animation state and the writes to the light
+			LightEvent gWakeEvent;
+			Animation gAnimation = Animation::NONE;
+			uint64_t gAnimationStart = 0;		// System ticks
 			bool gLit = false;
+
+			const constexpr double UPDATE_SECONDS = 0.05;
+
+			// Purple breaths: each one rises and falls in BREATH_SECONDS, then stays dark for GAP_SECONDS
+			const constexpr int BREATHS = 3;
+			const constexpr double BREATH_SECONDS = 1.0;
+			const constexpr double GAP_SECONDS = 0.35;
+			const constexpr double FLASH_SECONDS = 0.3;
+
+			void setColor(u8 red, u8 green, u8 blue)
+			{
+				// The same color in all steps, looping: a steady light, whatever the MCU does with the timing values
+				InfoLedPattern pattern;
+				memset(&pattern, 0, sizeof(pattern));
+				pattern.delay = 0x10;
+				for (int i = 0; i < 32; ++i)
+				{
+					pattern.redPattern[i] = red;
+					pattern.greenPattern[i] = green;
+					pattern.bluePattern[i] = blue;
+				}
+				MCUHWC_SetInfoLedPattern(&pattern);
+				gLit = (red | green | blue) != 0;
+			}
+
+			// Brightness 0..1 of the animation at a time; "outFinished" once it's over
+			float getBrightness(Animation animation, double seconds, bool& outFinished)
+			{
+				outFinished = false;
+				if (animation == Animation::PULSE)
+				{
+					const double period = BREATH_SECONDS + GAP_SECONDS;
+					if (seconds >= period * BREATHS)
+					{
+						outFinished = true;
+						return 0.0f;
+					}
+					const double inBreath = fmod(seconds, period);
+					if (inBreath >= BREATH_SECONDS)
+						return 0.0f;		// The dark pause between breaths
+					const float s = (float)sin(inBreath / BREATH_SECONDS * M_PI);
+					return s * s;			// Soft rise and fall
+				}
+				if (animation == Animation::FLASH)
+				{
+					if (seconds >= FLASH_SECONDS)
+					{
+						outFinished = true;
+						return 0.0f;
+					}
+					const float t = (float)(seconds / FLASH_SECONDS);
+					return (1.0f - t) * (1.0f - t);		// Bright at once, then a quick fade
+				}
+				outFinished = true;
+				return 0.0f;
+			}
+
+			void threadFunc(void*)
+			{
+				while (true)
+				{
+					LightEvent_Wait(&gWakeEvent);
+					while (true)
+					{
+						LightLock_Lock(&gLock);
+						const Animation animation = gAnimation;
+						if (animation == Animation::NONE)
+						{
+							LightLock_Unlock(&gLock);
+							break;
+						}
+						const double seconds = (double)(svcGetSystemTick() - gAnimationStart) / SYSCLOCK_ARM11;
+						bool finished = false;
+						const float brightness = getBrightness(animation, seconds, finished);
+						if (finished)
+						{
+							setColor(0, 0, 0);
+							gAnimation = Animation::NONE;
+						}
+						else if (animation == Animation::PULSE)
+						{
+							setColor((u8)(brightness * 150.0f), 0, (u8)(brightness * 255.0f));		// Purple: red and blue, no green
+						}
+						else
+						{
+							const u8 value = (u8)(brightness * 255.0f);
+							setColor(value, value, value);
+						}
+						LightLock_Unlock(&gLock);
+						if (finished)
+							break;
+						svcSleepThread((s64)(UPDATE_SECONDS * 1000000000.0));
+					}
+				}
+			}
 
 			bool initialize()
 			{
 				if (gState == State::UNINITIALIZED)
 				{
+					gState = State::UNAVAILABLE;
+
 					// The light is controlled by the MCU, through the "mcu::HWC" service (see the CIA's RSF file)
 					const Result result = mcuHwcInit();
-					gState = R_SUCCEEDED(result) ? State::READY : State::UNAVAILABLE;
-					if (gState == State::UNAVAILABLE)
+					if (R_FAILED(result))
+					{
 						RMX_LOG_INFO("Notification light: not available (mcu::HWC error " << rmx::hexString((uint32)result, 8) << ")");
+						return false;
+					}
+
+					LightLock_Init(&gLock);
+					LightEvent_Init(&gWakeEvent, RESET_ONESHOT);
+
+					// On the system core if possible, like the file writer: updating the light must never delay a game frame
+					s32 mainPriority = 0x30;
+					svcGetThreadPriority(&mainPriority, CUR_THREAD_HANDLE);
+					const s32 priority = std::min<s32>(mainPriority + 1, 0x3f);
+					gThread = threadCreate(threadFunc, nullptr, 0x2000, priority, 1, true);
+					if (nullptr == gThread)
+						gThread = threadCreate(threadFunc, nullptr, 0x2000, priority, -2, true);
+					if (nullptr == gThread)
+					{
+						RMX_LOG_INFO("Notification light: could not start its thread");
+						return false;
+					}
+					gState = State::READY;
 				}
 				return (gState == State::READY);
+			}
+
+			void start(Animation animation)
+			{
+				if (!initialize())
+					return;
+				LightLock_Lock(&gLock);
+				gAnimation = animation;
+				gAnimationStart = svcGetSystemTick();
+				LightLock_Unlock(&gLock);
+				LightEvent_Signal(&gWakeEvent);
 			}
 		}
 
 		void pulse()
 		{
-			if (!initialize())
-				return;
-
-			// 32 steps, played once: three soft breaths of purple over about 4 seconds, then dark.
-			// The MCU blends between the steps ("smoothing"), so it fades instead of stepping.
-			// Timing: libctru documents "delay" in 1/16 seconds, but on a New 2DS XL a delay of 2 played all 32 steps in about
-			// 1 second, i.e. the unit is closer to 1/64 second. So 8 gives about 1/8 second per step.
-			InfoLedPattern pattern;
-			memset(&pattern, 0, sizeof(pattern));
-			pattern.delay = 0x08;			// About 1/8 second per step (see above), so about 4 seconds in total
-			pattern.smoothing = 0x40;
-			pattern.loopDelay = 0xff;		// Only once
-			pattern.blinkSpeed = 0;
-			for (int i = 0; i < 32; ++i)
-			{
-				// Breaths over steps 0..29, dark for the last steps (so it ends off)
-				float brightness = 0.0f;
-				if (i < 30)
-				{
-					const float phase = (float)i / 10.0f * (float)M_PI;		// One breath every 10 steps
-					brightness = sinf(phase) * sinf(phase);
-				}
-				pattern.redPattern[i]   = (u8)(brightness * 150.0f);		// Purple: red and blue, no green
-				pattern.greenPattern[i] = 0;
-				pattern.bluePattern[i]  = (u8)(brightness * 255.0f);
-			}
-			if (R_SUCCEEDED(MCUHWC_SetInfoLedPattern(&pattern)))
-				gLit = true;
+			start(Animation::PULSE);
 		}
 
 		void flash()
 		{
-			if (!initialize())
-				return;
-			InfoLedPattern pattern;
-			memset(&pattern, 0, sizeof(pattern));
-			pattern.delay = 0x01;			// Very short steps (the unit is about 1/64 second, see "pulse"): a quick flash
-			pattern.smoothing = 0x10;
-			pattern.loopDelay = 0xff;		// Only once
-			static const u8 CURVE[6] = { 255, 200, 110, 50, 15, 0 };		// Bright at once, then a short fade
-			for (int i = 0; i < 6; ++i)
-				pattern.redPattern[i] = pattern.greenPattern[i] = pattern.bluePattern[i] = CURVE[i];
-			if (R_SUCCEEDED(MCUHWC_SetInfoLedPattern(&pattern)))
-				gLit = true;
+			start(Animation::FLASH);
 		}
 
 		void off()
 		{
-			if (gState != State::READY || !gLit)
+			if (gState != State::READY)
 				return;
-			InfoLedPattern pattern;
-			memset(&pattern, 0, sizeof(pattern));
-			pattern.loopDelay = 0xff;
-			MCUHWC_SetInfoLedPattern(&pattern);
-			gLit = false;
+			LightLock_Lock(&gLock);
+			gAnimation = Animation::NONE;
+			if (gLit)
+				setColor(0, 0, 0);
+			LightLock_Unlock(&gLock);
 		}
 	}
 }

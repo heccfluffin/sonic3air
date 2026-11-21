@@ -237,9 +237,14 @@ void N3DSMenu::preload()
 {
 	const uint64 startTicks = svcGetSystemTick();
 	createIcons();
+
+	// The 3DS profile (nickname, birthday, region) for the greeting: read from the system settings, which can wait for the
+	// SD card when it's busy (seen taking 1.2 seconds), so also here during startup
+	n3ds::profile::getNickname();
+
 	const uint32 ms = (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
 	if (ms >= 30)
-		RMX_LOG_INFO("3DS menu: creating the icons took " << ms << " ms (during startup)");
+		RMX_LOG_INFO("3DS menu: preparing it took " << ms << " ms (during startup)");
 }
 
 void N3DSMenu::createIcons()
