@@ -26,7 +26,7 @@ namespace n3ds
 	{
 		namespace
 		{
-			const uint32 CHARACTER_PALETTE = 0x060b6a;		// Palette line 0: Sonic's colors, also used by bosses
+			const uint32 CHARACTER_PALETTE = 0x0a8a3c;		// Palette line 0 as the game loads it (characters and shared colors, also used by bosses)
 			const uint32 PATTERN_LOADING_TABLE = 0x09238c;
 
 			struct Rom
