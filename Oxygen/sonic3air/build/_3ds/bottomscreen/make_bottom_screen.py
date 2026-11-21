@@ -473,7 +473,7 @@ THEMES = [
 	  'light': (204, 68, 238), 'dark': (68, 0, 136), 'panel': (0, 0, 34), 'panel_alpha': 200,
 	  'sign_edge': (204, 68, 238), 'sign_inner': (136, 0, 204),
 	  'save': (0, 170, 136), 'load': (136, 0, 204), 'stats': (0, 0, 102), 'outline': (30, 0, 60) },
-	# Picture made by the port's author (themes/metallic.png, Metallic Madness' good future); steel frames like the zone's blocks
+	# Picture made by the port's author (themes/metallic.png, Metallic Madness' good future: the zone's foreground in front of its background's pipes and planters); steel frames like the zone's blocks
 	{ 'id': 'metallic', 'name': 'Metallic Madness', 'style': 'image', 'image': 'metallic.png', 'frame': 'metal',
 	  'light': (108, 180, 252), 'dark': (32, 0, 168), 'panel': (16, 8, 70), 'panel_alpha': 190,
 	  'metal_dark': (36, 36, 72), 'metal_light': (204, 228, 252), 'metal_mid': (108, 180, 252), 'metal_shade': (72, 108, 180),
