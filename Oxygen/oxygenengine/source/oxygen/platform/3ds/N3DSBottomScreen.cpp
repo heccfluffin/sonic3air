@@ -440,28 +440,26 @@ namespace n3ds
 					gGlyphData = nullptr;
 					return false;
 				}
+				uint32 offsets[_NUM_GLYPHS];
 				for (int i = 0; i < _NUM_GLYPHS; ++i)
 				{
 					const uint8* entry = &gGlyphData[8 + i * 8];
 					GlyphInfo& glyph = gGlyphs[i];
 					glyph.mWidth = readU16(&entry[0]);
 					glyph.mHeight = readU16(&entry[2]);
-					const uint32 offset = readU32(&entry[4]);
-					if (offset + (uLongf)glyph.mWidth * glyph.mHeight * 4 > size)
+					offsets[i] = readU32(&entry[4]);
+					if (offsets[i] + (uLongf)glyph.mWidth * glyph.mHeight * 4 > size)
 					{
 						free(gGlyphData);
 						gGlyphData = nullptr;
 						return false;
 					}
-					glyph.mPixels = &gGlyphData[offset];
 				}
 				uint8* shrunk = (uint8*)realloc(gGlyphData, size);
 				if (nullptr != shrunk)
-				{
-					for (int i = 0; i < _NUM_GLYPHS; ++i)
-						gGlyphs[i].mPixels = shrunk + (gGlyphs[i].mPixels - gGlyphData);
 					gGlyphData = shrunk;
-				}
+				for (int i = 0; i < _NUM_GLYPHS; ++i)
+					gGlyphs[i].mPixels = &gGlyphData[offsets[i]];
 				return true;
 			}
 
