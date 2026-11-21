@@ -16,10 +16,45 @@
 #include <3ds.h>
 #include <SDL.h>
 #include <stdio.h>
+#include <string>
 
 
 namespace n3ds
 {
+	namespace
+	{
+		// The console breaks lines wherever they reach the screen edge, even in the middle of a word; break them at spaces instead
+		std::string wordWrap(const std::string& text, int width)
+		{
+			if (width <= 1)
+				return text;
+			std::string result;
+			size_t lineStart = 0;		// In "result"
+			size_t lastSpace = std::string::npos;
+			for (char ch : text)
+			{
+				if (ch == '\n')
+				{
+					result += ch;
+					lineStart = result.length();
+					lastSpace = std::string::npos;
+					continue;
+				}
+				if (ch == ' ')
+					lastSpace = result.length();
+				result += ch;
+				if ((int)(result.length() - lineStart) > width - 1 && lastSpace != std::string::npos && lastSpace > lineStart)
+				{
+					// Leave one column free: a line that fills the whole width makes the console add an empty line
+					result[lastSpace] = '\n';
+					lineStart = lastSpace + 1;
+					lastSpace = std::string::npos;
+				}
+			}
+			return result;
+		}
+	}
+
 	int showDialog(const char* caption, const char* text, int numButtons)
 	{
 		// SDL's 3DS backend can't show message boxes, and before the game window exists nothing would be visible at all.
@@ -38,8 +73,8 @@ namespace n3ds
 		consoleSelect(&console);
 		consoleClear();
 
-		printf("\x1b[1;33m%s\x1b[0m\n\n", (nullptr != caption) ? caption : "Sonic 3 A.I.R.");
-		printf("%s\n\n", (nullptr != text) ? text : "");
+		printf("\x1b[1;33m%s\x1b[0m\n\n", wordWrap((nullptr != caption) ? caption : "Sonic 3 A.I.R.", console.consoleWidth).c_str());
+		printf("%s\n\n", wordWrap((nullptr != text) ? text : "", console.consoleWidth).c_str());
 		switch (numButtons)
 		{
 			case 1:  printf("\x1b[1;32mPress A to continue\x1b[0m\n");  break;

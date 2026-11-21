@@ -80,6 +80,11 @@ GameLoader::UpdateResult GameLoader::updateLoading()
 					mState = State::WAITING_FOR_ROM;
 					return UpdateResult::CONTINUE;
 
+				#elif defined(PLATFORM_3DS)
+					// The PC manual isn't at hand on the console, so say exactly what's needed
+					RMX_ERROR("ROM could not be loaded!\n\nPut your own " + gameProfile.mRomInfos[0].mSteamGameName + " ROM from Steam into this folder, named exactly:\n\n  sdmc:/3ds/sonic3air/\n  Sonic_Knuckles_wSonic3.bin\n\nThe mod patcher can copy it for you, see INSTALL.md.\n\nThe application will now close.", );
+					return UpdateResult::FAILURE;
+
 				#else
 					RMX_ERROR("ROM could not be loaded!\nAn original " + gameProfile.mRomInfos[0].mSteamGameName + " ROM must be added manually. See the Manual for details.\n\nThe application will now close.", );
 					return UpdateResult::FAILURE;

@@ -21,6 +21,7 @@
 #include "oxygen/application/Application.h"
 #include "oxygen/application/GameProfile.h"
 #include "oxygen/platform/CrashHandler.h"
+#include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/simulation/CodeExec.h"
 #include "oxygen/simulation/EmulatorInterface.h"
 
@@ -76,7 +77,13 @@ bool EngineDelegate::onEnginePreStartup()
 		if (!check)
 		{
 		#if defined(PLATFORM_3DS)
-			RMX_ERROR("Game data not found.\n\nCopy the 'data' folder (with gamedata.bin, enginedata.bin, audiodata.bin) and config.json from the official Sonic 3 A.I.R. PC release to:\n\n  sdmc:/3ds/sonic3air/data/\n  sdmc:/3ds/sonic3air/config.json", );
+			// Shown directly: this check runs before logging is set up, so an RMX_ERROR would not show anything and the game would just close
+			PlatformFunctions::showMessageBox("Sonic 3 A.I.R. - Game data not found",
+				"The game's data files are missing.\n\n"
+				"Copy the 'data' folder from the official Sonic 3 A.I.R. 26.03.28.0 download (sonic3air.org) to:\n\n"
+				"  sdmc:/3ds/sonic3air/data/\n\n"
+				"It must contain gamedata.bin, enginedata.bin, audiodata.bin, scripts.bin and metadata.json. "
+				"The mod patcher can copy it for you, see INSTALL.md.");
 		#elif defined(PLATFORM_WINDOWS)
 			RMX_ERROR("Seems like you launched the Sonic3AIR.exe from inside the downloaded ZIP file.\n\nMake sure to first extract the ZIP somewhere like on your desktop, then start the Sonic3AIR.exe in the extracted folder.", );
 		#else
