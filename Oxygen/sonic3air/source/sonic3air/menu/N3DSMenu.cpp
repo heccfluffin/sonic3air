@@ -225,7 +225,7 @@ namespace
 		{ "snowday", "zone05_act1b", 100, "SNOW DAY", "Forgot my coat. Too fast to get cold anyway. - Sonic", { { "sonic", 30, 25, false, 0 } }, {  } },
 		{ "photobomb", "zone01_act1a", 170, "PHOTOBOMB", "Our beach holiday picture. Someone snuck into it.", { { "sonictails", 44, 27, false, 0 }, { "knuckles", 136, 26, true, 0 } }, {  } },
 		{ "sleepy", "zone07_act2a", 312, "SLEEPY DAYS", "Tails is napping in the autumn leaves. Shh!", { { "yawn", 58, 41, false, 0 } }, {  } },
-		{ "wrongmonitor", "zone06_act1a", 312, "SURPRISE INSIDE", "Knuckles opened the wrong monitor. Again.", { { "monitor", 30, 32, false, 0 }, { "eggicon", 38, 35, false, 0 }, { "knuckles", 70, 24, true, 0 } }, {  } },
+		{ "wrongmonitor", "zone06_act1a", 100, "SURPRISE INSIDE", "Knuckles opened the wrong monitor. Again.", { { "monitor", 28, 30, false, 0 }, { "eggicon", 36, 33, false, 0 }, { "knuckles", 60, 22, true, 0 } }, {  } },
 		{ "decoys", "zone13_act1b", 100, "SPOT THE REAL ONE", "Eggman sent his very best. All of them.", { { "monitor", 10, 24, false, 0 }, { "eggicon", 18, 27, false, 0 }, { "monitor", 44, 24, false, 0 }, { "eggicon", 52, 27, false, 0 }, { "monitor", 78, 24, false, 0 }, { "eggicon", 86, 27, false, 0 }, { "sonic", 118, 16, true, 0 } }, {  } },
 		{ "speedlimit", "zone09_act1a", 100, "SPEED LIMIT", "Written at top speed. Sorry about the handwriting!", { { "peelout", 92, 33, false, 0 } }, { { 120, 6, 20, 26, 148, 6 } } },
 		{ "rolling", "zone03_act1b", 100, "ROLLING ALONG", "Saw Marble Garden from every angle. Mostly upside down.", { { "ball", 70, 40, false, 0 } }, {  } },
