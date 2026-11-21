@@ -455,8 +455,8 @@ THEMES = [
 	  'bg_light': (214, 214, 246), 'bg_mid': (226, 226, 252), 'bg_highlight': (255, 255, 255), 'bg_shadow': (160, 158, 222),
 	  'frame_light': (236, 236, 252), 'frame_shadow': (150, 148, 214), 'panel': (130, 126, 200), 'stats': (130, 126, 200),
 	  'save': (80, 170, 120), 'load': (120, 110, 210), 'outline': (70, 60, 150) },
-	# Picture made by the port's author (themes/skycity.png), replacing the drawn clouds and towers: purple towers above green fields
-	{ 'id': 'city',    'name': 'Sky City',        'style': 'image', 'image': 'skycity.png', 'frame': 'tower', 'light': (144, 72, 252), 'dark': (36, 0, 180),
+	# Picture made by the port's author (themes/skycity.png, Metallic Madness Act 2's good future): purple towers above green fields
+	{ 'id': 'city',    'name': 'Metallic Madness Act 2', 'style': 'image', 'image': 'skycity.png', 'frame': 'tower', 'light': (144, 72, 252), 'dark': (36, 0, 180),
 	  'panel': (0, 0, 36), 'panel_alpha': 170, 'tower_light': (144, 72, 252), 'tower_dark': (36, 36, 144), 'tower_orb': (216, 180, 252),
 	  'save': (36, 180, 0), 'load': (108, 36, 216), 'stats': (72, 180, 144), 'outline': (20, 0, 70) },	# Bush green, tower purple, floor teal
 	{ 'id': 'aurora',  'name': 'Aurora',          'style': 'gradient', 'corners': ((40, 150, 215), (150, 110, 210), (60, 130, 90), (120, 70, 150)),
@@ -473,8 +473,8 @@ THEMES = [
 	  'light': (204, 68, 238), 'dark': (68, 0, 136), 'panel': (0, 0, 34), 'panel_alpha': 200,
 	  'sign_edge': (204, 68, 238), 'sign_inner': (136, 0, 204),
 	  'save': (0, 170, 136), 'load': (136, 0, 204), 'stats': (0, 0, 102), 'outline': (30, 0, 60) },
-	# Picture made by the port's author (themes/metallic.png, Metallic Madness' good future: the zone's foreground in front of its background's pipes and planters); steel frames like the zone's blocks
-	{ 'id': 'metallic', 'name': 'Metallic Madness', 'style': 'image', 'image': 'metallic.png', 'frame': 'metal',
+	# Picture made by the port's author (themes/metallic.png, Metallic Madness Act 1's good future background: its pipes, planters and capsules); steel frames like the zone's blocks
+	{ 'id': 'metallic', 'name': 'Metallic Madness Act 1', 'style': 'image', 'image': 'metallic.png', 'frame': 'metal',
 	  'light': (108, 180, 252), 'dark': (32, 0, 168), 'panel': (16, 8, 70), 'panel_alpha': 190,
 	  'metal_dark': (36, 36, 72), 'metal_light': (204, 228, 252), 'metal_mid': (108, 180, 252), 'metal_shade': (72, 108, 180),
 	  'save': (0, 144, 0), 'load': (63, 90, 153), 'stats': (45, 54, 99), 'outline': (20, 20, 50) },
