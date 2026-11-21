@@ -10,6 +10,9 @@
 #include "oxygen/helper/Logging.h"
 #include "oxygen/platform/PlatformFunctions.h"
 #include "oxygen/simulation/LemonScriptRuntime.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSLog.h"
+#endif
 
 
 namespace
@@ -102,7 +105,11 @@ namespace oxygen
 		}
 	#endif
 		rmx::Logging::addLogger(*new rmx::StdCoutLogger());
+	#if defined(PLATFORM_3DS)
+		n3ds::log::addAsyncFileLogger(filename);		// Written in the background, a slow SD card froze the game for each line
+	#else
 		rmx::Logging::addLogger(*new rmx::FileLogger(filename, true));
+	#endif
 
 		// Register as logger and message box callback for rmx error handling
 		rmx::ErrorHandling::mLogger = &mErrorLogger;

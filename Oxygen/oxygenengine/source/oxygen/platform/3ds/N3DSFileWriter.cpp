@@ -33,7 +33,8 @@ namespace n3ds
 				DoneCallback mOnDone;
 				std::function<void()> mWork;		// For "runInBackground" jobs instead of writing a file
 				std::function<void()> mOnWorkDone;
-				const char* mName = nullptr;
+				const char* mName = nullptr;		// For the log if it's slow; nullptr to not report it
+				bool mIsJob = false;
 				size_t mSize = 0;
 				bool mSuccess = false;
 				bool mReplaced = false;		// Never written, a newer write of the same file took its place
@@ -186,7 +187,7 @@ namespace n3ds
 			LightLock_Lock(&gLock);
 			for (Job& queued : gQueue)
 			{
-				if (!queued.mWork && queued.mPath == path)
+				if (!queued.mIsJob && queued.mPath == path)
 				{
 					// Not started yet: write the new data instead (only the new write's callback gets called)
 					queued.mReplaced = true;
@@ -221,6 +222,7 @@ namespace n3ds
 			LightLock_Lock(&gLock);
 			Job& job = gQueue.emplace_back();
 			job.mName = name;
+			job.mIsJob = true;
 			job.mWork = std::move(work);
 			job.mOnWorkDone = std::move(onDone);
 			LightLock_Unlock(&gLock);
@@ -271,10 +273,10 @@ namespace n3ds
 
 			for (Job& job : finished)
 			{
-				if (nullptr != job.mName)
+				if (job.mIsJob)
 				{
 					// A "runInBackground" job
-					if (job.mMs >= 200)
+					if (nullptr != job.mName && job.mMs >= 200)
 						RMX_LOG_INFO("Background job: " << job.mName << " took " << job.mMs << " ms (the SD card or system storage was slow, but the game went on)");
 					if (job.mOnWorkDone)
 						job.mOnWorkDone();

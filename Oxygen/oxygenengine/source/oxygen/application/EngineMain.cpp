@@ -33,6 +33,7 @@
 #if defined(PLATFORM_3DS)
 	#include "oxygen/platform/3ds/N3DSExitGuard.h"
 	#include "oxygen/platform/3ds/N3DSFileWriter.h"
+	#include "oxygen/platform/3ds/N3DSLog.h"
 	#include "oxygen/platform/3ds/N3DSSplash.h"
 #endif
 #if defined(PLATFORM_3DS) && defined(N3DS_GPU_PRESENT)
@@ -379,6 +380,7 @@ void EngineMain::run()
 	Configuration::instance().saveSettings();
 	n3ds::exitguard::step("finishing background file writes");
 	n3ds::filewriter::waitUntilDone();		// The settings, and maybe a save state, the game's save data or the 3DS menu's file
+	n3ds::log::setSynchronous();			// The exit steps from here on go to the log file directly
 	n3ds::exitguard::start(5);
 	n3ds::exitguard::step("application cleanup");
 #endif

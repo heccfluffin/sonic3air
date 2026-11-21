@@ -44,6 +44,9 @@
 	#include "oxygen/simulation/SaveStateSerializer.h"
 	#include <lemon/runtime/Runtime.h>
 	#include <3ds.h>
+	#include <memory>
+	#include <sys/stat.h>
+	#include <unistd.h>
 #endif
 
 
@@ -413,6 +416,12 @@ void GameApp::updateBottomScreen()
 		return Configuration::instance().mSaveStatesDirLocal + ((slot == 0) ? std::wstring(L"3ds_nosave.state") : (L"3ds_slot" + std::to_wstring(slot) + L".state"));
 	};
 
+	// Whether the current save file has a state. Checked on the SD card in the background when the save file changes: the SD card
+	// can take seconds at times. "stateCheckGeneration" makes results of outdated checks get ignored.
+	static int cachedSlot = -2;
+	static bool cachedHasState = false;
+	static int stateCheckGeneration = 0;
+
 	// When a save file gets deleted in data select (its first byte gets the "empty" flag 0x80), delete its save state as well.
 	// Not if all of them are empty at once: that's the default data before the save files are loaded (or nothing could be loaded).
 	{
@@ -433,12 +442,21 @@ void GameApp::updateBottomScreen()
 				const bool becameEmpty = (flags[i] & 0x80) && (!initialized || !(lastFlags[i] & 0x80));
 				if (becameEmpty)
 				{
-					const std::wstring filename = getStateFilename(i + 1);
-					n3ds::filewriter::waitUntilDone();		// Its save state might still be getting written
-					if (FTX::FileSystem->exists(filename))
+					// In the background, in order after a write of it that may still be pending
+					const int emptySlot = i + 1;
+					const std::string path = rmx::convertToUTF8(getStateFilename(emptySlot));
+					const std::shared_ptr<bool> removed = std::make_shared<bool>(false);
+					n3ds::filewriter::runInBackground("deleting a save state",
+						[path, removed]() { *removed = (unlink(path.c_str()) == 0); },
+						[removed, emptySlot]()
+						{
+							if (*removed)
+								RMX_LOG_INFO("Bottom screen: save file " << emptySlot << " is empty, deleted its save state");
+						});
+					if (emptySlot == cachedSlot)
 					{
-						FTX::FileSystem->removeFile(filename);
-						RMX_LOG_INFO("Bottom screen: save file " << (i + 1) << " is empty, deleted its save state");
+						cachedHasState = false;
+						++stateCheckGeneration;
 					}
 				}
 			}
@@ -447,13 +465,23 @@ void GameApp::updateBottomScreen()
 		memcpy(lastFlags, flags, 8);
 	}
 
-	// Whether the current save file has a state: only checked on the SD card when the save file changes
-	static int cachedSlot = -2;
-	static bool cachedHasState = false;
 	if (slot != cachedSlot)
 	{
 		cachedSlot = slot;
-		cachedHasState = (slot >= 0) && FTX::FileSystem->exists(getStateFilename(slot));
+		cachedHasState = false;
+		const int generation = ++stateCheckGeneration;
+		if (slot >= 0)
+		{
+			const std::string path = rmx::convertToUTF8(getStateFilename(slot));
+			const std::shared_ptr<bool> exists = std::make_shared<bool>(false);
+			n3ds::filewriter::runInBackground("checking for a save state",
+				[path, exists]() { struct stat info; *exists = (stat(path.c_str(), &info) == 0); },
+				[exists, generation]()
+				{
+					if (generation == stateCheckGeneration)
+						cachedHasState = *exists;
+				});
+		}
 	}
 
 	// Save states only in levels and special stages of a normal game (game mode 0x0c / 0x34), not paused
@@ -486,6 +514,7 @@ void GameApp::updateBottomScreen()
 		const uint32 serializeMs = (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
 		const int sizeKB = (int)(data.size() / 1024);
 		cachedHasState = true;
+		++stateCheckGeneration;		// A check still running would not know about this one yet
 		n3ds::filewriter::writeFile(rmx::convertToUTF8(filename), std::move(data), [slot, sizeKB, serializeMs](bool success, uint32 writeMs)
 		{
 			RMX_LOG_INFO("Bottom screen: save state for save file " << slot << (success ? " saved" : " FAILED") << ", " << sizeKB << " KB, "

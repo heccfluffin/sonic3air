@@ -35,7 +35,8 @@ namespace n3ds
 
 		// Runs other SD card / system storage work on the same background thread, like reading a folder or a file: "work" runs
 		// there, "onDone" afterwards on the main thread (in "update"). The work must not log, and must not touch anything the
-		// main thread uses meanwhile; hand results over through data captured by both (e.g. a shared_ptr). "name" is for the log.
+		// main thread uses meanwhile; hand results over through data captured by both (e.g. a shared_ptr). "name" is for the log
+		// if the job takes long (nullptr: not reported). "onDone" can be empty.
 		// Jobs run in order with the writes, so a read queued after a write sees the written file.
 		void runInBackground(const char* name, std::function<void()> work, std::function<void()> onDone);
 
