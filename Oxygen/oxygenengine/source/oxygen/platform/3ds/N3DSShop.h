@@ -41,6 +41,15 @@ namespace n3ds
 		// Follows the 3DS clock (free): Aurora in the morning, Blue Zig-Zag by day, Sunset Glow in the evening and Starry Night
 		// at night - each one only if owned, otherwise one of the others
 		static const int THEME_AUTO = 101;
+
+		// Night mode: dims the bottom screen
+		enum NightMode
+		{
+			NIGHT_MODE_OFF = 0,
+			NIGHT_MODE_AFTER_DARK,		// From 20:00 to 6:00
+			NIGHT_MODE_ALWAYS,
+			_NUM_NIGHT_MODES
+		};
 		static const char* const CUSTOM_THEMES_FOLDER = "sdmc:/3ds/sonic3air/themes/";
 
 		// Starting shield, given at the start of each act and after losing a life (as flags of the game's "char.bonus" byte)
@@ -62,6 +71,7 @@ namespace n3ds
 			bool mOwnsShield = false;
 			int mSelectedShield = SHIELD_OFF;
 			bool mShowMenu = true;		// The "3DS" entry in the main menu (option in the System tab of the options)
+			int mNightMode = NIGHT_MODE_OFF;
 		};
 
 		Data& get();		// Loaded on first use
@@ -69,6 +79,9 @@ namespace n3ds
 
 		// The theme to show right now: for THEME_AUTO, the one for the time of day; any other theme as it is
 		int resolveTheme(int theme);
+
+		// Whether the bottom screen should be dimmed right now
+		bool isNightModeActive();
 
 		uint8_t getShieldFlags(int shield);		// Flags for the game's "char.bonus" byte, 0 for SHIELD_OFF
 	}

@@ -12,10 +12,10 @@
 
 #include "oxygen/platform/3ds/N3DSShop.h"
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
+#include "oxygen/platform/3ds/N3DSProfile.h"
 
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <initializer_list>
 
 
@@ -33,7 +33,8 @@ namespace n3ds
 			bool operator!=(const Data& a, const Data& b)
 			{
 				return a.mOwnedThemes != b.mOwnedThemes || a.mSelectedTheme != b.mSelectedTheme || a.mOwnsShield != b.mOwnsShield ||
-					   a.mSelectedShield != b.mSelectedShield || a.mShowMenu != b.mShowMenu || a.mCustomTheme != b.mCustomTheme;
+					   a.mSelectedShield != b.mSelectedShield || a.mShowMenu != b.mShowMenu || a.mCustomTheme != b.mCustomTheme ||
+					   a.mNightMode != b.mNightMode;
 			}
 
 			void load()
@@ -67,6 +68,8 @@ namespace n3ds
 						gData.mSelectedShield = (int)value;
 					else if (sscanf(line, "show_menu=%u", &value) == 1)
 						gData.mShowMenu = (value != 0);
+					else if (sscanf(line, "night_mode=%u", &value) == 1)
+						gData.mNightMode = (value < _NUM_NIGHT_MODES) ? (int)value : NIGHT_MODE_OFF;
 				}
 				fclose(file);
 
@@ -107,6 +110,7 @@ namespace n3ds
 			snprintf(text, sizeof(text), "owned_themes=%x\ntheme=%d\nowns_shield=%d\nshield=%d\nshow_menu=%d\n", (unsigned int)gData.mOwnedThemes, gData.mSelectedTheme,
 					 gData.mOwnsShield ? 1 : 0, gData.mSelectedShield, gData.mShowMenu ? 1 : 0);
 			std::string content = text;
+			content += "night_mode=" + std::to_string(gData.mNightMode) + "\n";
 			if (!gData.mCustomTheme.empty())
 				content += "custom_theme=" + gData.mCustomTheme + "\n";
 			n3ds::filewriter::writeFile(FILE_PATH, std::vector<uint8_t>(content.begin(), content.end()), [](bool success, uint32_t)
@@ -122,11 +126,7 @@ namespace n3ds
 			if (theme != THEME_AUTO)
 				return theme;
 
-			// The 3DS clock is local time, without a time zone, so "gmtime" gives the time as shown on the 3DS
-			const time_t now = time(nullptr);
-			struct tm local;
-			gmtime_r(&now, &local);
-			const int hour = local.tm_hour;
+			const int hour = n3ds::profile::getLocalTime().mHour;
 
 			const uint32_t owned = get().mOwnedThemes;
 			const auto pick = [owned](std::initializer_list<int> themes)
@@ -145,6 +145,22 @@ namespace n3ds
 			if (hour >= 17 && hour < 20)
 				return pick({ THEME_SUNSET, THEME_NIGHT, THEME_BLUE });
 			return pick({ THEME_NIGHT, THEME_SUNSET, THEME_BLUE });
+		}
+
+		bool isNightModeActive()
+		{
+			switch (get().mNightMode)
+			{
+				case NIGHT_MODE_ALWAYS:
+					return true;
+				case NIGHT_MODE_AFTER_DARK:
+				{
+					const int hour = n3ds::profile::getLocalTime().mHour;
+					return (hour >= 20 || hour < 6);
+				}
+				default:
+					return false;
+			}
 		}
 
 		uint8_t getShieldFlags(int shield)

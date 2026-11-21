@@ -25,6 +25,7 @@
 #include "oxygen/helper/Utils.h"
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
 #include "oxygen/platform/3ds/N3DSPlayCoins.h"
+#include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
 
 
@@ -38,6 +39,9 @@ namespace
 	static constexpr uint32 CUSTOM_THEME = 0x400;		// Plus the index in "mCustomThemes"
 	static constexpr uint32 CUSTOM_INFO = 0x4ff;		// Explanation entry for the player's own pictures
 	static constexpr uint32 AUTO_THEME = 0x4fe;			// The theme that follows the time of day (n3ds::shop::THEME_AUTO)
+	static constexpr uint32 NIGHT_MODE = 0x4fd;			// Setting for dimming the bottom screen
+
+	const char* NIGHT_MODE_NAMES[n3ds::shop::_NUM_NIGHT_MODES] = { "OFF", "AFTER DARK", "ALWAYS" };
 
 	struct ThemeInfo
 	{
@@ -166,8 +170,11 @@ void N3DSMenu::onFadeIn()
 	// Read the Play Coins each time the menu opens (they may have changed while the game was suspended)
 	int coins = 0;
 	mPlayCoins = n3ds::playcoins::read(coins) ? coins : -1;
-	mMessage.clear();
 	mPreviewedTheme.clear();
+
+	// A little greeting, like "Good evening, Name!"
+	showMessage(n3ds::profile::getGreeting(), false);
+	mMessageTimeout = 5.0f;
 
 	scanCustomThemes();
 	rebuildTabs();
@@ -360,7 +367,10 @@ void N3DSMenu::rebuildTabs()
 			if (nullptr != THEMES[theme].mName)		// Skip removed themes
 				entries.addEntry(THEMES[theme].mName, theme);
 			if (theme == n3ds::shop::THEME_BLUE)
+			{
 				entries.addEntry("Time of Day", AUTO_THEME);
+				entries.addEntry("Night Mode", NIGHT_MODE);
+			}
 		}
 		for (size_t k = 0; k < mCustomThemes.size(); ++k)
 		{
@@ -412,6 +422,13 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 	switch (tabIndex)
 	{
 		case Tab::Id::THEMES:
+			if (data == NIGHT_MODE)
+			{
+				outItem.mName = "Night Mode";
+				outItem.mPrice = 0;
+				outItem.mOwned = true;
+				return true;
+			}
 			if (data == AUTO_THEME)
 			{
 				outItem.mName = "Time of Day";
@@ -620,6 +637,15 @@ void N3DSMenu::onAccept()
 		return;
 	}
 
+	if (mActiveTab == Tab::Id::THEMES && data == NIGHT_MODE)
+	{
+		shop.mNightMode = (shop.mNightMode + 1) % n3ds::shop::_NUM_NIGHT_MODES;
+		n3ds::shop::save();
+		playMenuSound(0x63);
+		showMessage((shop.mNightMode == n3ds::shop::NIGHT_MODE_OFF) ? "Night mode switched off" :
+					(shop.mNightMode == n3ds::shop::NIGHT_MODE_AFTER_DARK) ? "Night mode from 8 pm to 6 am" : "Night mode always on", false);
+		return;
+	}
 	if (mActiveTab == Tab::Id::THEMES && data == AUTO_THEME)
 	{
 		if (shop.mSelectedTheme != n3ds::shop::THEME_AUTO)
@@ -818,6 +844,19 @@ void N3DSMenu::render()
 					status = "FREE";
 					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontRegular, Recti(imageRect.x + 32, imageRect.y + 19, 0, 10), "PNG", 5, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::THEMES && entry.mData == NIGHT_MODE)
+				{
+					description = "Dims the bottom screen, gentler on the eyes in the dark. Press A to switch: off, after dark (8 pm to 6 am), always.";
+					status = NIGHT_MODE_NAMES[clamp(shop.mNightMode, 0, (int)n3ds::shop::_NUM_NIGHT_MODES - 1)];
+					statusColor = (shop.mNightMode == n3ds::shop::NIGHT_MODE_OFF) ? Color(0.8f, 0.8f, 0.8f, tabAlpha) : Color(0.4f, 1.0f, 1.0f, tabAlpha);
+
+					// Night sky with a few stars
+					drawer.drawRect(imageRect, Color(0.03f, 0.05f, 0.16f, tabAlpha));
+					static const int STARS[][2] = { { 8, 9 }, { 22, 30 }, { 41, 7 }, { 55, 24 }, { 13, 40 }, { 47, 38 }, { 30, 15 } };
+					for (const auto& star : STARS)
+						drawer.drawRect(Recti(imageRect.x + star[0], imageRect.y + star[1], 2, 2), Color(1.0f, 0.95f, 0.7f, tabAlpha));
+					drawer.printText(global::mOxyfontRegular, Recti(imageRect.x + 32, imageRect.y + 19, 0, 10), "Zz", 5, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 				}
 				else if (tabIndex == Tab::Id::THEMES && entry.mData == AUTO_THEME)
 				{

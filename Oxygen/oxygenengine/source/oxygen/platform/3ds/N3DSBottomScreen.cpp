@@ -18,10 +18,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 #include <zlib.h>
 
 #include "oxygen/platform/3ds/N3DSShop.h"
+#include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/helper/FileHelper.h"
 
 // Overlay for the player's own background pictures: panels, buttons and texts with transparency (see make_bottom_screen.py)
@@ -157,6 +157,7 @@ namespace n3ds
 				{ s3air_bottom_screen_sunset_bin,  s3air_bottom_screen_sunset_bin_size },
 			};
 			int gTheme = -1;		// Theme currently unpacked into "gData"
+			bool gDimmed = false;		// Night mode: everything drawn at half brightness
 			int gRequestedTheme = n3ds::shop::THEME_BLUE;	// What should be shown: can be THEME_AUTO, which changes with the time of day
 
 			bool parseParts(uLongf size)
@@ -353,6 +354,12 @@ namespace n3ds
 				gfxSetDoubleBuffering(GFX_BOTTOM, false);
 			}
 
+			// Half brightness for the night mode: each RGB565 channel shifted down by one bit
+			inline u16 dimmed(u16 pixel)
+			{
+				return gDimmed ? (u16)((pixel >> 1) & 0x7bef) : pixel;
+			}
+
 			// Draws a part into the framebuffer, which is rotated: 240 x 320, screen pixel (x, y) is at index x * 240 + (239 - y)
 			void drawPart(Part partIndex, u16* framebuffer)
 			{
@@ -363,7 +370,7 @@ namespace n3ds
 					const uint8* src = &part.mPixels[x * 2];
 					for (int y = 0; y < part.mHeight; ++y)
 					{
-						*column = (u16)(src[0] | (src[1] << 8));
+						*column = dimmed((u16)(src[0] | (src[1] << 8)));
 						--column;
 						src += part.mWidth * 2;
 					}
@@ -483,12 +490,9 @@ namespace n3ds
 					return false;
 				gNextClockCheck = now + SYSCLOCK_ARM11 / 2;
 
-				// The 3DS clock is local time, without a time zone, so "gmtime" gives the time as shown on the 3DS
-				const time_t seconds = time(nullptr);
-				struct tm local;
-				gmtime_r(&seconds, &local);
-				gClock.mHour = local.tm_hour;
-				gClock.mMinute = local.tm_min;
+				const n3ds::profile::LocalTime local = n3ds::profile::getLocalTime();
+				gClock.mHour = local.mHour;
+				gClock.mMinute = local.mMinute;
 
 				// Asking the system for the battery is a bit slower, and it changes slowly anyway
 				if (gPtmInitialized && now >= gNextBatteryCheck)
@@ -528,9 +532,10 @@ namespace n3ds
 						const int r = ((pixel >> 11) & 0x1f) * 255 / 31;
 						const int g = ((pixel >> 5) & 0x3f) * 255 / 63;
 						const int b = (pixel & 0x1f) * 255 / 31;
-						const int outR = (src[0] * alpha + r * (255 - alpha)) / 255;
-						const int outG = (src[1] * alpha + g * (255 - alpha)) / 255;
-						const int outB = (src[2] * alpha + b * (255 - alpha)) / 255;
+						const int shift = gDimmed ? 1 : 0;		// The background is dimmed already
+						const int outR = ((src[0] >> shift) * alpha + r * (255 - alpha)) / 255;
+						const int outG = ((src[1] >> shift) * alpha + g * (255 - alpha)) / 255;
+						const int outB = ((src[2] >> shift) * alpha + b * (255 - alpha)) / 255;
 						pixel = (u16)(((outR >> 3) << 11) | ((outG >> 2) << 5) | (outB >> 3));
 					}
 				}
@@ -545,7 +550,7 @@ namespace n3ds
 					for (int x = CLOCK_RECT.mX0; x < CLOCK_RECT.mX1; ++x)
 					{
 						const uint8* src = &full.mPixels[(y * full.mWidth + x) * 2];
-						framebufferPixel(framebuffer, x, y) = (u16)(src[0] | (src[1] << 8));
+						framebufferPixel(framebuffer, x, y) = dimmed((u16)(src[0] | (src[1] << 8)));
 					}
 				}
 				if (gClock.mHour < 0)
@@ -759,9 +764,18 @@ namespace n3ds
 			if (!aptIsActive() || aptShouldClose())		// The screens belong to the system right now
 				return Request::NONE;
 
-			// The clock, and the theme that follows it
-			if (updateClockState() && gRequestedTheme == n3ds::shop::THEME_AUTO && n3ds::shop::resolveTheme(n3ds::shop::THEME_AUTO) != gTheme)
-				gDataValid = loadArtwork(n3ds::shop::THEME_AUTO);
+			// The clock, and the theme and night mode that follow it
+			if (updateClockState())
+			{
+				if (gRequestedTheme == n3ds::shop::THEME_AUTO && n3ds::shop::resolveTheme(n3ds::shop::THEME_AUTO) != gTheme)
+					gDataValid = loadArtwork(n3ds::shop::THEME_AUTO);
+				const bool dim = n3ds::shop::isNightModeActive();
+				if (dim != gDimmed)
+				{
+					gDimmed = dim;
+					gNeedsFullRedraw = true;
+				}
+			}
 			if (!gDataValid)
 				return Request::NONE;
 
