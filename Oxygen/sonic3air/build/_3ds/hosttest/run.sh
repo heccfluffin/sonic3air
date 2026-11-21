@@ -30,11 +30,11 @@ FLAGS="-std=c++17 -O1 -g -Wall -Wno-unused-function -DPLATFORM_3DS -DN3DS_PROFIL
 gcc -c -O1 "$OUT/gen/embedded.c" -o "$OUT/embedded.o"
 g++ $FLAGS -include "$HERE/fake/3ds.h" \
 	"$SRC/oxygen/platform/3ds/N3DSBottomScreen.cpp" "$SRC/oxygen/platform/3ds/N3DSShop.cpp" "$SRC/oxygen/platform/3ds/N3DSProfile.cpp" \
-	"$SRC/oxygen/platform/3ds/N3DSFileWriter.cpp" "$HERE/fake3ds.cpp" "$HERE/main.cpp" "$OUT/embedded.o" \
+	"$SRC/oxygen/platform/3ds/N3DSFileWriter.cpp" "$SRC/oxygen/platform/3ds/N3DSJournal.cpp" "$HERE/fake3ds.cpp" "$HERE/main.cpp" "$OUT/embedded.o" \
 	-Wl,--wrap=time -Wl,--wrap=write -lz -pthread -o "$OUT/hosttest"
 
 FAILED=0
-for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload; do
+for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload postcards postcardsall; do
 	echo "== $scenario"
 	mkdir -p "$OUT/sd_$scenario/sdmc:"		# The SD card itself, which always exists on the 3DS
 	(cd "$OUT/sd_$scenario" && "$OUT/hosttest" "$scenario" "$OUT/shots") || FAILED=1

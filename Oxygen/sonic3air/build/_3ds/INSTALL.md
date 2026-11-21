@@ -200,6 +200,14 @@ The main menu has a **3DS** entry (it can be hidden in Options → System). Ther
 Play Coins are shared with the rest of the 3DS (StreetPass Mii Plaza and other games use them too).
 What you bought and chose is saved in `savedata/3ds_shop.txt`.
 
+The **Journal** tab keeps a stamp card: one stamp for each day you play (the days don't have to be in a row),
+with the notification light glowing pink for it. Every full card of 7 stamps brings a **postcard** of a zone for
+the album there (the first 14 are one from each zone, 50 in all) and a little **medal** next to the clock on the
+bottom screen. The journal also counts your play time, days, steps, Play Coins spent and screenshots;
+it's saved in `savedata/3ds_journal.txt`.
+
+**Screenshots:** press L and R together to save the top screen as a PNG in `sdmc:/3ds/sonic3air/screenshots/`.
+
 
 ## Mods
 

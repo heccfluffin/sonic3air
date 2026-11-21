@@ -102,6 +102,35 @@ def bolt_glyph():
 	return img.resize((BOLT_WIDTH, HEIGHT), Image.LANCZOS)
 
 
+BADGE_WIDTH = 11
+
+
+def badge_glyph():
+	"""A little gold medal on a ribbon: one for each completed stamp card of the journal, shown left of the time"""
+	img = Image.new('RGBA', (BADGE_WIDTH * S, HEIGHT * S), (0, 0, 0, 0))
+	d = ImageDraw.Draw(img)
+	box = lambda b: [v * S for v in b]
+	# Ribbon: two blue tails in a V, from the top down to the medal
+	for points, color in (([(1.6, 1.0), (4.6, 1.0), (6.4, 8.0), (3.4, 8.0)], (40, 105, 225, 255)),
+						  ([(9.4, 1.0), (6.4, 1.0), (4.6, 8.0), (7.6, 8.0)], (225, 38, 46, 255))):
+		d.polygon([((x + 0.6) * S, (y + 1.2) * S) for x, y in points], fill=SHADOW)
+		d.polygon([(x * S, y * S) for x, y in points], fill=color, outline=OUTLINE, width=int(0.7 * S))
+	# The medal: gold, a lighter rim at the top left, a star in the middle
+	cx, cy, r = 5.5, 12.0, 4.6
+	d.ellipse(box((cx - r + 0.6, cy - r + 1.2, cx + r + 0.6, cy + r + 1.2)), fill=SHADOW)
+	d.ellipse(box((cx - r - 0.7, cy - r - 0.7, cx + r + 0.7, cy + r + 0.7)), fill=OUTLINE)
+	d.ellipse(box((cx - r, cy - r, cx + r, cy + r)), fill=(240, 170, 30, 255))
+	d.ellipse(box((cx - r + 0.9, cy - r + 0.9, cx + r - 0.6, cy + r - 0.6)), fill=(255, 215, 70, 255))
+	import math
+	star = []
+	for i in range(10):
+		a = -math.pi / 2 + i * math.pi / 5
+		rr = 2.6 if i % 2 == 0 else 1.1
+		star.append(((cx + rr * math.cos(a)) * S, (cy + 0.2 + rr * math.sin(a)) * S))
+	d.polygon(star, fill=(255, 255, 230, 255))
+	return img.resize((BADGE_WIDTH, HEIGHT), Image.LANCZOS)
+
+
 def main():
 	# Order must match "Glyph" in N3DSBottomScreen.cpp
 	glyphs = [text_glyph(str(digit), 10, 11) for digit in range(10)]
@@ -110,6 +139,7 @@ def main():
 	glyphs.append(text_glyph('PM', 19, 8))
 	glyphs += [battery_glyph(level) for level in range(6)]
 	glyphs.append(bolt_glyph())
+	glyphs.append(badge_glyph())
 
 	header = bytearray(b'S3BC') + struct.pack('<HH', 1, len(glyphs))
 	data_offset = len(header) + 8 * len(glyphs)
@@ -122,9 +152,9 @@ def main():
 		f.write(zlib.compress(bytes(header + table + pixels), 9))
 
 	# Preview: on a few theme-like backgrounds, enlarged
-	sample = Image.new("RGBA", (360, 3 * 26), (0, 0, 0, 255))
+	sample = Image.new("RGBA", (400, 3 * 26), (0, 0, 0, 255))
 	for row, bg in enumerate([(34, 104, 214), (255, 180, 90), (236, 236, 252)]):
-		strip = Image.new("RGBA", (360, 26), bg + (255,))
+		strip = Image.new("RGBA", (400, 26), bg + (255,))
 		x = 4
 		for img in glyphs:
 			strip.alpha_composite(img, (x, 4))

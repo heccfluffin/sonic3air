@@ -78,3 +78,4 @@ Result CFGU_GetConfigInfoBlk2(u32 size, u32 blkID, void* outData);
 Result ptmuInit();
 Result PTMU_GetBatteryLevel(u8* out);
 Result PTMU_GetBatteryChargeState(u8* out);
+Result PTMU_GetTotalStepCount(u32* out);

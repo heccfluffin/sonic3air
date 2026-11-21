@@ -12,6 +12,7 @@
 #if defined(PLATFORM_3DS)
 
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
+#include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSProfiler.h"
 
 #include <3ds.h>
@@ -421,6 +422,7 @@ namespace n3ds
 				GLYPH_PM,
 				GLYPH_BATTERY_0,			// Battery with 0 to 5 bars
 				GLYPH_BOLT = GLYPH_BATTERY_0 + 6,	// Charging
+				GLYPH_BADGE,				// A medal for each completed stamp card of the journal
 				_NUM_GLYPHS
 			};
 
@@ -441,10 +443,11 @@ namespace n3ds
 				int mMinute = 0;
 				int mBattery = -1;		// 0 to 5 bars, -1 if not known
 				bool mCharging = false;
+				int mBadges = 0;		// Completed stamp cards
 
 				bool operator==(const ClockState& other) const
 				{
-					return mHour == other.mHour && mMinute == other.mMinute && mBattery == other.mBattery && mCharging == other.mCharging;
+					return mHour == other.mHour && mMinute == other.mMinute && mBattery == other.mBattery && mCharging == other.mCharging && mBadges == other.mBadges;
 				}
 			};
 
@@ -524,6 +527,7 @@ namespace n3ds
 				const n3ds::profile::LocalTime local = n3ds::profile::getLocalTime();
 				gClock.mHour = local.mHour;
 				gClock.mMinute = local.mMinute;
+				gClock.mBadges = (int)std::min<uint32_t>(n3ds::journal::get().mCardsCompleted, 99);
 
 				// Asking the system for the battery is a bit slower, and it changes slowly anyway
 				if (gPtmInitialized && now >= gNextBatteryCheck)
@@ -629,11 +633,20 @@ namespace n3ds
 				for (int i = 0; i < count; ++i)
 					width += gGlyphs[glyphs[i]].mWidth - 1;
 				x -= width;
+				const int timeX = x;
 				for (int i = 0; i < count; ++i)
 				{
 					drawGlyph(glyphs[i], x, CLOCK_GLYPH_Y, framebuffer);
 					x += gGlyphs[glyphs[i]].mWidth - 1;
 				}
+
+				// The journal's badges from the left, as many as fit before the time (more cards still count in the journal)
+				const int badgeWidth = gGlyphs[GLYPH_BADGE].mWidth;
+				const int step = badgeWidth - 3;
+				const int maxBadges = std::max(0, (timeX - 4 - (CLOCK_RECT.mX0 + 2) - (badgeWidth - step)) / step);
+				const int badges = std::min(gClock.mBadges, maxBadges);
+				for (int i = badges - 1; i >= 0; --i)		// The left ones drawn last, on top
+					drawGlyph(GLYPH_BADGE, CLOCK_RECT.mX0 + 2 + i * step, CLOCK_GLYPH_Y, framebuffer);
 			}
 
 			int gSlot = -1;					// Save file of the running game: 0 = "No Save", 1-8, or -1 if unknown

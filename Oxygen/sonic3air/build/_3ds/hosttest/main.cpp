@@ -8,6 +8,7 @@
 
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
+#include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
 
@@ -423,6 +424,74 @@ namespace
 		check(n3ds::shop::get().mNightStart == 22 * 60 + 30 && n3ds::shop::get().mNightEnd == 7 * 60, "own night times are kept after a restart");
 		check(n3ds::profile::formatTime(22 * 60 + 30) == "22:30", "times shown as 22:30 on a European 3DS");
 	}
+
+	void writeJournal(const std::string& text)
+	{
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt") << text;
+	}
+
+	void postcards()
+	{
+		// A journal from before postcards: 3 cards completed, and the 7th stamp of the 4th card due today
+		fake::setTime(2026, 11, 21, 21, 0);
+		writeJournal("started=20261001\nlast_day=20261120\ndays_played=27\nstamps=6\ncards_completed=3\nplay_seconds=36000\n");
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		check(journal.mPostcards.size() == 3, "3 cards completed before there were postcards: 3 postcards arrive (" + std::to_string(journal.mPostcards.size()) + ")");
+		check(n3ds::journal::takeNewPostcardNotice(), "... with the notice for the 3DS menu");
+		bool distinct = true;
+		for (size_t i = 0; i < journal.mPostcards.size(); ++i)
+			for (size_t k = 0; k < i; ++k)
+				distinct = distinct && (journal.mPostcards[i].mZone != journal.mPostcards[k].mZone);
+		check(distinct, "... each from a different zone");
+
+		for (int i = 0; i < 4 * 60; ++i)
+		{
+			frame();
+			n3ds::journal::update();
+		}
+		check(journal.mStamps == 7 && journal.mCardsCompleted == 4, "today's stamp completes the 4th card");
+		check(journal.mPostcards.size() == 4 && journal.mPostcards.back().mDate == 20261121, "... and its postcard arrives, dated today");
+		frames(60);
+		shot("badges_4_cards_24h");
+
+		n3ds::journal::save();
+		n3ds::filewriter::waitUntilDone();
+		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt");
+		size_t lines = 0;
+		for (size_t pos = saved.find("postcard=zone"); pos != std::string::npos; pos = saved.find("postcard=zone", pos + 1))
+			++lines;
+		check(lines == 4, "the postcards are saved in the journal file (" + std::to_string(lines) + " lines)");
+		check(saved.find("postcard=" + journal.mPostcards.back().getSpriteName() + " 20261121\n") != std::string::npos, "... like \"postcard=" + journal.mPostcards.back().getSpriteName() + " 20261121\"");
+	}
+
+	void postcardsAll()
+	{
+		// Loads of cards: every zone first, then the rest, and never more than there are pictures
+		fake::setTime(2026, 11, 21, 21, 0);
+		writeJournal("started=20250101\nlast_day=20261121\ndays_played=420\nstamps=0\ncards_completed=60\npostcard=zone05_act2b 20250108\n");
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		check(n3ds::journal::getNumPossiblePostcards() == 50, "50 zone pictures to collect");
+		check((int)journal.mPostcards.size() == 50, "60 cards: all 50 postcards, no more (" + std::to_string(journal.mPostcards.size()) + ")");
+		check(journal.mPostcards[0].getSpriteName() == "zone05_act2b" && journal.mPostcards[0].mDate == 20250108, "a saved postcard is read back (IceCap Act 2, 8 Jan 2025)");
+		bool firstAllZones = true;
+		for (int zone = 1; zone <= 14; ++zone)
+		{
+			bool found = false;
+			for (size_t k = 0; k < 14 && k < journal.mPostcards.size(); ++k)
+				found = found || (journal.mPostcards[k].mZone == zone);
+			firstAllZones = firstAllZones && found;
+		}
+		check(firstAllZones, "the first 14 postcards are one from each zone");
+		bool unique = true;
+		for (size_t i = 0; i < journal.mPostcards.size(); ++i)
+			for (size_t k = 0; k < i; ++k)
+				unique = unique && (journal.mPostcards[i].getSpriteName() != journal.mPostcards[k].getSpriteName());
+		check(unique, "no postcard twice");
+
+		frames(60);
+		shot("badges_60_cards_24h");
+	}
 }
 
 int main(int argc, char** argv)
@@ -439,7 +508,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

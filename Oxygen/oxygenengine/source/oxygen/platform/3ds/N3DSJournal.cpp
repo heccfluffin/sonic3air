@@ -33,6 +33,10 @@ namespace n3ds
 			std::string gSavedText;			// As last loaded / saved, to save only if something changed
 			bool gLoaded = false;
 			bool gNewStampNotice = false;
+			bool gNewPostcardNotice = false;
+
+			// The zone preview pictures there are: acts per zone, for zones 1 to 14 (Hidden Palace, Sky Sanctuary and Doomsday have one)
+			const int ACTS_PER_ZONE[14] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1 };
 
 			uint64_t gLastTick = 0;
 			uint64_t gPlayTicks = 0;		// Not counted in whole seconds yet
@@ -54,7 +58,83 @@ namespace n3ds
 						 "started=%u\nlast_day=%u\ndays_played=%u\nstamps=%d\ncards_completed=%u\nplay_seconds=%llu\nplay_coins_spent=%u\nthings_bought=%u\nscreenshots=%u\n",
 						 (unsigned)data.mStartedDate, (unsigned)data.mLastDayPlayed, (unsigned)data.mDaysPlayed, data.mStamps, (unsigned)data.mCardsCompleted,
 						 (unsigned long long)data.mPlaySeconds, (unsigned)data.mPlayCoinsSpent, (unsigned)data.mThingsBought, (unsigned)data.mScreenshots);
-				return text;
+				std::string result = text;
+				for (const Postcard& postcard : data.mPostcards)
+				{
+					snprintf(text, sizeof(text), "postcard=%s %u\n", postcard.getSpriteName().c_str(), (unsigned)postcard.mDate);
+					result += text;
+				}
+				return result;
+			}
+
+			bool hasPostcard(int zone, int act, char image)
+			{
+				for (const Postcard& postcard : gData.mPostcards)
+				{
+					if (postcard.mZone == zone && postcard.mAct == act && postcard.mImage == image)
+						return true;
+				}
+				return false;
+			}
+
+			bool hasZone(int zone)
+			{
+				for (const Postcard& postcard : gData.mPostcards)
+				{
+					if (postcard.mZone == zone)
+						return true;
+				}
+				return false;
+			}
+
+			// A random picture not collected yet, preferring zones without any postcard; false once all are collected
+			bool addPostcard()
+			{
+				std::vector<Postcard> candidates;
+				for (int pass = 0; pass < 2 && candidates.empty(); ++pass)
+				{
+					for (int zone = 1; zone <= 14; ++zone)
+					{
+						if (pass == 0 && hasZone(zone))
+							continue;
+						for (int act = 1; act <= ACTS_PER_ZONE[zone - 1]; ++act)
+						{
+							for (char image : { 'a', 'b' })
+							{
+								if (hasPostcard(zone, act, image))
+									continue;
+								Postcard postcard;
+								postcard.mZone = zone;
+								postcard.mAct = act;
+								postcard.mImage = image;
+								candidates.push_back(postcard);
+							}
+						}
+					}
+				}
+				if (candidates.empty())
+					return false;
+
+				static uint32_t random = 0;
+				if (random == 0)
+					random = (uint32_t)svcGetSystemTick() | 1;
+				random = random * 1103515245u + 12345u;
+				Postcard postcard = candidates[(random >> 8) % candidates.size()];
+				postcard.mDate = today();
+				gData.mPostcards.push_back(postcard);
+				gNewPostcardNotice = true;
+				RMX_LOG_INFO("Journal: a postcard arrived, " << postcard.getSpriteName() << " (" << gData.mPostcards.size() << " of " << getNumPossiblePostcards() << ")");
+				return true;
+			}
+
+			// One postcard per completed card (also for cards completed before there were postcards)
+			void catchUpPostcards()
+			{
+				while (gData.mPostcards.size() < gData.mCardsCompleted && (int)gData.mPostcards.size() < getNumPossiblePostcards())
+				{
+					if (!addPostcard())
+						break;
+				}
 			}
 
 			void load()
@@ -80,12 +160,33 @@ namespace n3ds
 						else if (sscanf(line, "play_coins_spent=%u", &value) == 1)	gData.mPlayCoinsSpent = value;
 						else if (sscanf(line, "things_bought=%u", &value) == 1)		gData.mThingsBought = value;
 						else if (sscanf(line, "screenshots=%u", &value) == 1)		gData.mScreenshots = value;
+						else
+						{
+							int zone = 0;
+							int act = 0;
+							char image = 0;
+							if (sscanf(line, "postcard=zone%2d_act%1d%c %u", &zone, &act, &image, &value) == 4 && zone >= 1 && zone <= 14 &&
+								act >= 1 && act <= ACTS_PER_ZONE[zone - 1] && (image == 'a' || image == 'b') && !hasPostcard(zone, act, image))
+							{
+								Postcard postcard;
+								postcard.mZone = zone;
+								postcard.mAct = act;
+								postcard.mImage = image;
+								postcard.mDate = value;
+								gData.mPostcards.push_back(postcard);
+							}
+						}
 					}
 					fclose(file);
 					gSavedText = toText(gData);
 				}
 				if (gData.mStartedDate == 0)
 					gData.mStartedDate = today();		// A new journal
+				if (gData.mPostcards.size() < gData.mCardsCompleted)
+				{
+					catchUpPostcards();
+					save();
+				}
 			}
 
 			void checkDay()
@@ -101,7 +202,10 @@ namespace n3ds
 					gData.mStamps = 0;		// The previous card was full: a fresh one
 				++gData.mStamps;
 				if (gData.mStamps == STAMPS_PER_CARD)
+				{
 					++gData.mCardsCompleted;
+					catchUpPostcards();		// The card's postcard
+				}
 				gNewStampNotice = true;
 
 				n3ds::notificationlight::pulse(n3ds::notificationlight::Color::PINK);
@@ -167,6 +271,28 @@ namespace n3ds
 				if (!success)
 					RMX_LOG_INFO("Journal: could not save " << FILE_PATH);
 			});
+		}
+
+		std::string Postcard::getSpriteName() const
+		{
+			char name[16];
+			snprintf(name, sizeof(name), "zone%02d_act%d%c", mZone, mAct, mImage);
+			return name;
+		}
+
+		int getNumPossiblePostcards()
+		{
+			int count = 0;
+			for (int acts : ACTS_PER_ZONE)
+				count += acts * 2;
+			return count;
+		}
+
+		bool takeNewPostcardNotice()
+		{
+			const bool notice = gNewPostcardNotice;
+			gNewPostcardNotice = false;
+			return notice;
 		}
 
 		bool takeNewStampNotice()

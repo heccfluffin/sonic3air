@@ -12,6 +12,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <vector>
 
 
 namespace n3ds
@@ -19,6 +20,18 @@ namespace n3ds
 	namespace journal
 	{
 		static const int STAMPS_PER_CARD = 7;
+
+		// A postcard for each completed stamp card: one of the game's zone preview pictures (sprites like "zone03_act1a")
+		struct Postcard
+		{
+			int mZone = 1;				// 1 to 14, as in the sprite names
+			int mAct = 1;				// 1 or 2
+			char mImage = 'a';			// Each act has two pictures, 'a' and 'b'
+			uint32_t mDate = 0;			// YYYYMMDD, when it arrived
+
+			std::string getSpriteName() const;
+		};
+		int getNumPossiblePostcards();
 
 		struct Data
 		{
@@ -31,6 +44,7 @@ namespace n3ds
 			uint32_t mPlayCoinsSpent = 0;
 			uint32_t mThingsBought = 0;
 			uint32_t mScreenshots = 0;
+			std::vector<Postcard> mPostcards;		// In the order they arrived
 		};
 
 		const Data& get();		// Loaded on first use
@@ -44,6 +58,9 @@ namespace n3ds
 
 		// Whether a stamp was collected since this was last asked (for a message in the 3DS menu)
 		bool takeNewStampNotice();
+
+		// Whether a postcard arrived since this was last asked (then the newest one in "mPostcards" is new)
+		bool takeNewPostcardNotice();
 
 		// Counters
 		void addPurchase(int playCoins);

@@ -2,6 +2,7 @@
 #include "fake/3ds.h"
 #include "fake/oxygen/pch.h"
 #include "fake3ds.h"
+#include "oxygen/platform/3ds/N3DSNotificationLight.h"
 
 #include <chrono>
 #include <cstdio>
@@ -189,8 +190,15 @@ Result CFGU_GetConfigInfoBlk2(u32 size, u32 blkID, void* outData)
 Result ptmuInit()	{ return 0; }
 Result PTMU_GetBatteryLevel(u8* out)		{ *out = (u8)gBatteryLevel; return 0; }
 Result PTMU_GetBatteryChargeState(u8* out)	{ *out = gCharging ? 1 : 0; return 0; }
+Result PTMU_GetTotalStepCount(u32* out)		{ *out = 1234; return 0; }
 
 // --- Engine stand-ins ---
+
+namespace n3ds { namespace notificationlight {
+	void pulse(Color)	{}
+	void flash()		{}
+	void off()			{}
+} }
 
 namespace n3ds { namespace gpu {
 	void setTint(uint8_t red, uint8_t green, uint8_t blue)	{ gTopTint = ((uint32_t)red << 16) | ((uint32_t)green << 8) | blue; }

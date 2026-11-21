@@ -60,6 +60,7 @@ namespace
 	static constexpr uint32 JOURNAL_ACHIEVEMENTS = 0x605;
 	static constexpr uint32 JOURNAL_SCREENSHOTS = 0x606;
 	static constexpr uint32 JOURNAL_STARTED = 0x607;
+	static constexpr uint32 JOURNAL_POSTCARDS = 0x608;		// The postcard album, flipped through with left / right
 
 	std::string formatNumber(uint32 value)
 	{
@@ -208,7 +209,9 @@ void N3DSMenu::onFadeIn()
 
 	// A little greeting, like "Good evening, Name!" - and a hint at a new stamp
 	const std::string greeting = n3ds::profile::getGreeting();
-	showMessage(n3ds::journal::takeNewStampNotice() ? (greeting + " New stamp in your Journal!") : greeting, false);
+	const bool newStamp = n3ds::journal::takeNewStampNotice();
+	const bool newPostcard = n3ds::journal::takeNewPostcardNotice();
+	showMessage(newPostcard ? (greeting + " A postcard arrived in your Journal!") : newStamp ? (greeting + " New stamp in your Journal!") : greeting, false);
 	mMessageTimeout = 5.0f;
 
 	// The 3DS step counter, for the journal (quick, no SD card involved)
@@ -633,6 +636,15 @@ void N3DSMenu::rebuildTabs()
 		const int selected = entries.mSelectedEntryIndex;
 		entries.resize(1);
 		entries.addEntry("Stamp Card", JOURNAL_STAMPS);
+		{
+			// One option per postcard, the newest one shown first
+			GameMenuEntry& entry = entries.addEntry("Postcards", JOURNAL_POSTCARDS);
+			const std::vector<n3ds::journal::Postcard>& postcards = n3ds::journal::get().mPostcards;
+			for (size_t k = 0; k < postcards.size(); ++k)
+				entry.addOption(postcards[k].getSpriteName(), (uint32)k);
+			if (!postcards.empty())
+				entry.setSelectedIndexByValue((uint32)(postcards.size() - 1));
+		}
 		entries.addEntry("Play Time", JOURNAL_PLAY_TIME);
 		entries.addEntry("Days Played", JOURNAL_DAYS);
 		entries.addEntry("Steps", JOURNAL_STEPS);
@@ -1077,7 +1089,9 @@ void N3DSMenu::render()
 
 				// Card background, like in the Extras menu
 				DrawerTexture& frameTexture = global::mAchievementsFrame;
-				drawer.drawRect(Recti(px - 185, py, frameTexture.getWidth(), frameTexture.getHeight()), frameTexture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+				const bool isPostcards = (tabIndex == Tab::Id::JOURNAL && entry.mData == JOURNAL_POSTCARDS);		// A taller card, for the whole picture
+				const int cardHeight = isPostcards ? 92 : 56;
+				drawer.drawRect(Recti(px - 185, py, frameTexture.getWidth(), isPostcards ? (frameTexture.getHeight() + cardHeight - 56) : frameTexture.getHeight()), frameTexture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 
 				// Picture on the left, and texts
 				const Recti imageRect(px - 183, py + 2, 64, 48);
@@ -1300,6 +1314,64 @@ void N3DSMenu::render()
 					drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 26, 0, 10), (journal.mStamps >= n3ds::journal::STAMPS_PER_CARD) ? "Card complete!" : "One stamp per day", 3, color2);
 					drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 38, 0, 10), String(0, "Cards completed: %u", (unsigned)journal.mCardsCompleted), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
 				}
+				else if (tabIndex == Tab::Id::JOURNAL && entry.mData == JOURNAL_POSTCARDS)
+				{
+					// The postcard album: the zone's preview picture on a cream card, slowly panning across it
+					const std::vector<n3ds::journal::Postcard>& postcards = n3ds::journal::get().mPostcards;
+					customText = true;
+					const Recti card(px - 180, py + 4, 206, 86);
+					const Recti window(card.x + 3, card.y + 3, card.width - 6, card.height - 6);
+					const bool hasPostcard = entry.hasSelected() && entry.selected().mValue < postcards.size();
+					drawer.drawRect(card, hasPostcard ? Color(0.98f, 0.95f, 0.86f, tabAlpha) : Color(0.98f, 0.95f, 0.86f, tabAlpha * 0.3f));
+					if (hasPostcard)
+					{
+						const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
+						const uint64 spriteKey = rmx::getMurmur2_64(postcard.getSpriteName());
+
+						// Back and forth over the 480 pixels wide picture, easing at both ends
+						const float phase = (float)std::fmod(FTX::getTime() / 14.0, 2.0);
+						const float f = (phase < 1.0f) ? phase : (2.0f - phase);
+						const int pan = roundToInt(f * f * (3.0f - 2.0f * f) * (float)(480 - window.width));
+						drawer.drawRect(window, Color(0.1f, 0.1f, 0.15f, tabAlpha));
+						drawer.pushScissor(window);
+						drawer.drawSprite(Vec2i(window.x - pan, window.y), spriteKey, spriteKey, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						drawer.popScissor();
+
+						// The zone's name, like "Marble Garden Act 1"
+						std::string zoneName = "Somewhere";
+						const std::vector<SharedDatabase::Zone>& zones = SharedDatabase::getAllZones();
+						for (const SharedDatabase::Zone& zone : zones)
+						{
+							if (zone.mShortName.compare(0, 6, postcard.getSpriteName(), 0, 6) == 0)
+								zoneName = zone.mDisplayName;
+						}
+						if (zoneName.length() > 5 && zoneName.compare(zoneName.length() - 5, 5, " Zone") == 0)
+							zoneName.resize(zoneName.length() - 5);
+						const int acts = (postcard.mZone == 11 || postcard.mZone == 12 || postcard.mZone == 14) ? 1 : 2;
+						String name(acts > 1 ? (zoneName + " Act " + std::to_string(postcard.mAct)) : zoneName);
+						name.upperCase();
+
+						drawer.printText(global::mSonicFontB, Recti(px + 34, py + 7, 0, 10), "POSTCARDS", 1, color);
+						drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 8, 0, 10), String(0, "%d / %d", (int)postcards.size(), n3ds::journal::getNumPossiblePostcards()), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
+						drawer.printText(global::mOxyfontSmall, Recti(px + 34, py + 30, 0, 10), name, 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+						drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 44, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 1, color2);
+						if (postcards.size() > 1)
+						{
+							const String flip(0, "%s %d of %d %s", (entry.mSelectedIndex > 0) ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)postcards.size(),
+											  (entry.mSelectedIndex + 1 < entry.mOptions.size()) ? ">" : " ");
+							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 70, 0, 10), flip, 1, isSelected ? color : color2);
+						}
+					}
+					else
+					{
+						drawer.printText(global::mSonicFontB, Recti(card.x + card.width / 2, card.y + 37, 0, 10), "?", 5, Color(1.0f, 1.0f, 1.0f, tabAlpha * 0.5f));
+						drawer.printText(global::mSonicFontB, Recti(px + 34, py + 7, 0, 10), "POSTCARDS", 1, color);
+						std::vector<std::string_view> textLines;
+						utils::splitTextIntoLines(textLines, "Fill a stamp card and a postcard of a zone arrives here - one for every card.", global::mOxyfontTiny, 136);
+						for (size_t k = 0; k < textLines.size() && k < 4; ++k)
+							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 30 + (int)k * 10, 0, 10), textLines[k], 1, color2);
+					}
+				}
 				else if (tabIndex == Tab::Id::JOURNAL)
 				{
 					const n3ds::journal::Data& journal = n3ds::journal::get();
@@ -1406,7 +1478,7 @@ void N3DSMenu::render()
 						drawer.printText(global::mOxyfontTiny, Recti(px - 105, py, 0, 10), textLines[k], 1, color2);
 					}
 				}
-				py = localStartY + 56;
+				py = localStartY + cardHeight;
 			}
 
 			if (isSelected)
