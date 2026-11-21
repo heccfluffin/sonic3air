@@ -104,6 +104,7 @@ namespace
 		{ "Collision Chaos", "The good future's city by the water, with sign boards.",	40, rgb(204, 68, 238),  rgb(68, 0, 136),   rgb(0, 170, 136),  rgb(136, 0, 204) },
 		{ "Metallic Madness Act 1", "Pipes, planters and glowing capsules of the good future.",	40, rgb(108, 180, 252), rgb(32, 0, 168),   rgb(0, 144, 0),    rgb(63, 90, 153) },
 		{ "Metallic Madness Past", "Act 2's past: purple clouds over the machines and golden girders.",	40, rgb(252, 180, 0), rgb(68, 0, 170),   rgb(0, 144, 0),    rgb(108, 0, 252) },
+		{ "Sandopolis",	 "A desert sunset over the pyramids, with boxes carved into sandstone.",	40, rgb(252, 216, 0), rgb(108, 0, 0),   rgb(0, 144, 0),    rgb(108, 36, 216) },
 	};
 
 	struct SecretInfo

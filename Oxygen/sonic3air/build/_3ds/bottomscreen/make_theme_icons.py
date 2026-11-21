@@ -37,7 +37,7 @@ THEMES = [
 	('sunset', 11, (255, 180, 90),  (130, 60, 140)),
 	('casino', 12, (90, 170, 255),  (8, 10, 40)),
 ]
-NUM_THEME_NUMBERS = 16
+NUM_THEME_NUMBERS = 17
 
 # Themes made from a picture get a full color icon instead: the picture itself, scaled down (theme number, picture in themes/)
 # and the part of it to show (x, y, width, height - 4:3 like the icon), so the zone is recognizable at this small size
@@ -47,6 +47,7 @@ COLOR_ICONS = [
 	(13, 'collision.png', (60, 70, 200, 150)),	# Collision Chaos: the city with its waterfalls below the green hills
 	(14, 'metallic.png', (0, 40, 200, 150)),	# Metallic Madness Act 1: the pipes, planters and hexagon windows
 	(15, 'metallicpast.png', (10, 60, 200, 150)),	# Metallic Madness Past: the clouds, the machine skyline and a girder robot
+	(16, 'sandopolis.png', (20, 28, 200, 150)),	# Sandopolis: the pyramid in the sunset above the dunes
 ]
 
 

@@ -357,6 +357,54 @@ def metal_box(img, box, fill, fill_alpha=255, pressed=False):
 	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
 
 
+def carved_box(img, box, fill, fill_alpha=255, pressed=False):
+	"""A box carved into sandstone, like the blocks of the theme's zone: a stone rim with block joints, lit from the top left, and
+	the inside as an indent - its top and left walls in shadow, the bottom and right ones in the light (deeper when pressed)."""
+	x0, y0, x1, y1 = box
+	x1 -= 1
+	y1 -= 1
+	outline = THEME.get('stone_outline', (108, 0, 0))
+	face = THEME.get('stone_face', (252, 216, 0))
+	light = THEME.get('stone_light', (252, 252, 180))
+	edge = THEME.get('stone_edge', (216, 72, 0))
+	deep = THEME.get('stone_deep', (36, 0, 0))
+	lit = THEME.get('stone_lit', (252, 252, 108))
+	layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+	d = ImageDraw.Draw(layer)
+	d.rectangle((x0, y0, x1, y1), fill=outline + (255,))					# Outline
+	d.rectangle((x0 + 1, y0 + 1, x1 - 1, y1 - 1), fill=face + (255,))		# Stone rim
+	d.line((x0 + 1, y0 + 1, x1 - 1, y0 + 1), fill=light + (255,))			# Sunlit outer edges: top and left
+	d.line((x0 + 1, y0 + 1, x0 + 1, y1 - 1), fill=light + (255,))
+	d.line((x0 + 2, y1 - 1, x1 - 1, y1 - 1), fill=edge + (255,))			# Outer edges away from the sun: bottom and right
+	d.line((x1 - 1, y0 + 2, x1 - 1, y1 - 1), fill=edge + (255,))
+	# Joints between the blocks of the rim
+	r = 5			# Rim width
+	if x1 - x0 > 40:
+		for jx in range(x0 + 18, x1 - 10, 24):
+			d.line((jx, y0 + 2, jx, y0 + r - 1), fill=edge + (255,))
+			d.line((jx + 12, y1 - r + 1, jx + 12, y1 - 2), fill=edge + (255,))
+	if y1 - y0 > 40:
+		for jy in range(y0 + 22, y1 - 10, 24):
+			d.line((x0 + 2, jy, x0 + r - 1, jy), fill=edge + (255,))
+			d.line((x1 - r + 1, jy + 12, x1 - 2, jy + 12), fill=edge + (255,))
+	# Sandy grain on the rim, like the speckled sandstone of the zone's blocks (the same pattern every time)
+	px = layer.load()
+	grain = THEME.get('stone_grain', (252, 180, 0))
+	for gy in range(y0 + 2, y1 - 1):
+		for gx in range(x0 + 2, x1 - 1):
+			if px[gx, gy][:3] == face and ((gx * 7 + gy * 13 + (gx * gy) % 5) % 9) == 0:
+				px[gx, gy] = grain + (255,)
+	# The indent: walls, then the inside (replaces the pixels, so it can be see-through)
+	depth = 4 if pressed else 3
+	d.rectangle((x0 + r, y0 + r, x1 - r, y1 - r), fill=lit + (255,))		# Lit walls: bottom and right
+	d.rectangle((x0 + r, y0 + r, x1 - r - 1, y1 - r - 1), fill=deep + (255,))	# Shaded walls: top and left, darkest at the rim
+	d.rectangle((x0 + r + 1, y0 + r + 1, x1 - r - 1, y1 - r - 1), fill=outline + (255,))
+	d.rectangle((x0 + r + 2, y0 + r + 2, x1 - r - 1, y1 - r - 1), fill=edge + (255,))
+	d.rectangle((x0 + r + depth, y0 + r + depth, x1 - r - 1, y1 - r - 1), fill=(0, 0, 0, 0))
+	d.rectangle((x0 + r + depth, y0 + r + depth, x1 - r - 1, y1 - r - 1), fill=fill + (fill_alpha,))
+	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
+
+
 def tower_box(img, box, fill, fill_alpha=255, pressed=False, orbs=False, highlight=None):
 	"""A frame shaded like the towers in the theme's picture - lit from the left, like a cylinder: light purple on the left,
 	fading to dark on the right - with a dark outline, and optionally an orb on the two top corners like on the zone's poles.
@@ -419,6 +467,9 @@ def panel(img, box, radius=10, alpha=60):
 		return
 	if THEME.get('frame') == 'tower':
 		tower_box(img, box, THEME.get('panel', (0, 0, 36)), THEME.get('panel_alpha', 170), orbs=True)
+		return
+	if THEME.get('frame') == 'carved':
+		carved_box(img, box, THEME.get('panel', (36, 0, 0)), THEME.get('panel_alpha', 170))
 		return
 	if THEME.get('frame') == 'none':
 		# The picture draws its own frames: just a flat, dark, see-through shade inside them, so the text stays easy to read
@@ -483,6 +534,10 @@ THEMES = [
 	  'light': (252, 180, 0), 'dark': (68, 0, 170), 'panel': (24, 0, 64), 'panel_alpha': 190,
 	  'metal_dark': (72, 36, 0), 'metal_light': (252, 216, 108), 'metal_mid': (252, 180, 0), 'metal_shade': (144, 108, 0),
 	  'save': (0, 144, 0), 'load': (108, 0, 252), 'stats': (0, 72, 252), 'outline': (36, 18, 0) },
+	# Picture made by the port's author (themes/sandopolis.png, Sandopolis Act 1's sunset background); panels carved into its sandstone
+	{ 'id': 'sandopolis', 'name': 'Sandopolis', 'style': 'image', 'image': 'sandopolis.png', 'frame': 'carved',
+	  'light': (252, 216, 0), 'dark': (108, 0, 0), 'panel': (36, 0, 0), 'panel_alpha': 165,
+	  'save': (0, 144, 0), 'load': (108, 36, 216), 'stats': (216, 72, 0), 'outline': (60, 8, 0) },
 ]
 THEME = THEMES[0]		# The theme being generated
 _background_cache = {}
@@ -899,6 +954,8 @@ def big_button(img, box, rgb, word, state):
 		sign_box(img, box, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	elif THEME.get('frame') == 'metal':
 		metal_box(img, box, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
+	elif THEME.get('frame') == 'carved':
+		carved_box(img, box, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	elif THEME.get('frame') == 'tower':
 		fill = mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col
 		tower_box(img, box, fill, 255, pressed=(state == 'pressed'), highlight=mix(fill, (255, 255, 255), 0.45))
@@ -929,6 +986,9 @@ def stats_button(img, state):
 	elif THEME.get('frame') == 'metal':
 		col = THEME.get('stats', STATS_COLOR)
 		metal_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
+	elif THEME.get('frame') == 'carved':
+		col = THEME.get('stats', STATS_COLOR)
+		carved_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	elif THEME.get('frame') == 'tower':
 		col = THEME.get('stats', STATS_COLOR)
 		tower_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
