@@ -13,6 +13,7 @@
 
 #include "sonic3air/menu/N3DSMenu.h"
 #include "sonic3air/menu/MenuBackground.h"
+#include "sonic3air/menu/GameApp.h"
 #include "sonic3air/menu/SharedResources.h"
 #include "sonic3air/Game.h"
 #include "sonic3air/audio/AudioOut.h"
@@ -49,6 +50,7 @@ namespace
 	static constexpr uint32 NIGHT_START = 0x4fc;		// When "after dark" starts, changed with left / right
 	static constexpr uint32 NIGHT_END = 0x4fb;			// ... and ends
 	static constexpr int NIGHT_TIME_STEP = 30;			// Minutes
+	static constexpr uint32 TEST_NOTIFICATION = 0x4fa;	// Temporary, for testing the notification light: a test achievement that's never saved
 
 	const char* NIGHT_MODE_NAMES[n3ds::shop::_NUM_NIGHT_MODES] = { "OFF", "AFTER DARK", "ALWAYS" };
 
@@ -497,6 +499,7 @@ void N3DSMenu::rebuildTabs()
 			entries.addEntry(name.substr(0, name.length() - 4), CUSTOM_THEME + (uint32)k);		// Without ".png"
 		}
 		entries.addEntry("Your Own Pictures", CUSTOM_INFO);
+		entries.addEntry("Test Notification", TEST_NOTIFICATION);
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -541,6 +544,13 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 	switch (tabIndex)
 	{
 		case Tab::Id::THEMES:
+			if (data == TEST_NOTIFICATION)
+			{
+				outItem.mName = "Test Notification";
+				outItem.mPrice = 0;
+				outItem.mOwned = true;
+				return true;
+			}
 			if (data == NIGHT_START || data == NIGHT_END)
 			{
 				outItem.mName = (data == NIGHT_START) ? "Night Starts" : "Night Ends";
@@ -772,6 +782,12 @@ void N3DSMenu::onAccept()
 		return;
 	}
 
+	if (mActiveTab == Tab::Id::THEMES && data == TEST_NOTIFICATION)
+	{
+		// Shows the achievement popup and lets the notification light glow - nothing gets saved
+		GameApp::instance().showUnlockedWindow(SecretUnlockedWindow::EntryType::ACHIEVEMENT, "Achievement complete", "Test Achievement");
+		return;
+	}
 	if (mActiveTab == Tab::Id::THEMES && (data == NIGHT_START || data == NIGHT_END))
 	{
 		playMenuSound(0x5b);
@@ -992,6 +1008,15 @@ void N3DSMenu::render()
 					status = "FREE";
 					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontRegular, Recti(imageRect.x + 32, imageRect.y + 19, 0, 10), "PNG", 5, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::THEMES && entry.mData == TEST_NOTIFICATION)
+				{
+					description = "For testing: shows a test achievement and lets the notification light glow purple. Nothing gets saved, try it as often as you like.";
+					status = "TEST";
+					statusColor = Color(0.85f, 0.6f, 1.0f, tabAlpha);
+					drawer.drawRect(imageRect, Color(0.18f, 0.08f, 0.30f, tabAlpha));
+					drawer.drawRect(Recti(imageRect.x + 26, imageRect.y + 18, 12, 12), Color(0.75f, 0.45f, 1.0f, tabAlpha));		// The light
+					drawer.drawRect(Recti(imageRect.x + 22, imageRect.y + 14, 20, 20), Color(0.75f, 0.45f, 1.0f, tabAlpha * 0.35f));	// Its glow
 				}
 				else if (tabIndex == Tab::Id::THEMES && (entry.mData == NIGHT_START || entry.mData == NIGHT_END))
 				{
