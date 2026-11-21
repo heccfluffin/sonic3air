@@ -358,7 +358,7 @@ THEMES = [
 	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
 	# Picture made by the port's author (themes/casino.png), with neon strips around the panels
 	{ 'id': 'casino',  'name': 'Casino Night',    'style': 'image', 'image': 'casino.png', 'frame': 'none', 'light': (90, 170, 255), 'dark': (8, 10, 40),
-	  'save': (60, 200, 80), 'load': (40, 120, 255), 'outline': (10, 20, 70) },
+	  'save': (25, 105, 50), 'load': (20, 50, 135), 'outline': (5, 15, 45) },		# Dark green and dark blue buttons inside the neon frames
 ]
 THEME = THEMES[0]		# The theme being generated
 _background_cache = {}
@@ -746,6 +746,23 @@ def background():
 STATS_COLOR = (95, 105, 130)
 
 
+def inset_button(img, box, rgb, pressed=False):
+	"""A flat button a few pixels inside its box, for pictures that draw their own frames (neon strips) around the buttons:
+	no shine and no outline of its own, just a soft lighter band at the top."""
+	x0, y0, x1, y1 = box[0] + 4, box[1] + 4, box[2] - 4, box[3] - 4
+	if pressed:
+		y0 += 1
+		y1 += 1
+		rgb = mix(rgb, (0, 0, 0), 0.25)
+	layer = new_layer()
+	d = ImageDraw.Draw(layer)
+	d.rounded_rectangle([v * S for v in (x0, y0, x1, y1)], radius=6 * S, fill=rgb + (235,))
+	img.alpha_composite(layer)
+	band = new_layer()
+	ImageDraw.Draw(band).rounded_rectangle([v * S for v in (x0 + 2, y0 + 2, x1 - 2, y0 + (y1 - y0) * 0.42)], radius=4 * S, fill=mix(rgb, (255, 255, 255), 0.22) + (110,))
+	img.alpha_composite(band)
+
+
 def big_button(img, box, rgb, word, state):
 	"""The touch buttons: state is 'normal', 'pressed' or 'disabled'."""
 	col = grey(rgb) if state == 'disabled' else rgb
@@ -755,6 +772,8 @@ def big_button(img, box, rgb, word, state):
 	elif THEME.get('frame') == 'retro':
 		fill = mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col
 		outline_box(img, box, fill, THEME['panel_outline'], inner=mix(fill, (0, 0, 0), 0.35))
+	elif THEME.get('frame') == 'none':
+		inset_button(img, box, col, pressed=(state == 'pressed'))
 	else:
 		glossy(img, box, 'rect', col, radius=14, pressed=(state == 'pressed'))
 	cx = (box[0] + box[2]) / 2
