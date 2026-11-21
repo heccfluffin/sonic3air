@@ -426,7 +426,7 @@ THEMES = [
 	{ 'id': 'casino',  'name': 'Casino Night',    'style': 'image', 'image': 'casino.png', 'frame': 'none', 'light': (90, 170, 255), 'dark': (8, 10, 40),
 	  'save': (0, 144, 0), 'load': (0, 36, 180), 'stats': (252, 0, 0), 'outline': (5, 15, 45),
 	  'stats_box': (251, 7, 305, 27) },		# Buttons in the picture's own colors; STATS a bit to the left, the frame of its title bar ends at x = 309
-	# Picture made by the port's author (themes/collision.png); panels and buttons drawn like the sign boards of the zone's machines
+	# Picture made by the port's author (themes/collision.png, the good future's city); panels and buttons drawn like the sign boards of the zone's machines
 	{ 'id': 'collision', 'name': 'Collision Chaos', 'style': 'image', 'image': 'collision.png', 'frame': 'sign',
 	  'light': (204, 68, 238), 'dark': (68, 0, 136), 'panel': (0, 0, 34), 'panel_alpha': 200,
 	  'sign_edge': (204, 68, 238), 'sign_inner': (136, 0, 204),
