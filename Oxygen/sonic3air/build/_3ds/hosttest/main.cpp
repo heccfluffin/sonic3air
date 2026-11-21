@@ -472,8 +472,8 @@ namespace
 		fake::setTime(2026, 11, 21, 21, 0);
 		writeJournal("started=20250101\nlast_day=20261121\ndays_played=420\nstamps=0\ncards_completed=80\npostcard=zone05_act2b 20250108\npostcard=funny_decoys 20250115\n");
 		const n3ds::journal::Data& journal = n3ds::journal::get();
-		check(n3ds::journal::getNumPossiblePostcards() == 69 && n3ds::journal::getNumFunnyPostcards() == 19, "69 postcards to collect: 50 zone pictures and 19 funny ones");
-		check((int)journal.mPostcards.size() == 69, "80 cards: all 69 postcards, no more (" + std::to_string(journal.mPostcards.size()) + ")");
+		check(n3ds::journal::getNumPossiblePostcards() == 71 && n3ds::journal::getNumFunnyPostcards() == 21, "71 postcards to collect: 50 zone pictures and 21 funny ones");
+		check((int)journal.mPostcards.size() == 71, "80 cards: all 71 postcards, no more (" + std::to_string(journal.mPostcards.size()) + ")");
 		check(journal.mPostcards[0].getSpriteName() == "zone05_act2b" && journal.mPostcards[0].mDate == 20250108, "a saved postcard is read back (IceCap Act 2, 8 Jan 2025)");
 		check(journal.mPostcards[1].getSpriteName() == "funny_decoys" && journal.mPostcards[1].mDate == 20250115, "... and a funny one (decoys, 15 Jan 2025)");
 		std::vector<int> zoneOrder;
