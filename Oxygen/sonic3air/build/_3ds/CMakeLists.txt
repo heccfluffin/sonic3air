@@ -152,7 +152,7 @@ dkp_add_embedded_binary_library(s3air_3ds_splash_data ${CMAKE_CURRENT_SOURCE_DIR
 target_link_libraries(oxygen s3air_3ds_splash_data)
 
 # Bottom screen: controls overview with touch buttons for save states, one artwork per theme (see bottomscreen/make_bottom_screen.py)
-foreach(THEME blue crimson gold emerald night marble sea blocks city aurora sunset)
+foreach(THEME blue crimson gold emerald night marble sea blocks city aurora sunset casino)
 	dkp_add_embedded_binary_library(s3air_3ds_bottom_screen_${THEME}_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_bottom_screen_${THEME}.bin)
 	target_link_libraries(oxygen s3air_3ds_bottom_screen_${THEME}_data)
 endforeach()

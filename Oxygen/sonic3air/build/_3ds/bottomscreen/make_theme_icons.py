@@ -35,8 +35,30 @@ THEMES = [
 	('city',    9, (130, 200, 250), (96, 56, 160)),
 	('aurora', 10, (110, 200, 230), (90, 60, 150)),
 	('sunset', 11, (255, 180, 90),  (130, 60, 140)),
+	('casino', 12, (90, 170, 255),  (8, 10, 40)),
 ]
-NUM_THEME_NUMBERS = 12
+NUM_THEME_NUMBERS = 13
+
+# Themes made from a picture get a full color icon instead: the picture itself, scaled down (theme number, picture in themes/)
+# and the part of it to show (x, y, width, height - 4:3 like the icon), so the zone is recognizable at this small size
+COLOR_ICONS = [
+	(12, 'casino.png', (4, 100, 192, 144)),		# The casino with its wheel, the pillars and the city lights behind
+]
+
+
+def color_icon(filename, crop):
+	"""The theme's picture (a part of it) scaled down to the icon size, with the same rounded corners as the other icons (RGBA)."""
+	picture = Image.open(os.path.join(HERE, 'themes', filename)).convert('RGB')
+	x, y, w, h = crop
+	icon = picture.crop((x, y, x + w, y + h)).resize((W, H), Image.LANCZOS).convert('RGBA')
+	corners = new_icon(LIGHT)[0]
+	frame(corners)
+	px, cp = icon.load(), corners.load()
+	for y in range(H):
+		for x in range(W):
+			if cp[x, y] == CLEAR:
+				px[x, y] = (0, 0, 0, 0)
+	return icon
 
 
 def new_icon(fill):
@@ -262,6 +284,27 @@ def icon_gradient():
 	return img
 
 
+def icon_casino():
+	"""Night sky with stars over a casino with a big round wheel in its middle (the theme's picture was made by the port's author)."""
+	img, d = new_icon(DARK)
+	for x, y in ((8, 6), (20, 10), (44, 5), (56, 12), (32, 4), (12, 16)):
+		d.point((x, y), fill=LIGHT)
+	d.rectangle((8, 26, 55, 45), outline=LIGHT)			# The building
+	d.line((8, 22, 55, 22), fill=LIGHT)						# Its roof line with lights
+	for x in range(10, 54, 4):
+		d.point((x, 24), fill=LIGHT)
+	d.rectangle((4, 20, 7, 45), fill=LIGHT)					# Pillars on both sides
+	d.rectangle((56, 20, 59, 45), fill=LIGHT)
+	d.ellipse((24, 28, 39, 43), outline=LIGHT)				# The wheel
+	d.ellipse((29, 33, 34, 38), fill=LIGHT)
+	for x in range(12, 22, 3):								# Windows
+		for y in range(30, 44, 4):
+			d.point((x, y), fill=LIGHT)
+			d.point((x + 30, y), fill=LIGHT)
+	frame(img)
+	return img
+
+
 ICONS = {
 	'blue': lambda: icon_zigzag(),
 	'crimson': lambda: icon_zigzag(emblem_flame),
@@ -274,6 +317,7 @@ ICONS = {
 	'city': icon_city,
 	'aurora': icon_gradient,
 	'sunset': icon_gradient,
+	'casino': icon_casino,
 }
 
 
@@ -304,6 +348,27 @@ def main():
 			lines.append('\t\t' + ', '.join(f'0x{v:02x}' for v in data[i:i + 32]) + ',')
 		lines.append('\t},')
 	lines.append('};')
+
+	# Full color icons: RGBA, rows top to bottom
+	colorIcons = [color_icon(filename, crop) for _, filename, crop in COLOR_ICONS]
+	lines.append('// Full color icon for each theme number (index in THEME_COLOR_ICONS), -1 if there is none: these replace the two color icon')
+	lines.append('static const int THEME_COLOR_ICON_FOR_THEME[' + str(NUM_THEME_NUMBERS) + '] = { ' +
+				 ', '.join(str(next((k for k, c in enumerate(COLOR_ICONS) if c[0] == n), -1)) for n in range(NUM_THEME_NUMBERS)) + ' };')
+	lines.append(f'static const unsigned char THEME_COLOR_ICONS[{max(len(colorIcons), 1)}][{W * H * 4}] =')
+	lines.append('{')
+	for (number, filename, _), icon in zip(COLOR_ICONS, colorIcons):
+		data = icon.tobytes()
+		lines.append(f'\t// {filename}')
+		lines.append('\t{')
+		for i in range(0, len(data), 32):
+			lines.append('\t\t' + ', '.join(f'0x{v:02x}' for v in data[i:i + 32]) + ',')
+		lines.append('\t},')
+	if not colorIcons:
+		lines.append('\t{ 0 },')
+	lines.append('};')
+	for (number, filename, _), icon in zip(COLOR_ICONS, colorIcons):
+		icon.resize((W * 3, H * 3), Image.NEAREST).save(os.path.join(HERE, 'theme_icon_' + filename))
+
 	with open(OUT_INC, 'w') as f:
 		f.write('\n'.join(lines) + '\n')
 

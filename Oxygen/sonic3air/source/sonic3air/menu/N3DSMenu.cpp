@@ -100,6 +100,7 @@ namespace
 		{ "Sky City",		 "Puffy clouds over purple honeycomb towers.",				40, rgb(130, 200, 250), rgb(96, 56, 160),  rgb(66, 156, 36),  rgb(96, 172, 236) },
 		{ "Aurora",		 "A soft blend of teal, blue and purple under glass.",			30, rgb(110, 200, 230), rgb(90, 60, 150),  rgb(60, 180, 110), rgb(110, 120, 230) },
 		{ "Sunset Glow",	 "Warm orange fading into pink and purple.",					30, rgb(255, 180, 90),  rgb(130, 60, 140), rgb(240, 150, 40), rgb(180, 80, 170) },
+		{ "Casino Night",	 "Neon lights and a starry sky over the casino.",			40, rgb(90, 170, 255),  rgb(8, 10, 40),    rgb(60, 200, 80),  rgb(40, 120, 255) },
 	};
 
 	struct SecretInfo
@@ -279,8 +280,25 @@ void N3DSMenu::createIcons()
 
 	// Theme icons: 2 bits per pixel, 0 = the theme's dark color, 1 = its light color, 2 = transparent
 	static_assert(sizeof(THEME_ICON_FOR_THEME) / sizeof(THEME_ICON_FOR_THEME[0]) == n3ds::shop::_NUM_THEMES, "Theme icons don't match the themes");
+	static_assert(sizeof(THEME_COLOR_ICON_FOR_THEME) / sizeof(THEME_COLOR_ICON_FOR_THEME[0]) == n3ds::shop::_NUM_THEMES, "Theme color icons don't match the themes");
 	for (int theme = 0; theme < n3ds::shop::_NUM_THEMES; ++theme)
 	{
+		// Themes made from a picture: a full color icon, the picture scaled down (RGBA)
+		const int colorIconIndex = THEME_COLOR_ICON_FOR_THEME[theme];
+		if (colorIconIndex >= 0)
+		{
+			Bitmap& bitmap = mThemeIcons[theme].accessBitmap();
+			bitmap.create(THEME_ICON_WIDTH, THEME_ICON_HEIGHT);
+			const unsigned char* src = THEME_COLOR_ICONS[colorIconIndex];
+			for (int y = 0; y < THEME_ICON_HEIGHT; ++y)
+			{
+				for (int x = 0; x < THEME_ICON_WIDTH; ++x, src += 4)
+					*bitmap.getPixelPointer(x, y) = (uint32)src[0] | ((uint32)src[1] << 8) | ((uint32)src[2] << 16) | ((uint32)src[3] << 24);
+			}
+			mThemeIcons[theme].bitmapUpdated();
+			continue;
+		}
+
 		const int iconIndex = THEME_ICON_FOR_THEME[theme];
 		if (iconIndex < 0)
 			continue;

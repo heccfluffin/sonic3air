@@ -318,7 +318,9 @@ def framed_box(img, box, inner_fill, inner_alpha):
 
 
 def panel(img, box, radius=10, alpha=60):
-	"""A panel in the theme's frame style: glass, retro (flat, with a thin light outline) or framed."""
+	"""A panel in the theme's frame style: glass, retro (flat, with a thin light outline), framed, or none (the picture has its own)."""
+	if THEME.get('frame') == 'none':
+		return
 	if THEME.get('frame') == 'framed':
 		framed_box(img, box, THEME['panel'], 150)
 		return
@@ -354,6 +356,9 @@ THEMES = [
 	{ 'id': 'sunset',  'name': 'Sunset Glow',     'style': 'gradient', 'corners': ((255, 170, 80), (240, 110, 120), (200, 90, 140), (110, 60, 150)),
 	  'light': (250, 160, 110), 'dark': (140, 70, 140), 'save': (240, 150, 40), 'load': (180, 80, 170), 'outline': (110, 40, 80) },
 	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
+	# Picture made by the port's author (themes/casino.png), with neon strips around the panels
+	{ 'id': 'casino',  'name': 'Casino Night',    'style': 'image', 'image': 'casino.png', 'frame': 'none', 'light': (90, 170, 255), 'dark': (8, 10, 40),
+	  'save': (60, 200, 80), 'load': (40, 120, 255), 'outline': (10, 20, 70) },
 ]
 THEME = THEMES[0]		# The theme being generated
 _background_cache = {}

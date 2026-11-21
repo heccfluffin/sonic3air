@@ -32,6 +32,7 @@ namespace n3ds
 			THEME_CITY,
 			THEME_AURORA,
 			THEME_SUNSET,
+			THEME_CASINO,		// Picture made by the port's author
 			_NUM_THEMES
 		};
 
