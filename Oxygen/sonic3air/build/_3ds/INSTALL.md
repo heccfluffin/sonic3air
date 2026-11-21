@@ -118,10 +118,11 @@ SD card
         │   ├── metadata.json
         │   └── scripts.bin
         ├── Sonic_Knuckles_wSonic3.bin    ← step 3
-        └── savedata/                     ← created by the game on first start
+        ├── savedata/                     ← created by the game on first start
+        └── themes/                       ← created by the game: your own bottom screen pictures
 ```
 
-The game creates `savedata/` itself. Your settings, save games, the log file and mods go there.
+The game creates `savedata/` and `themes/` itself. Your settings, save games, save states, the log file and mods go into `savedata/`.
 
 
 ## Step 5: Install and start
@@ -171,6 +172,35 @@ in `savedata/` are kept.
 | L / ZL, R / ZR | L and R |
 
 
+## The bottom screen
+
+While you play, the bottom screen shows:
+
+- **The controls** on the left.
+- **SAVE STATE / LOAD STATE** buttons. Tap them in a level to save your exact position and load it again later.
+  Each save file has its own save state; the box below the buttons says whether the current one has a state.
+  Save states only work in levels, not in menus.
+- **The clock and the battery** in the title bar (a lightning bolt shows while charging).
+- **STATS** in the top right: performance numbers for test builds. Tap anywhere to go back.
+
+
+## The 3DS menu
+
+The main menu has a **3DS** entry (it can be hidden in Options → System). There you can spend the
+**Play Coins** you earn by walking with your 3DS (up to 10 a day) on:
+
+- **Themes** for the bottom screen. **Time of Day** (free) follows the 3DS clock: Aurora in the morning, Blue by day,
+  Sunset Glow in the evening and Starry Night after dark, using the themes you own.
+  **Night Mode** (free) dims the bottom screen: off, after dark (8 pm to 6 am) or always.
+- **Your own pictures** as themes, for free: put 320 × 240 PNG pictures into `sdmc:/3ds/sonic3air/themes/`.
+  The `README.txt` and `template.png` there show where the buttons and panels go.
+- **Secrets** that you'd otherwise unlock by playing.
+- **A starting shield** you get at the start of each act and after losing a life.
+
+Play Coins are shared with the rest of the 3DS (StreetPass Mii Plaza and other games use them too).
+What you bought and chose is saved in `savedata/3ds_shop.txt`.
+
+
 ## Mods
 
 Use the mod patcher (`s3air_3ds_modpatcher.py`, see its README) with the SD card in your PC.
@@ -206,6 +236,7 @@ so it doesn't tell you how fast the game runs on a real console.
 
 ## Current state of the port
 
-- Development builds show a performance profiler on the bottom screen. It doesn't change how the game plays.
+- Test builds include a performance profiler (STATS on the bottom screen). It writes its numbers to
+  `savedata/profile_log.txt` and doesn't change how the game plays.
 - Rendering is done mostly on the CPU; the 3DS's GPU shows the finished picture.
   Performance work is ongoing, so speed differs between zones.
