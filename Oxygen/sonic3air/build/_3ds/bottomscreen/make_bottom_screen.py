@@ -302,6 +302,30 @@ def outline_box(img, box, fill, outline, alpha=255, inner=None):
 	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
 
 
+def sign_box(img, box, fill, fill_alpha=255, pressed=False):
+	"""A sign board like on the machines of the theme's zone: a black outline, a thick magenta frame with a purple line inside it,
+	cut corners, and a dark (optionally see-through) inside - crisp pixel art, drawn at 1:1."""
+	x0, y0, x1, y1 = box
+	if pressed:
+		y0 += 1
+		y1 += 1
+	edge = THEME.get('sign_edge', (204, 68, 238))
+	inner = THEME.get('sign_inner', (136, 0, 204))
+	layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+	d = ImageDraw.Draw(layer)
+
+	def cut_rect(a, b, c, e, color, cut):
+		# A rectangle with its corners cut off diagonally (drawing replaces the pixels, including alpha)
+		for i in range(cut + 1):
+			d.rectangle((a + cut - i, b + i, c - cut + i, e - i), fill=color)
+
+	cut_rect(x0, y0, x1 - 1, y1 - 1, (0, 0, 0, 255), 3)				# Black outline
+	cut_rect(x0 + 1, y0 + 1, x1 - 2, y1 - 2, edge + (255,), 3)		# Magenta frame
+	cut_rect(x0 + 3, y0 + 3, x1 - 4, y1 - 4, inner + (255,), 2)		# Purple line
+	cut_rect(x0 + 4, y0 + 4, x1 - 5, y1 - 5, fill + (fill_alpha,), 1)	# Inside
+	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
+
+
 def framed_box(img, box, inner_fill, inner_alpha):
 	"""Thick light frame with a drop shadow to the bottom right, around a translucent tinted inside."""
 	x0, y0, x1, y1 = box
@@ -319,6 +343,9 @@ def framed_box(img, box, inner_fill, inner_alpha):
 
 def panel(img, box, radius=10, alpha=60):
 	"""A panel in the theme's frame style: glass, retro (flat, with a thin light outline), framed, or none (the picture has its own)."""
+	if THEME.get('frame') == 'sign':
+		sign_box(img, box, THEME.get('panel', (0, 0, 34)), THEME.get('panel_alpha', 200))
+		return
 	if THEME.get('frame') == 'none':
 		# The picture draws its own frames: just a flat, dark, see-through shade inside them, so the text stays easy to read
 		x0, y0, x1, y1 = box
@@ -365,6 +392,11 @@ THEMES = [
 	{ 'id': 'casino',  'name': 'Casino Night',    'style': 'image', 'image': 'casino.png', 'frame': 'none', 'light': (90, 170, 255), 'dark': (8, 10, 40),
 	  'save': (0, 144, 0), 'load': (0, 36, 180), 'stats': (252, 0, 0), 'outline': (5, 15, 45),
 	  'stats_box': (251, 7, 305, 27) },		# Buttons in the picture's own colors; STATS a bit to the left, the frame of its title bar ends at x = 309
+	# Picture made by the port's author (themes/collision.png); panels and buttons drawn like the sign boards of the zone's machines
+	{ 'id': 'collision', 'name': 'Collision Chaos', 'style': 'image', 'image': 'collision.png', 'frame': 'sign',
+	  'light': (204, 68, 238), 'dark': (68, 0, 136), 'panel': (0, 0, 34), 'panel_alpha': 200,
+	  'sign_edge': (204, 68, 238), 'sign_inner': (136, 0, 204),
+	  'save': (0, 170, 136), 'load': (136, 0, 204), 'stats': (0, 0, 102), 'outline': (30, 0, 60) },
 ]
 THEME = THEMES[0]		# The theme being generated
 _background_cache = {}
@@ -777,6 +809,8 @@ def big_button(img, box, rgb, word, state):
 		outline_box(img, box, fill, THEME['panel_outline'], inner=mix(fill, (0, 0, 0), 0.35))
 	elif THEME.get('frame') == 'none':
 		inset_button(img, box, col, pressed=(state == 'pressed'))
+	elif THEME.get('frame') == 'sign':
+		sign_box(img, box, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	else:
 		glossy(img, box, 'rect', col, radius=14, pressed=(state == 'pressed'))
 	cx = (box[0] + box[2]) / 2
@@ -798,6 +832,9 @@ def stats_button(img, state):
 	elif THEME.get('frame') == 'retro':
 		col = THEME.get('stats', STATS_COLOR)
 		outline_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, THEME['panel_outline'])
+	elif THEME.get('frame') == 'sign':
+		col = THEME.get('stats', STATS_COLOR)
+		sign_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	elif THEME.get('frame') == 'none':
 		# Flat, in one solid color like the big buttons; the picture may want it a bit elsewhere to fit inside its frame
 		col = THEME.get('stats', STATS_COLOR)
