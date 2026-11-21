@@ -363,7 +363,8 @@ THEMES = [
 	{ 'id': 'night',   'name': 'Starry Night',    'style': 'night',  'light': (30, 45, 100),  'dark': (8, 12, 40),   'shade': (0, 0, 10),   'save': (175, 190, 215), 'load': (85, 70, 190), 'outline': (15, 25, 70) },
 	# Picture made by the port's author (themes/casino.png), with neon strips around the panels
 	{ 'id': 'casino',  'name': 'Casino Night',    'style': 'image', 'image': 'casino.png', 'frame': 'none', 'light': (90, 170, 255), 'dark': (8, 10, 40),
-	  'save': (0, 144, 0), 'load': (0, 36, 180), 'stats': (252, 0, 0), 'outline': (5, 15, 45) },		# Buttons in the picture's own neon green, casino blue and casino red
+	  'save': (0, 144, 0), 'load': (0, 36, 180), 'stats': (252, 0, 0), 'outline': (5, 15, 45),
+	  'stats_box': (251, 7, 305, 27) },		# Buttons in the picture's own colors; STATS a bit to the left, the frame of its title bar ends at x = 309
 ]
 THEME = THEMES[0]		# The theme being generated
 _background_cache = {}
@@ -798,9 +799,9 @@ def stats_button(img, state):
 		col = THEME.get('stats', STATS_COLOR)
 		outline_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, THEME['panel_outline'])
 	elif THEME.get('frame') == 'none':
-		# Flat, in one solid color like the big buttons
+		# Flat, in one solid color like the big buttons; the picture may want it a bit elsewhere to fit inside its frame
 		col = THEME.get('stats', STATS_COLOR)
-		x0, y0, x1, y1 = STATS_BOX
+		x0, y0, x1, y1 = THEME.get('stats_box', STATS_BOX)
 		dy = 1 if state == 'pressed' else 0
 		layer = new_layer()
 		ImageDraw.Draw(layer).rounded_rectangle([v * S for v in (x0, y0 + dy, x1, y1 + dy)], radius=5 * S,
@@ -809,7 +810,8 @@ def stats_button(img, state):
 	else:
 		glossy(img, STATS_BOX, 'rect', STATS_COLOR, pressed=(state == 'pressed'))
 	dy = 1 if state == 'pressed' else 0
-	text(img, ((STATS_BOX[0] + STATS_BOX[2]) / 2, (STATS_BOX[1] + STATS_BOX[3]) / 2 + 0.5 + dy), 'STATS', 8, (255, 255, 255), mix(STATS_COLOR, (0, 0, 0), 0.6), anchor='mm', shadow=False)
+	box = THEME.get('stats_box', STATS_BOX) if THEME.get('frame') == 'none' else STATS_BOX
+	text(img, ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2 + 0.5 + dy), 'STATS', 8, (255, 255, 255), mix(STATS_COLOR, (0, 0, 0), 0.6), anchor='mm', shadow=False)
 
 
 def status_text(img, lines):
