@@ -415,8 +415,9 @@ THEMES = [
 	  'bg_light': (214, 214, 246), 'bg_mid': (226, 226, 252), 'bg_highlight': (255, 255, 255), 'bg_shadow': (160, 158, 222),
 	  'frame_light': (236, 236, 252), 'frame_shadow': (150, 148, 214), 'panel': (130, 126, 200), 'stats': (130, 126, 200),
 	  'save': (80, 170, 120), 'load': (120, 110, 210), 'outline': (70, 60, 150) },
-	{ 'id': 'city',    'name': 'Sky City',        'style': 'city', 'light': (96, 172, 236), 'dark': (96, 56, 160),
-	  'save': (66, 156, 36), 'load': (96, 172, 236), 'outline': (20, 60, 130) },		# Bush green, sky blue
+	# Picture made by the port's author (themes/skycity.png), replacing the drawn clouds and towers: purple towers above green fields
+	{ 'id': 'city',    'name': 'Sky City',        'style': 'image', 'image': 'skycity.png', 'light': (144, 72, 252), 'dark': (36, 0, 180),
+	  'save': (36, 180, 0), 'load': (108, 36, 216), 'outline': (36, 0, 100) },		# The picture's green and purple
 	{ 'id': 'aurora',  'name': 'Aurora',          'style': 'gradient', 'corners': ((40, 150, 215), (150, 110, 210), (60, 130, 90), (120, 70, 150)),
 	  'light': (120, 150, 215), 'dark': (60, 70, 140), 'save': (60, 180, 110), 'load': (110, 120, 230), 'outline': (40, 40, 110) },
 	{ 'id': 'sunset',  'name': 'Sunset Glow',     'style': 'gradient', 'corners': ((255, 170, 80), (240, 110, 120), (200, 90, 140), (110, 60, 150)),

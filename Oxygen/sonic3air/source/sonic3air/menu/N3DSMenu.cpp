@@ -97,7 +97,7 @@ namespace
 		{ "Retro Marble",	 "Crinkled lavender stone with retro outlined panels.",	40, rgb(166, 166, 228), rgb(96, 94, 172), rgb(40, 160, 60),  rgb(110, 100, 190) },
 		{ "Deep Sea",		 "A shimmering surface, rising bubbles and the seabed below.",	40, rgb(60, 130, 245),  rgb(10, 18, 70),   rgb(30, 190, 170), rgb(60, 120, 255) },
 		{ "Lavender Blocks", "Raised lavender blocks with framed panels.",				40, rgb(236, 236, 252), rgb(150, 148, 214), rgb(80, 170, 120), rgb(120, 110, 210) },
-		{ "Sky City",		 "Puffy clouds over purple honeycomb towers.",				40, rgb(130, 200, 250), rgb(96, 56, 160),  rgb(66, 156, 36),  rgb(96, 172, 236) },
+		{ "Sky City",		 "Purple towers above green fields.",						40, rgb(144, 72, 252), rgb(36, 0, 180),   rgb(36, 180, 0),   rgb(108, 36, 216) },
 		{ "Aurora",		 "A soft blend of teal, blue and purple under glass.",			30, rgb(110, 200, 230), rgb(90, 60, 150),  rgb(60, 180, 110), rgb(110, 120, 230) },
 		{ "Sunset Glow",	 "Warm orange fading into pink and purple.",					30, rgb(255, 180, 90),  rgb(130, 60, 140), rgb(240, 150, 40), rgb(180, 80, 170) },
 		{ "Casino Night",	 "Neon lights and a starry sky over the casino.",			40, rgb(90, 170, 255),  rgb(8, 10, 40),    rgb(60, 200, 80),  rgb(40, 120, 255) },

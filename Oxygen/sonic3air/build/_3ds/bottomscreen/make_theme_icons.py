@@ -42,6 +42,7 @@ NUM_THEME_NUMBERS = 15
 # Themes made from a picture get a full color icon instead: the picture itself, scaled down (theme number, picture in themes/)
 # and the part of it to show (x, y, width, height - 4:3 like the icon), so the zone is recognizable at this small size
 COLOR_ICONS = [
+	(9, 'skycity.png', (40, 20, 200, 150)),		# Sky City: the purple towers above the green fields
 	(12, 'casino.png', (4, 100, 192, 144)),		# The casino with its wheel, the pillars and the city lights behind
 	(13, 'collision.png', (60, 70, 200, 150)),	# Collision Chaos: the city with its waterfalls below the green hills
 	(14, 'metallic.png', (0, 40, 200, 150)),	# Metallic Madness: the steel blocks with palm trees and spring poles
