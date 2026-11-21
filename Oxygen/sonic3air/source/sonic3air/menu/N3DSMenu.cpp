@@ -231,6 +231,15 @@ void N3DSMenu::keyboard(const rmx::KeyboardEvent& ev)
 {
 }
 
+void N3DSMenu::preload()
+{
+	const uint64 startTicks = svcGetSystemTick();
+	createIcons();
+	const uint32 ms = (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
+	if (ms >= 30)
+		RMX_LOG_INFO("3DS menu: creating the icons took " << ms << " ms (during startup)");
+}
+
 void N3DSMenu::createIcons()
 {
 	if (mIconsCreated)

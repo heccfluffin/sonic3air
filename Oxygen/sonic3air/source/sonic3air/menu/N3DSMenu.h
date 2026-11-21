@@ -34,6 +34,10 @@ public:
 	virtual void update(float timeElapsed) override;
 	virtual void render() override;
 
+	// Creates the icons (some come from the game data on the SD card) ahead of time, during startup: the SD card sometimes
+	// takes seconds to respond, which froze the game when the menu got opened for the first time
+	void preload();
+
 private:
 	enum class State
 	{

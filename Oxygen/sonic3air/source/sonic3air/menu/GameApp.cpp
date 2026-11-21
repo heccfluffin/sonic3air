@@ -95,6 +95,10 @@ void GameApp::initialize()
 	{
 		mApplicationContextMenu = &createChild<ApplicationContextMenu>();
 	}
+
+#if defined(PLATFORM_3DS)
+	mMenuBackground->preload3DSMenu();
+#endif
 }
 
 void GameApp::deinitialize()

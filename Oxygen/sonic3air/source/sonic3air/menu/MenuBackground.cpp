@@ -106,6 +106,13 @@ MenuBackground::~MenuBackground()
 	}
 }
 
+#if defined(PLATFORM_3DS)
+void MenuBackground::preload3DSMenu()
+{
+	m3DSMenu->preload();
+}
+#endif
+
 void MenuBackground::initialize()
 {
 	// On first initialize, build the preview sprite keys

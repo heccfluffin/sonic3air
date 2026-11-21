@@ -50,6 +50,9 @@ public:
 	void openMainMenu();
 	void openTimeAttackMenu();
 	void openOptions(bool enteredInGame = false);
+#if defined(PLATFORM_3DS)
+	void preload3DSMenu();		// During startup, so the first time it opens doesn't wait for the SD card
+#endif
 	void openExtras();
 #if defined(PLATFORM_3DS)
 	void open3DSMenu();
