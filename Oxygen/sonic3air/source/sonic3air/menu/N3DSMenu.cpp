@@ -166,7 +166,7 @@ namespace
 		{ "zone13_act1a", 0, "A spiky welcome" },
 		{ "zone13_act1b", 0, "The conveyor halls" },
 		{ "zone13_act2a", 280, "Eggman's monitors" },
-		{ "zone13_act2b", 0, "Critters in capsules" },
+		{ "zone13_act2b", 0, "A window on the world" },
 		{ "zone14_act1a", 260, "Asteroids in space" },
 		{ "zone14_act1b", 40, "Eggman's last ship" },
 	};
