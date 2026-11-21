@@ -288,6 +288,11 @@ namespace
 		shot("level_slot1_has_state");
 		check(tap(260, 150) == Request::LOAD_STATE, "tapping LOAD asks to load the state");
 
+		// Screenshot (L + R): its message on the bottom screen
+		n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::SCREENSHOT_SAVED);
+		frames(5);
+		shot("screenshot_saved");
+
 		// Sliding off a button cancels
 		fake::setTouch(true, 260, 70);
 		frames(3);

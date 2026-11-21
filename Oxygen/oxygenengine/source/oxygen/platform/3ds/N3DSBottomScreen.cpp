@@ -75,6 +75,7 @@ namespace n3ds
 				PART_STATUS_NO_STATE,
 				PART_STATUS_FAILED,
 				PART_STATUS_ONLY_INGAME,
+				PART_STATUS_SCREENSHOT,		// "Screenshot saved!"
 				PART_STATUS_SLOTS,			// Which save file the state belongs to: 9 save files ("No Save", 1-8) x ("has a state", "no state yet")
 				_PART_STATUS_SLOTS_END = PART_STATUS_SLOTS + 18 - 1,
 				_NUM_PARTS
@@ -902,6 +903,7 @@ namespace n3ds
 				case Result::LOADED:	setStatusMessage(PART_STATUS_LOADED, true);		break;
 				case Result::NO_STATE:	setStatusMessage(PART_STATUS_NO_STATE, true);	break;
 				case Result::FAILED:	setStatusMessage(PART_STATUS_FAILED, true);		break;
+				case Result::SCREENSHOT_SAVED:	setStatusMessage(PART_STATUS_SCREENSHOT, true);	break;
 			}
 		}
 

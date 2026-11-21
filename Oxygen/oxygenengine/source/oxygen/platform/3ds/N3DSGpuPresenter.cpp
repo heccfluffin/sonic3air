@@ -20,6 +20,7 @@
 
 // Compiled vertex shader (build/_3ds/gpu/quad.v.pica), embedded at build time
 #include "s3air_3ds_shaders_shbin.h"
+#include "oxygen/platform/3ds/N3DSScreenshot.h"
 
 
 namespace n3ds
@@ -227,6 +228,7 @@ namespace n3ds
 			// don't touch them, just drop the frame (and don't let the caller fall back to presenting via SDL either)
 			if (!aptIsActive() || aptShouldClose())
 				return true;
+			n3ds::screenshot::onPresent(pixels, width, height, pitchBytes);		// If L + R was pressed: the frame as the game drew it
 			if (width <= 0 || height <= 0 || width > TEXTURE_WIDTH || height > TEXTURE_HEIGHT || targetWidth <= 0 || targetHeight <= 0 || targetX < 0 || targetY < 0 || targetX + targetWidth > SCREEN_WIDTH || targetY + targetHeight > SCREEN_HEIGHT)
 				return false;
 

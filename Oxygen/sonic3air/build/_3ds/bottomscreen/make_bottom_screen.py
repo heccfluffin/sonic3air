@@ -54,6 +54,7 @@ STATUS_MESSAGES = [
 	('No state saved', 'for this game yet'),
 	('Something went', 'wrong, see log'),
 	('Only works', 'in levels'),
+	('Screenshot', 'saved!'),					# After L + R
 ]
 # Default while playing: which save file the state belongs to, and whether it has one. For "No Save" and save files 1-8,
 # each with "has a state" and "no state yet".

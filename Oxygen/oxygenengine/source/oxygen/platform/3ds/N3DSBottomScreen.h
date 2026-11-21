@@ -28,7 +28,8 @@ namespace n3ds
 			SAVED,
 			LOADED,
 			NO_STATE,		// Loading: there's no saved state yet
-			FAILED
+			FAILED,
+			SCREENSHOT_SAVED
 		};
 
 		// Call once per frame on the main thread. "saveStatesAllowed" tells whether save states can be used right now

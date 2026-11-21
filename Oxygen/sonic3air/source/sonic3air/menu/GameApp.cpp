@@ -37,6 +37,8 @@
 #if defined(PLATFORM_3DS)
 	#include "oxygen/platform/3ds/N3DSBottomScreen.h"
 	#include "oxygen/platform/3ds/N3DSFileWriter.h"
+	#include "oxygen/platform/3ds/N3DSNotificationLight.h"
+	#include "oxygen/platform/3ds/N3DSScreenshot.h"
 	#include "sonic3air/version.inc"
 	#include "oxygen/rendering/parts/RenderParts.h"
 	#include "oxygen/simulation/CodeExec.h"
@@ -361,6 +363,9 @@ void GameApp::showUnlockedWindow(SecretUnlockedWindow::EntryType entryType, cons
 	}
 	mGameView->addChild(*mSecretUnlockedWindow);
 	mSecretUnlockedWindow->show(entryType, title, content, (entryType == SecretUnlockedWindow::EntryType::SECRET) ? 0x68 : 0x63);
+#if defined(PLATFORM_3DS)
+	n3ds::notificationlight::pulse();		// Soft purple glow of the notification light
+#endif
 }
 
 void GameApp::showSkippableCutsceneWindow(bool show)
@@ -403,6 +408,7 @@ void GameApp::updateBottomScreen()
 {
 	// 3DS bottom screen: controls overview with touch buttons for a save state per save file
 	n3ds::filewriter::update();		// Files written in the background (save states, 3DS menu choices): report finished ones
+	n3ds::screenshot::update();		// L + R
 	Simulation& simulation = Application::instance().getSimulation();
 	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
 

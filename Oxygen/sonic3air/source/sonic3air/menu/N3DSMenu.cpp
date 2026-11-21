@@ -1001,11 +1001,28 @@ void N3DSMenu::render()
 					status = entry.hasSelected() ? ("< " + entry.selected().mText + " >") : std::string();
 					statusColor = (shop.mNightMode == n3ds::shop::NIGHT_MODE_AFTER_DARK) ? Color(0.4f, 1.0f, 1.0f, tabAlpha) : Color(0.8f, 0.8f, 0.8f, tabAlpha);
 
-					// Evening: dusk sky with a moon; morning: dawn with the sun coming up
-					const Color top    = isStart ? Color(0.10f, 0.08f, 0.30f, tabAlpha) : Color(0.35f, 0.55f, 0.90f, tabAlpha);
-					const Color bottom = isStart ? Color(0.75f, 0.35f, 0.30f, tabAlpha) : Color(1.00f, 0.70f, 0.35f, tabAlpha);
-					for (int k = 0; k < 6; ++k)
-						drawer.drawRect(Recti(imageRect.x, imageRect.y + k * 8, 64, 8), Color(top.r + (bottom.r - top.r) * k / 5.0f, top.g + (bottom.g - top.g) * k / 5.0f, top.b + (bottom.b - top.b) * k / 5.0f, tabAlpha));
+					// Evening: dusk sky with a moon; morning: dawn sky, blue fading into peach
+					if (isStart)
+					{
+						const Color top(0.10f, 0.08f, 0.30f, tabAlpha);
+						const Color bottom(0.75f, 0.35f, 0.30f, tabAlpha);
+						for (int k = 0; k < 6; ++k)
+							drawer.drawRect(Recti(imageRect.x, imageRect.y + k * 8, 64, 8), Color(top.r + (bottom.r - top.r) * k / 5.0f, top.g + (bottom.g - top.g) * k / 5.0f, top.b + (bottom.b - top.b) * k / 5.0f, tabAlpha));
+					}
+					else
+					{
+						const Color stops[3] = { Color(0.31f, 0.47f, 0.82f), Color(0.98f, 0.65f, 0.53f), Color(1.0f, 0.80f, 0.47f) };
+						for (int y = 0; y < 48; y += 2)
+						{
+							const float t = (float)y / 46.0f;
+							const int segment = (t < 0.62f) ? 0 : 1;
+							const float k = (segment == 0) ? (t / 0.62f) : ((t - 0.62f) / 0.38f);
+							const Color& c0 = stops[segment];
+							const Color& c1 = stops[segment + 1];
+							drawer.drawRect(Recti(imageRect.x, imageRect.y + y, 64, 2), Color(c0.r + (c1.r - c0.r) * k, c0.g + (c1.g - c0.g) * k, c0.b + (c1.b - c0.b) * k, tabAlpha));
+						}
+					}
+
 					// Little pixel art, 2 x 2 screen pixels per "X"
 					const auto drawPixelArt = [&](std::initializer_list<const char*> rows, int x0, int y0, const Color& color)
 					{
@@ -1031,13 +1048,16 @@ void N3DSMenu::render()
 					}
 					else
 					{
-						// The sun coming up over green hills, with a soft glow around it
-						drawPixelArt({ "..XXXXXXXXXXXX..", "XXXXXXXXXXXXXXXX" }, 16, 32, Color(1.0f, 0.84f, 0.55f, tabAlpha));
-						drawPixelArt({ "....XXXX....", "..XXXXXXXX..", ".XXXXXXXXXX.", "XXXXXXXXXXXX" }, 20, 32, Color(1.0f, 0.94f, 0.6f, tabAlpha));
-						const Color hills(0.25f, 0.45f, 0.25f, tabAlpha);
-						drawer.drawRect(Recti(imageRect.x, imageRect.y + 40, 64, 8), hills);
-						drawer.drawRect(Recti(imageRect.x, imageRect.y + 38, 19, 2), hills);
-						drawer.drawRect(Recti(imageRect.x + 44, imageRect.y + 37, 20, 3), hills);
+						// The sun coming up behind rolling hills, with a soft glow, and pink clouds in the sky
+						drawPixelArt({ "..XXXX......", "XXXXXXXXX...", ".XXXXXXXXXX." }, 2, 6, Color(1.0f, 0.75f, 0.78f, tabAlpha));
+						drawPixelArt({ "...XXX...", ".XXXXXXX.", "XXXXXXXXX" }, 40, 12, Color(1.0f, 0.78f, 0.80f, tabAlpha));
+						// The sun is taller than what's visible: its lower part is behind the hills, which get drawn over it
+						drawPixelArt({ "....XXXXXX....", "..XXXXXXXXXX..", ".XXXXXXXXXXXX.", "XXXXXXXXXXXXXX", "XXXXXXXXXXXXXX", "XXXXXXXXXXXXXX", "XXXXXXXXXXXXXX" }, 18, 24, Color(1.0f, 0.84f, 0.59f, tabAlpha));
+						drawPixelArt({ "...XXXX...", ".XXXXXXXX.", "XXXXXXXXXX", "XXXXXXXXXX", "XXXXXXXXXX", "XXXXXXXXXX" }, 22, 26, Color(1.0f, 0.94f, 0.59f, tabAlpha));
+						drawPixelArt({ "XXXX..................XXXXXXXXXX", "XXXXXXXX..........XXXXXXXXXXXXXX" }, 0, 32, Color(0.43f, 0.67f, 0.35f, tabAlpha));
+						drawer.drawRect(Recti(imageRect.x, imageRect.y + 36, 64, 12), Color(0.43f, 0.67f, 0.35f, tabAlpha));
+						drawPixelArt({ "...........XXXXXX...............", "......XXXXXXXXXXXXXXXX..........", "XXXXXXXXXXXXXXXXXXXXXXXXXXX....." }, 0, 38, Color(0.25f, 0.49f, 0.25f, tabAlpha));
+						drawer.drawRect(Recti(imageRect.x, imageRect.y + 44, 64, 4), Color(0.25f, 0.49f, 0.25f, tabAlpha));
 					}
 				}
 				else if (tabIndex == Tab::Id::THEMES && entry.mData == NIGHT_MODE)

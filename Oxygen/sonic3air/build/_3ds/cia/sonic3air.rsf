@@ -188,6 +188,7 @@ AccessControlInfo:
     - gsp::Gpu
     - gsp::Lcd
     - hid:USER
+    - mcu::HWC
     - http:C
     - ir:rst
     - ir:u
