@@ -235,7 +235,7 @@ namespace
 		{ "carnival", "zone04_act1b", 100, "CARNIVAL FUN", "The carnival never closes. We've been here all week!", { { "sonictails", 58, 16, false, 0 } }, {  } },
 		{ "sinking", "zone09_act2b", 0, "SINKING FEELING", "I'll be finding sand in my shoes for weeks. - Knuckles", { { "knuckles", 100, 40, false, 66 } }, { { 123, 22, 14, 26, 155, 22 } } },
 		{ "airship", "zone08_act2b", 200, "ON DECK", "Tails says he could fly this airship better than Eggman.", { { "tails", 30, 24, false, 0 } }, {  } },
-		{ "bubble", "zone02_act1b", 0, "UNDER THE SEA", "Brought my own air. The fish were jealous. - Sonic", { { "shield", 62, 18, false, 0 }, { "sonic", 68, 22, false, 0 } }, {  } },
+		{ "bubble", "zone02_act1b", 0, "WRONG SHIELD", "Brought the wrong shield. Holding my breath! - Sonic", { { "shield", 62, 18, false, 0 }, { "sonic", 68, 22, false, 0 } }, {  } },
 	};
 
 	const FunnyPostcard* findFunnyPostcard(const n3ds::journal::Postcard& postcard)
