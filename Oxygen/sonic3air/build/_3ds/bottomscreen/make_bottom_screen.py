@@ -326,6 +326,37 @@ def sign_box(img, box, fill, fill_alpha=255, pressed=False):
 	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
 
 
+def metal_box(img, box, fill, fill_alpha=255, pressed=False):
+	"""A steel frame like the shiny blocks of the theme's zone: a dark outline, a 3 pixel border lit from the top left (light edge
+	there, darker edge at the bottom right), a rivet in each corner, and a (see-through) inside - crisp pixel art, drawn at 1:1."""
+	x0, y0, x1, y1 = box
+	if pressed:
+		y0 += 1
+		y1 += 1
+	dark = THEME.get('metal_dark', (36, 36, 72))
+	light = THEME.get('metal_light', (204, 228, 252))
+	mid = THEME.get('metal_mid', (108, 180, 252))
+	shade = THEME.get('metal_shade', (72, 108, 180))
+	layer = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+	d = ImageDraw.Draw(layer)
+	x1 -= 1
+	y1 -= 1
+	d.rectangle((x0, y0, x1, y1), fill=dark + (255,))						# Outline
+	d.rectangle((x0 + 1, y0 + 1, x1 - 1, y1 - 1), fill=mid + (255,))		# Steel border
+	d.line((x0 + 1, y0 + 1, x1 - 1, y0 + 1), fill=light + (255,))			# Lit edges: top and left
+	d.line((x0 + 1, y0 + 1, x0 + 1, y1 - 1), fill=light + (255,))
+	d.line((x0 + 2, y1 - 1, x1 - 1, y1 - 1), fill=shade + (255,))			# Shaded edges: bottom and right
+	d.line((x1 - 1, y0 + 2, x1 - 1, y1 - 1), fill=shade + (255,))
+	d.rectangle((x0 + 3, y0 + 3, x1 - 3, y1 - 3), fill=dark + (255,))		# Inner outline
+	d.rectangle((x0 + 4, y0 + 4, x1 - 4, y1 - 4), fill=fill + (fill_alpha,))	# Inside (replaces the pixels, so it can be see-through)
+	# Rivets in the corners of the border
+	if x1 - x0 > 30 and y1 - y0 > 16:
+		for rx, ry in ((x0 + 6, y0 + 6), (x1 - 7, y0 + 6), (x0 + 6, y1 - 7), (x1 - 7, y1 - 7)):
+			d.rectangle((rx, ry, rx + 1, ry + 1), fill=shade + (255,))
+			d.point((rx, ry), fill=(252, 252, 252, 255))
+	img.alpha_composite(layer.resize((W * S, H * S), Image.NEAREST))
+
+
 def framed_box(img, box, inner_fill, inner_alpha):
 	"""Thick light frame with a drop shadow to the bottom right, around a translucent tinted inside."""
 	x0, y0, x1, y1 = box
@@ -345,6 +376,9 @@ def panel(img, box, radius=10, alpha=60):
 	"""A panel in the theme's frame style: glass, retro (flat, with a thin light outline), framed, or none (the picture has its own)."""
 	if THEME.get('frame') == 'sign':
 		sign_box(img, box, THEME.get('panel', (0, 0, 34)), THEME.get('panel_alpha', 200))
+		return
+	if THEME.get('frame') == 'metal':
+		metal_box(img, box, THEME.get('panel', (16, 8, 70)), THEME.get('panel_alpha', 190))
 		return
 	if THEME.get('frame') == 'none':
 		# The picture draws its own frames: just a flat, dark, see-through shade inside them, so the text stays easy to read
@@ -397,6 +431,11 @@ THEMES = [
 	  'light': (204, 68, 238), 'dark': (68, 0, 136), 'panel': (0, 0, 34), 'panel_alpha': 200,
 	  'sign_edge': (204, 68, 238), 'sign_inner': (136, 0, 204),
 	  'save': (0, 170, 136), 'load': (136, 0, 204), 'stats': (0, 0, 102), 'outline': (30, 0, 60) },
+	# Picture made by the port's author (themes/metallic.png, Metallic Madness' good future); steel frames like the zone's blocks
+	{ 'id': 'metallic', 'name': 'Metallic Madness', 'style': 'image', 'image': 'metallic.png', 'frame': 'metal',
+	  'light': (108, 180, 252), 'dark': (32, 0, 168), 'panel': (16, 8, 70), 'panel_alpha': 190,
+	  'metal_dark': (36, 36, 72), 'metal_light': (204, 228, 252), 'metal_mid': (108, 180, 252), 'metal_shade': (72, 108, 180),
+	  'save': (0, 144, 0), 'load': (63, 90, 153), 'stats': (45, 54, 99), 'outline': (20, 20, 50) },
 ]
 THEME = THEMES[0]		# The theme being generated
 _background_cache = {}
@@ -811,6 +850,8 @@ def big_button(img, box, rgb, word, state):
 		inset_button(img, box, col, pressed=(state == 'pressed'))
 	elif THEME.get('frame') == 'sign':
 		sign_box(img, box, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
+	elif THEME.get('frame') == 'metal':
+		metal_box(img, box, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	else:
 		glossy(img, box, 'rect', col, radius=14, pressed=(state == 'pressed'))
 	cx = (box[0] + box[2]) / 2
@@ -835,6 +876,9 @@ def stats_button(img, state):
 	elif THEME.get('frame') == 'sign':
 		col = THEME.get('stats', STATS_COLOR)
 		sign_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
+	elif THEME.get('frame') == 'metal':
+		col = THEME.get('stats', STATS_COLOR)
+		metal_box(img, STATS_BOX, mix(col, (0, 0, 0), 0.25) if state == 'pressed' else col, 255, pressed=(state == 'pressed'))
 	elif THEME.get('frame') == 'none':
 		# Flat, in one solid color like the big buttons; the picture may want it a bit elsewhere to fit inside its frame
 		col = THEME.get('stats', STATS_COLOR)

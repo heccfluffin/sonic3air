@@ -102,6 +102,7 @@ namespace
 		{ "Sunset Glow",	 "Warm orange fading into pink and purple.",					30, rgb(255, 180, 90),  rgb(130, 60, 140), rgb(240, 150, 40), rgb(180, 80, 170) },
 		{ "Casino Night",	 "Neon lights and a starry sky over the casino.",			40, rgb(90, 170, 255),  rgb(8, 10, 40),    rgb(60, 200, 80),  rgb(40, 120, 255) },
 		{ "Collision Chaos", "The good future's towers, with sign board panels.",		40, rgb(204, 68, 238),  rgb(68, 0, 136),   rgb(0, 170, 136),  rgb(136, 0, 204) },
+		{ "Metallic Madness", "Shiny steel and palm trees of the good future.",			40, rgb(108, 180, 252), rgb(32, 0, 168),   rgb(0, 144, 0),    rgb(63, 90, 153) },
 	};
 
 	struct SecretInfo
