@@ -186,10 +186,30 @@ namespace
 	using ArtLoad = n3ds::romsprites::ArtLoad;
 	const n3ds::romsprites::RomSprite ROM_SPRITES[] =
 	{
-		{ { { ArtLoad::Type::KOSINSKI_MODULED, 0x1680ca, 0x75a0 }, { ArtLoad::Type::KOSINSKI_MODULED, 0x16908c, 0x93e0 } }, 0x075f28, 0x075e52, 4 },	// Hey Ho, Mushroom Hill 1
-		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x5d, 0 } }, 0x06e370, 0x06e298, 0 },		// Carnival Night 1 miniboss
-		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 }, { ArtLoad::Type::KOSINSKI_MODULED, 0x365260, 0x3000 } }, 0x069e80, 0x069cd4, 0 },	// Angel Island 2 boss
-		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x5f, 0 } }, 0x0719da, 0x071960, 0 },		// IceCap 1 miniboss
+		// Hey Ho, Mushroom Hill 1 (boss_mhz1.lemon): swinging the axe, with the jet flames behind
+		{ { { ArtLoad::Type::KOSINSKI_MODULED, 0x1680ca, 0x75a0 }, { ArtLoad::Type::KOSINSKI_MODULED, 0x16908c, 0x93e0 } }, 0x075f28,
+		  { { 0x186168, 0xa3ad, 4, 0, 0, 0x200 }, { 0x186168, 0x83ad, 22, 0, 0, 0x280 }, { 0x186168, 0x83ad, 23, 0, 0, 0x280 } } },
+		// Carnival Night 1 miniboss (boss_cnz1.lemon): the magnet unit, and the spinning top below it
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x5d, 0 } }, 0x06e370,
+		  { { 0x362ed4, 0xa52e, 0, 0, 0, 0x280 }, { 0x362ed4, 0xa52e, 7, 0, 44, 0x200 } } },
+		// Angel Island 2 boss (boss_aiz2.lemon): the flame craft with Robotnik in the Egg Mobile, both arms and their cannons
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 }, { ArtLoad::Type::KOSINSKI_MODULED, 0x365260, 0x3000 } }, 0x069e80,
+		  { { 0x361fd6, 0xa180, 0, 0, 0, 0x280 }, { 0x06820c, 0x052e, 8, 0, -20, 0x280 }, { 0x06820c, 0x052e, 0, 0, -48, 0x280 },
+			{ 0x361fd6, 0xa180, 1, 20, -4, 0x200 }, { 0x361fd6, 0xa180, 4, -8, -4, 0x200 }, { 0x361fd6, 0xa180, 0x2a, -20, -4, 0x300 }, { 0x361fd6, 0xa180, 4, -48, -4, 0x300 } } },
+		// IceCap 1 miniboss (boss_icz1.lemon): with its cannons out, as when it fires
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x5f, 0 } }, 0x0719da,
+		  { { 0x363344, 0xa4a9, 2, -22, -19, 0x200 }, { 0x363344, 0xa4a9, 10, 22, -19, 0x200 }, { 0x363344, 0xa4a9, 1, -14, -11, 0x200 }, { 0x363344, 0xa4a9, 9, 14, -11, 0x200 },
+			{ 0x363344, 0xa4a9, 0, 0, 0, 0x280 }, { 0x363344, 0xa4a9, 4, 0, 14, 0x300 }, { 0x363344, 0xa4a9, 3, 0, 18, 0x300 } } },
+	};
+
+	// The bosses' arenas, drawn from the level in the ROM (positions from the boss scripts and the level object lists)
+	using LevelView = n3ds::romsprites::LevelView;
+	const LevelView ARENAS[] =
+	{
+		{ 3, 0, LevelView::Setup::NONE,      620, 830, false, 0, 0 },					// Carnival Night 1: the miniboss room is in the background layer
+		{ 7, 0, LevelView::Setup::NONE,       60, 400, true, 0x42f2, 0x070d },		// Mushroom Hill 1: Hey Ho's clearing
+		{ 0, 1, LevelView::Setup::AIZ2_BOSS,  60, 330, true, 0x4180, 0x0190 },		// Angel Island 2: the burning jungle where Sonic meets the flame craft
+		{ 5, 0, LevelView::Setup::NONE,      260,  20, true, 0x075a, 0x0250 },		// IceCap 1: the snowy slope
 	};
 
 	const SceneSprite SCENE_SPRITES[] =
@@ -235,6 +255,9 @@ namespace
 		const char* mMessage;
 		SceneActor mActors[7];
 		ScenePatch mPatches[4];
+		int mArena = -1;			// If not -1: the picture is that boss arena (336 x 160, shown 1:1), not the zone picture
+		int mAlbumX = 0;			// For an arena: where the album's smaller view of it starts
+		int mAlbumY = 0;
 	};
 	const FunnyPostcard FUNNY_POSTCARDS[] =
 	{
@@ -253,12 +276,12 @@ namespace
 		{ "sinking", "zone09_act2b", 0, "SINKING FEELING", "I'll be finding sand in my shoes for weeks. - Knuckles", { { "knuckles", 100, 40, false, 66 } }, { { 123, 22, 14, 26, 155, 22 } } },
 		{ "airship", "zone08_act2b", 200, "ON DECK", "Tails says he could fly this airship better than Eggman.", { { "tails", 30, 19, false, 0 } }, { { 130, 40, 34, 17, 38, 40 } } },
 		{ "bubble", "zone02_act1b", 0, "WRONG SHIELD", "Brought the wrong shield. Holding my breath! - Sonic", { { "shield", 62, 18, false, 0 }, { "sonic", 68, 22, false, 0 } }, {  } },
-		{ "coldcall", "zone05_act1a", 312, "A COLD WELCOME", "Met a new friend in IceCap. A little frosty, though.", { { "icecapboss", 30, 8, false, 0 }, { "sonic", 118, 25, true, 0 } }, {  } },
-		{ "heyho", "zone07_act1b", 100, "LUMBERJACK", "Met a lumberjack in the woods. He really likes his axe.", { { "heyho", 0, 4, false, 0 }, { "knuckles", 104, 21, true, 0 } }, { { 140, 0, 16, 62, 124, 0 }, { 140, 0, 16, 62, 108, 0 }, { 140, 0, 16, 62, 92, 0 }, { 16, 16, 10, 32, 0, 16 } } },
+		{ "coldcall", nullptr, 0, "A COLD WELCOME", "Met a new friend in IceCap. A little frosty, though.", { { "icecapboss", 200, 30, false, 0 }, { "ball", 80, 69, false, 0 } }, {  }, 3, 70, 30 },
+		{ "heyho", nullptr, 0, "LUMBERJACK", "Met a lumberjack in the woods. He really likes his axe.", { { "heyho", 110, 40, false, 0 }, { "knuckles", 250, 74, true, 0 } }, {  }, 1, 100, 36 },
 		{ "highfive", "zone12_act1b", 260, "HIGH FIVE", "Eggrobo wanted a high five. Sonic gave him a spin attack.", { { "ball", 26, 14, false, 0 } }, { { 0, 20, 58, 30, 0, 50 }, { 60, 20, 12, 4, 60, 76 } } },
 		{ "bigone", "zone14_act1b", 40, "THE BIG ONE", "Eggman's ship looked smaller in the brochure. - Sonic", { { "ball", 6, 4, false, 0 } }, {  } },
-		{ "spintop", "zone04_act1b", 100, "TOP OF THE SHOW", "This top spins faster than me. Almost. - Sonic", { { "spintop", 100, -1, false, 0 }, { "sonic", 56, 15, false, 0 } }, {  } },
-		{ "firecraft", "zone01_act2a", 180, "TOO HOT", "Someone has been playing with fire again.", { { "firecraft", 86, 0, false, 0 }, { "sonic", 4, 18, false, 0 } }, {  } },
+		{ "spintop", nullptr, 0, "TOP OF THE SHOW", "This top spins faster than me. Almost. - Sonic", { { "spintop", 200, 57, false, 0 }, { "sonic", 70, 91, false, 0 } }, {  }, 0, 66, 52 },
+		{ "firecraft", nullptr, 0, "TOO HOT", "Someone has been playing with fire again.", { { "firecraft", 196, 4, true, 0 }, { "sonic", 96, 83, false, 0 } }, {  }, 2, 92, 40 },
 	};
 
 	const FunnyPostcard* findFunnyPostcard(const n3ds::journal::Postcard& postcard)
@@ -277,19 +300,34 @@ namespace
 	// Puts the scene together into a 168 x 80 picture: the zone's view, then the sprites on top
 	bool composeFunnyScene(const FunnyPostcard& funny, DrawerTexture& texture)
 	{
-		Bitmap zone;
-		const std::string zoneName = funny.mZone;
-		if (!FileHelper::loadBitmap(zone, L"data/sprites/zone_preview/" + std::wstring(zoneName.begin(), zoneName.end()) + L".bmp", false) ||
-			zone.getWidth() < funny.mViewX + 168 || zone.getHeight() < 80)
-			return false;
-
 		Bitmap& bitmap = texture.accessBitmap();
-		bitmap.create(168, 80);
-		for (int y = 0; y < 80; ++y)
+		if (funny.mArena >= 0)
 		{
-			for (int x = 0; x < 168; ++x)
-				*bitmap.getPixelPointer(x, y) = *zone.getPixelPointer(funny.mViewX + x, y) | 0xff000000;
+			// A boss arena, drawn from the level in the player's ROM
+			const uint64 startTicks = svcGetSystemTick();
+			if (!n3ds::romsprites::drawLevel(ARENAS[funny.mArena], 336, 160, bitmap))
+			{
+				RMX_LOG_INFO("Journal: could not draw the arena for postcard '" << funny.mName << "' from the ROM");
+				return false;
+			}
+			RMX_LOG_INFO("Journal: arena for postcard '" << funny.mName << "' drawn from the ROM in " << (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms");
 		}
+		else
+		{
+			Bitmap zone;
+			const std::string zoneName = funny.mZone;
+			if (!FileHelper::loadBitmap(zone, L"data/sprites/zone_preview/" + std::wstring(zoneName.begin(), zoneName.end()) + L".bmp", false) ||
+				zone.getWidth() < funny.mViewX + 168 || zone.getHeight() < 80)
+				return false;
+			bitmap.create(168, 80);
+			for (int y = 0; y < 80; ++y)
+			{
+				for (int x = 0; x < 168; ++x)
+					*bitmap.getPixelPointer(x, y) = *zone.getPixelPointer(funny.mViewX + x, y) | 0xff000000;
+			}
+		}
+		const int pictureWidth = bitmap.getWidth();
+		const int pictureHeight = bitmap.getHeight();
 
 		for (const ScenePatch& patch : funny.mPatches)
 		{
@@ -298,13 +336,13 @@ namespace
 			std::vector<uint32> copy;
 			for (int y = 0; y < patch.mHeight; ++y)
 				for (int x = 0; x < patch.mWidth; ++x)
-					copy.push_back(*bitmap.getPixelPointer(clamp(patch.mSourceX + x, 0, 167), clamp(patch.mSourceY + y, 0, 79)));
+					copy.push_back(*bitmap.getPixelPointer(clamp(patch.mSourceX + x, 0, pictureWidth - 1), clamp(patch.mSourceY + y, 0, pictureHeight - 1)));
 			for (int y = 0; y < patch.mHeight; ++y)
 				for (int x = 0; x < patch.mWidth; ++x)
 				{
 					const int tx = patch.mTargetX + x;
 					const int ty = patch.mTargetY + y;
-					if (tx >= 0 && tx < 168 && ty >= 0 && ty < 80)
+					if (tx >= 0 && tx < pictureWidth && ty >= 0 && ty < pictureHeight)
 						*bitmap.getPixelPointer(tx, ty) = copy[y * patch.mWidth + x];
 				}
 		}
@@ -325,7 +363,7 @@ namespace
 			const void* sheetKey = (sprite->mRomSprite >= 0) ? (const void*)sprite : (const void*)sprite->mFile;
 			if (sheets.count(sheetKey) == 0)
 			{
-				const bool loaded = (sprite->mRomSprite >= 0) ? n3ds::romsprites::draw(ROM_SPRITES[sprite->mRomSprite], sheets[sheetKey])
+				const bool loaded = (sprite->mRomSprite >= 0) ? n3ds::romsprites::draw(ROM_SPRITES[sprite->mRomSprite], false, sheets[sheetKey])
 															 : FileHelper::loadBitmap(sheets[sheetKey], sprite->mFile, false);
 				if (!loaded)
 				{
@@ -343,12 +381,12 @@ namespace
 			for (int y = 0; y < spriteHeight; ++y)
 			{
 				const int ty = actor.mY + y;
-				if (ty < 0 || ty >= 80 || (actor.mClipY > 0 && ty >= actor.mClipY))
+				if (ty < 0 || ty >= pictureHeight || (actor.mClipY > 0 && ty >= actor.mClipY))
 					continue;
 				for (int x = 0; x < spriteWidth; ++x)
 				{
 					const int tx = actor.mX + (actor.mFlip ? (spriteWidth - 1 - x) : x);
-					if (tx < 0 || tx >= 168)
+					if (tx < 0 || tx >= pictureWidth)
 						continue;
 					const uint32 color = *sheet.getPixelPointer(sprite->mX + x, sprite->mY + y);
 					if ((color >> 24) < 0x80 || (blackIsClear && (color & 0x00ffffff) == 0))
@@ -1632,10 +1670,25 @@ void N3DSMenu::render()
 						{
 							mAlbumFunnyName = funny->mName;
 							mHasAlbumFunnyPicture = composeFunnyScene(*funny, mAlbumFunnyPicture);
+							if (mHasAlbumFunnyPicture && funny->mArena >= 0)
+							{
+								// An arena is bigger than the album's window: just the part with the action
+								Bitmap& bitmap = mAlbumFunnyPicture.accessBitmap();
+								Bitmap crop;
+								crop.create(window.width, window.height);
+								for (int y = 0; y < window.height; ++y)
+									for (int x = 0; x < window.width; ++x)
+										*crop.getPixelPointer(x, y) = *bitmap.getPixelPointer(clamp(funny->mAlbumX + x, 0, bitmap.getWidth() - 1), clamp(funny->mAlbumY + y, 0, bitmap.getHeight() - 1));
+								bitmap = crop;
+								mAlbumFunnyPicture.bitmapUpdated();
+							}
 						}
 						drawer.drawRect(window, Color(0.1f, 0.1f, 0.15f, tabAlpha));
 						if (mHasAlbumFunnyPicture)
-							drawer.drawRect(Recti(window.x + (window.width - 168) / 2, window.y, 168, 80), mAlbumFunnyPicture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						{
+							const int pictureWidth = mAlbumFunnyPicture.getWidth();
+							drawer.drawRect(Recti(window.x + (window.width - pictureWidth) / 2, window.y, pictureWidth, 80), mAlbumFunnyPicture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						}
 
 						drawer.printText(global::mSonicFontB, Recti(px + 34, py + 7, 0, 10), "POSTCARDS", 1, color);
 						drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 8, 0, 10), String(0, "%d / %d", (int)postcards.size(), n3ds::journal::getNumPossiblePostcards()), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
