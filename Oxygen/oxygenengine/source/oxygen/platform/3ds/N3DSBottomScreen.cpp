@@ -160,10 +160,10 @@ namespace n3ds
 			int gTheme = -1;		// Theme currently unpacked into "gData"
 			bool gDimmed = false;		// Night mode: everything drawn in warmer, dimmer colors
 
-			// Night mode colors, as factors of 256 for red, green, blue. The bottom screen is mostly static and bright, so it gets
-			// dimmed as well; the top screen only gets warmer, the game should stay easy to see.
-			const constexpr int NIGHT_BOTTOM[3] = { 160, 128, 92 };
+			// Night mode colors, as factors of 256 for red, green, blue: the same warmth on both screens. The bottom screen was dimmed
+			// as well at first, but on the console it ended up much darker than the top screen (its backlight is dimmer anyway).
 			const constexpr uint8 NIGHT_TOP[3] = { 255, 212, 156 };
+			const constexpr int NIGHT_BOTTOM[3] = { NIGHT_TOP[0] + 1, NIGHT_TOP[1], NIGHT_TOP[2] };	// 256 = unchanged
 			uint8 gNightTable5R[32];	// 5-bit red / blue and 6-bit green values, scaled
 			uint8 gNightTable6G[64];
 			uint8 gNightTable5B[32];

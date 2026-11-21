@@ -944,7 +944,7 @@ void N3DSMenu::render()
 				}
 				else if (tabIndex == Tab::Id::THEMES && entry.mData == NIGHT_MODE)
 				{
-					description = "Warmer colors on both screens and a dimmer bottom screen, gentler on the eyes in the dark. A switches: off, after dark (8 pm to 6 am), always.";
+					description = "Warmer colors on both screens, like a night light, gentler on the eyes in the dark. A switches: off, after dark (8 pm to 6 am), always.";
 					status = NIGHT_MODE_NAMES[clamp(shop.mNightMode, 0, (int)n3ds::shop::_NUM_NIGHT_MODES - 1)];
 					statusColor = (shop.mNightMode == n3ds::shop::NIGHT_MODE_OFF) ? Color(0.8f, 0.8f, 0.8f, tabAlpha) : Color(0.4f, 1.0f, 1.0f, tabAlpha);
 

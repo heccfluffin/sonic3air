@@ -191,7 +191,7 @@ The main menu has a **3DS** entry (it can be hidden in Options → System). Ther
 
 - **Themes** for the bottom screen. **Time of Day** (free) follows the 3DS clock: Aurora in the morning, Blue by day,
   Sunset Glow in the evening and Starry Night after dark, using the themes you own.
-  **Night Mode** (free) gives both screens warmer colors and dims the bottom screen: off, after dark (8 pm to 6 am) or always.
+  **Night Mode** (free) gives both screens warmer colors, like a night light: off, after dark (8 pm to 6 am) or always.
 - **Your own pictures** as themes, for free: put 320 × 240 PNG pictures into `sdmc:/3ds/sonic3air/themes/`.
   The `README.txt` and `template.png` there show where the buttons and panels go.
 - **Secrets** that you'd otherwise unlock by playing.
