@@ -117,54 +117,55 @@ namespace
 		const char* mSpriteName;
 		int mOffset;			// Left edge of the 200 pixels wide view
 		const char* mCaption;
+		const char* mHeadline = nullptr;	// For a view with a badnik in it: instead of "Greetings from ..."
 	};
 	const PostcardView POSTCARD_VIEWS[] =
 	{
 		{ "zone01_act1a", 40, "The jungle by the sea" },
-		{ "zone01_act1b", 60, "Catakiller Jr. in the fire" },
+		{ "zone01_act1b", 60, "Catakiller Jr. in the fire", "HOT TIMES IN ANGEL ISLAND" },
 		{ "zone01_act2a", 180, "After the fire" },
 		{ "zone01_act2b", 220, "Deep in the jungle" },
-		{ "zone02_act1a", 60, "A Turbo Spiker by the falls" },
+		{ "zone02_act1a", 60, "A Turbo Spiker by the falls", "A SPIKY HELLO FROM HYDROCITY" },
 		{ "zone02_act1b", 0, "Under the water" },
 		{ "zone02_act2a", 50, "The big water slide" },
-		{ "zone02_act2b", 200, "Jawz in the waterways" },
+		{ "zone02_act2b", 200, "Jawz in the waterways", "SHARK WATCH IN HYDROCITY" },
 		{ "zone03_act1a", 180, "The fruit trees of the ruins" },
 		{ "zone03_act1b", 60, "Over the green hills" },
-		{ "zone03_act2a", 100, "A Mantis among the pillars" },
+		{ "zone03_act2a", 100, "A Mantis among the pillars", "SPOTTED IN MARBLE GARDEN" },
 		{ "zone03_act2b", 180, "Palm trees and ruins" },
 		{ "zone04_act1a", 120, "Carnival lights" },
-		{ "zone04_act1b", 280, "A Batbot by the barrel" },
+		{ "zone04_act1b", 280, "A Batbot by the barrel", "BATS AT CARNIVAL NIGHT" },
 		{ "zone04_act2a", 100, "Balloons at the carnival" },
-		{ "zone04_act2b", 160, "A Batbot after dark" },
+		{ "zone04_act2b", 160, "A Batbot after dark", "NIGHT FLYERS AT THE CARNIVAL" },
 		{ "zone05_act1a", 160, "Ice crystals" },
 		{ "zone05_act1b", 120, "The snowfields" },
-		{ "zone05_act2a", 60, "A Star Pointer on the ice" },
+		{ "zone05_act2a", 60, "A Star Pointer on the ice", "A COLD STARE FROM ICECAP" },
 		{ "zone05_act2b", 140, "Glittering ice caves" },
-		{ "zone06_act1a", 200, "A Ribot by the towers" },
+		{ "zone06_act1a", 200, "A Ribot by the towers", "HOPPING AROUND LAUNCH BASE" },
 		{ "zone06_act1b", 280, "The flying saucer" },
 		{ "zone06_act2a", 80, "The launch pool" },
 		{ "zone06_act2b", 200, "Inside the base" },
-		{ "zone07_act1a", 200, "Butterdroids in the woods" },
-		{ "zone07_act1b", 140, "A Mushmeanie in the trees" },
-		{ "zone07_act2a", 120, "A Dragonfly in the leaves" },
+		{ "zone07_act1a", 200, "Butterdroids in the woods", "FLUTTERS FROM MUSHROOM HILL" },
+		{ "zone07_act1b", 140, "A Mushmeanie in the trees", "THE LOCALS OF MUSHROOM HILL" },
+		{ "zone07_act2a", 120, "A Dragonfly in the leaves", "BUZZING IN MUSHROOM HILL" },
 		{ "zone07_act2b", 180, "Giant mushrooms" },
-		{ "zone08_act1a", 220, "Dropping in by parachute" },
-		{ "zone08_act1b", 0, "A Blaster inside the airship" },
+		{ "zone08_act1a", 220, "Dropping in by parachute", "INCOMING AT FLYING BATTERY" },
+		{ "zone08_act1b", 0, "A Blaster inside the airship", "ON PATROL IN FLYING BATTERY" },
 		{ "zone08_act2a", 60, "The engine rooms" },
 		{ "zone08_act2b", 170, "On top of the airship" },
-		{ "zone09_act1a", 160, "A Sandworm at sunset" },
+		{ "zone09_act1a", 160, "A Sandworm at sunset", "SANDOPOLIS WILDLIFE" },
 		{ "zone09_act1b", 20, "Inside the pyramid" },
 		{ "zone09_act2a", 220, "The torchlit halls" },
 		{ "zone09_act2b", 0, "Sinking sands" },
 		{ "zone10_act1a", 180, "The lava works" },
-		{ "zone10_act1b", 220, "A rock that looks back" },
-		{ "zone10_act2a", 180, "Eyes in the crystals" },
+		{ "zone10_act1b", 220, "A rock that looks back", "WATCHED IN LAVA REEF" },
+		{ "zone10_act2a", 180, "Eyes in the crystals", "PEEKABOO FROM LAVA REEF" },
 		{ "zone10_act2b", 160, "Deep in the reef" },
 		{ "zone11_act1a", 280, "The palace walls" },
 		{ "zone11_act1b", 140, "The Master Emerald" },
 		{ "zone12_act1a", 0, "Ruins above the clouds" },
-		{ "zone12_act1b", 260, "An Eggrobo high in the sky" },
-		{ "zone13_act1a", 0, "A Spikebonker's welcome" },
+		{ "zone12_act1b", 260, "An Eggrobo high in the sky", "SKY SANCTUARY'S GUARD" },
+		{ "zone13_act1a", 0, "A Spikebonker's welcome", "SPIKES AT THE DEATH EGG" },
 		{ "zone13_act1b", 0, "The conveyor halls" },
 		{ "zone13_act2a", 280, "Eggman's monitors" },
 		{ "zone13_act2b", 0, "A window on the world" },
@@ -2114,7 +2115,8 @@ void N3DSMenu::renderPostcard(float alpha)
 	{
 		String greeting(getPostcardZoneName(spriteName));
 		greeting.upperCase();
-		drawer.printText(global::mSonicFontB, Recti(card.x + 14, bandY + 3, 0, 10), String(0, "GREETINGS FROM %s", greeting.toStdString().c_str()), 1, Color(1.0f, 0.85f, 0.2f, alpha));
+		const String headline = (nullptr != view && nullptr != view->mHeadline) ? String(view->mHeadline) : String(0, "GREETINGS FROM %s", greeting.toStdString().c_str());
+		drawer.printText(global::mSonicFontB, Recti(card.x + 14, bandY + 3, 0, 10), headline, 1, Color(1.0f, 0.85f, 0.2f, alpha));
 		const int acts = (postcard.mZone == 11 || postcard.mZone == 12 || postcard.mZone == 14) ? 1 : 2;
 		line = (nullptr != view) ? view->mCaption : std::string();
 		if (acts > 1)
