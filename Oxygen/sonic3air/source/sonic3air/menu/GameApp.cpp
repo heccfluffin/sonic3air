@@ -568,10 +568,24 @@ void GameApp::updateBottomScreen()
 				persistentBackup.push_back(emulatorInterface.readMemory8(range.mAddress + k));
 		}
 
+		// The current state, to go back to if loading fails: the state gets read piece by piece into the game's memory and scripts,
+		// so a damaged file or one the scripts don't fit any more (from another version of the game) could fail halfway, leaving a
+		// mix of both behind. With the persistent data from that, the next save could even damage the save files.
+		std::vector<uint8> currentState;
+		const bool hasCurrentState = SaveStateSerializer(simulation, RenderParts::instance()).saveState(currentState);
+
 		// Same as the engine's save state menu
 		EngineMain::getDelegate().onPreSaveStateLoad();
 		const bool success = simulation.loadState(filename, false);
-		if (success)
+		bool restored = false;
+		if (!success && hasCurrentState)
+		{
+			restored = SaveStateSerializer(simulation, RenderParts::instance()).loadState(currentState);
+			if (restored)
+				simulation.getCodeExec().reinitRuntime(nullptr, CodeExec::CallStackInitPolicy::USE_EXISTING);
+			RMX_LOG_INFO("Bottom screen: loading the save state failed, " << (restored ? "the game continues where it was" : "and going back FAILED too"));
+		}
+		if (success || restored)
 		{
 			size_t index = 0;
 			for (const PersistentRange& range : PERSISTENT_RANGES)

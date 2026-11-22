@@ -29,6 +29,10 @@ namespace n3ds
 		// get created. A write of the same file that's still waiting in the queue gets replaced (and its callback is not called).
 		void writeFile(const std::string& path, std::vector<uint8_t>&& data, DoneCallback onDone = nullptr);
 
+		// Files get written under a temporary name first, then put in place (so a cut-off write never damages the old file).
+		// At startup, before reading any of them: finishes or discards writes in a folder (path ending in '/') that got interrupted.
+		void recoverInterruptedWrites(const std::string& directory);
+
 		// Same as "writeFile" for a full path on the SD card ("sdmc:/..."), and returns true. For any other path, it does nothing and
 		// returns false, so the caller writes the file itself. "data" is moved from only if true is returned.
 		bool writeFileIfOnSDCard(const std::wstring& path, std::vector<uint8_t>& data, DoneCallback onDone = nullptr);

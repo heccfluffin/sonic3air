@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cstdio>
 #include <fstream>
+#include <sys/stat.h>
 #include <map>
 #include <memory>
 #include <unistd.h>
@@ -404,6 +405,17 @@ namespace
 		n3ds::filewriter::writeFile("sdmc:/3ds/sonic3air/new/folder/file.txt", std::vector<uint8_t>{ 'h', 'i' });
 		n3ds::filewriter::waitUntilDone();
 		check(readFile("sdmc:/3ds/sonic3air/new/folder/file.txt") == "hi", "writing into missing folders creates them");
+
+		// Written under another name first, then put in place; interrupted writes get sorted out at the next start
+		struct stat info;
+		check(stat("sdmc:/3ds/sonic3air/new/folder/file.txt.new", &info) != 0, "no temporary file left behind after writing");
+		std::ofstream("sdmc:/3ds/sonic3air/new/folder/file.txt.new") << "half";		// Cut off while writing: the old file is still there
+		std::ofstream("sdmc:/3ds/sonic3air/new/folder/other.txt.new") << "complete";	// Cut off after removing the old file
+		n3ds::filewriter::recoverInterruptedWrites("sdmc:/3ds/sonic3air/new/folder/");
+		check(readFile("sdmc:/3ds/sonic3air/new/folder/file.txt") == "hi" && stat("sdmc:/3ds/sonic3air/new/folder/file.txt.new", &info) != 0,
+			  "an unfinished write next to its file gets discarded, the old file stays");
+		check(readFile("sdmc:/3ds/sonic3air/new/folder/other.txt") == "complete" && stat("sdmc:/3ds/sonic3air/new/folder/other.txt.new", &info) != 0,
+			  "a finished write whose old file was already removed takes its place");
 
 		// The 3DS menu file
 		n3ds::shop::get().mNightMode = n3ds::shop::NIGHT_MODE_AFTER_DARK;

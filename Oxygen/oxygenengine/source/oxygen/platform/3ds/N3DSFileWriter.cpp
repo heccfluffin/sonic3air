@@ -14,6 +14,7 @@
 
 #include <3ds.h>
 #include <deque>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -66,14 +67,20 @@ namespace n3ds
 				}
 			}
 
+			const char* const TEMP_SUFFIX = ".new";
+
 			bool writeNow(const std::string& path, const std::vector<uint8_t>& data)
 			{
-				int fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+				// Written under another name first, then put in place: if the 3DS gets switched off or the game crashes while the
+				// SD card is still writing (which can take seconds), the old file stays complete instead of being cut off -
+				// for the game's save data, the journal or a save state, that would lose all of it
+				const std::string tempPath = path + TEMP_SUFFIX;
+				int fd = open(tempPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
 				if (fd < 0)
 				{
 					// Only if opening fails: the directories might be missing (checking them each time costs time on a slow SD card)
 					createParentDirectories(path);
-					fd = open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+					fd = open(tempPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
 					if (fd < 0)
 						return false;
 				}
@@ -92,7 +99,16 @@ namespace n3ds
 				}
 				if (close(fd) != 0)
 					success = false;
-				return success;
+				if (!success)
+				{
+					unlink(tempPath.c_str());		// The old file is still there, untouched
+					return false;
+				}
+
+				// The SD card's file system can't rename onto an existing file, so the old one goes first. Should the power go off
+				// right in between, the next start finds the complete new file without the old one and puts it in place.
+				unlink(path.c_str());
+				return (rename(tempPath.c_str(), path.c_str()) == 0);
 			}
 
 			void threadFunc(void*)
@@ -166,6 +182,41 @@ namespace n3ds
 						RMX_LOG_INFO("File writer: could not start the background thread, writing files directly instead");
 				}
 				return (nullptr != gThread);
+			}
+		}
+
+		void recoverInterruptedWrites(const std::string& directory)
+		{
+			// See "writeNow": a new version next to its file means the writing got interrupted. If the file itself is still there, the
+			// new version may be incomplete: it goes, the old file stays. If the file is missing, the new version is complete (the old
+			// file only gets removed after that): it takes the file's place.
+			DIR* dir = opendir(directory.c_str());
+			if (nullptr == dir)
+				return;
+			std::vector<std::string> found;
+			const size_t suffixLength = strlen(TEMP_SUFFIX);
+			while (const dirent* entry = readdir(dir))
+			{
+				const size_t length = strlen(entry->d_name);
+				if (length > suffixLength && strcmp(entry->d_name + length - suffixLength, TEMP_SUFFIX) == 0)
+					found.emplace_back(entry->d_name);
+			}
+			closedir(dir);
+
+			for (const std::string& name : found)
+			{
+				const std::string tempPath = directory + name;
+				const std::string path = tempPath.substr(0, tempPath.length() - suffixLength);
+				struct stat info;
+				if (stat(path.c_str(), &info) == 0)
+				{
+					unlink(tempPath.c_str());
+					RMX_LOG_INFO("File writer: removed an unfinished write, the previous version stays: " << path);
+				}
+				else if (rename(tempPath.c_str(), path.c_str()) == 0)
+				{
+					RMX_LOG_INFO("File writer: finished an interrupted write: " << path);
+				}
 			}
 		}
 

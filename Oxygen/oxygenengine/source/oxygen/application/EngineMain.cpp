@@ -508,6 +508,15 @@ void EngineMain::initDirectories()
 
 bool EngineMain::initConfigAndSettings()
 {
+#if defined(PLATFORM_3DS)
+	// Before anything gets read: a file whose writing got interrupted last time (3DS switched off, crash) gets sorted out
+	{
+		const std::string appDataPath = WString(Configuration::instance().mAppDataPath).toStdString();		// Like "sdmc:/3ds/sonic3air/savedata/"
+		for (const char* subfolder : { "", "storage/", "savestates/" })
+			n3ds::filewriter::recoverInterruptedWrites(appDataPath + subfolder);
+	}
+#endif
+
 	RMX_LOG_INFO("Initializing configuration");
 	Configuration& config = Configuration::instance();
 	config.initialization();
