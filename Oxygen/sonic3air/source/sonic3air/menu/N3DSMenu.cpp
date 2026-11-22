@@ -307,6 +307,20 @@ namespace
 		return nullptr;
 	}
 
+	// The Time of Day theme is free, but only once all three of the themes it switches between are owned
+	const int TIME_OF_DAY_THEMES[] = { n3ds::shop::THEME_AURORA, n3ds::shop::THEME_SUNSET, n3ds::shop::THEME_NIGHT };
+
+	std::string getMissingTimeOfDayThemes(const n3ds::shop::Data& shop)
+	{
+		std::string missing;
+		for (const int theme : TIME_OF_DAY_THEMES)
+		{
+			if ((shop.mOwnedThemes & (1 << theme)) == 0)
+				missing += std::string(missing.empty() ? "" : ", ") + THEMES[theme].mName;
+		}
+		return missing;
+	}
+
 	// Prints text as if scribbled in a hurry: each word running uphill, the letters a bit off the line, the gaps uneven (always the same for the same seed)
 	void printScribbled(Drawer& drawer, Font& font, int x, int y, std::string_view text, const Color& color, uint32 seed = 0)
 	{
@@ -1292,6 +1306,13 @@ void N3DSMenu::onAccept()
 	}
 	if (mActiveTab == Tab::Id::THEMES && data == AUTO_THEME)
 	{
+		const std::string missing = getMissingTimeOfDayThemes(shop);
+		if (!missing.empty() && shop.mSelectedTheme != n3ds::shop::THEME_AUTO)
+		{
+			playMenuSound(0xad);
+			showMessage("Free once you own " + missing, true);
+			return;
+		}
 		if (shop.mSelectedTheme != n3ds::shop::THEME_AUTO)
 		{
 			shop.mSelectedTheme = n3ds::shop::THEME_AUTO;
@@ -1377,13 +1398,18 @@ void N3DSMenu::buySelected()
 	mPlayCoins = coinsLeft;
 
 	n3ds::shop::Data& shop = n3ds::shop::get();
+	bool unlockedTimeOfDay = false;
 	switch (mActiveTab)
 	{
 		case Tab::Id::THEMES:
+		{
+			const bool timeOfDayWasLocked = !getMissingTimeOfDayThemes(shop).empty();
 			shop.mOwnedThemes |= (1 << data);
 			shop.mSelectedTheme = (int)data;		// Use it right away
 			n3ds::shop::save();
+			unlockedTimeOfDay = timeOfDayWasLocked && getMissingTimeOfDayThemes(shop).empty();
 			break;
+		}
 
 		case Tab::Id::SECRETS:
 			PlayerProgress::instance().mUnlocks.setSecretUnlocked(data);
@@ -1400,7 +1426,7 @@ void N3DSMenu::buySelected()
 	n3ds::journal::addPurchase(item.mPrice);
 
 	playMenuSound(0x33);	// Ring sound
-	showMessage(item.mName + " bought!", false);
+	showMessage(item.mName + (unlockedTimeOfDay ? " bought! And Time of Day is unlocked" : " bought!"), false);
 	rebuildTabs();
 }
 
@@ -1584,12 +1610,26 @@ void N3DSMenu::render()
 				{
 					// Which one it is right now: during the day that's Blue Zig-Zag, so selecting it then doesn't seem to change anything
 					const int now = n3ds::shop::resolveTheme(n3ds::shop::THEME_AUTO);
-					description = std::string("Follows the 3DS clock: Aurora 6-9, Blue Zig-Zag by day, Sunset Glow 17-20, Starry Night after dark (if you own them). Now: ")
-								  + ((now >= 0 && now < n3ds::shop::_NUM_THEMES && nullptr != THEMES[now].mName) ? THEMES[now].mName : "Blue Zig-Zag") + ".";
+					const std::string missing = getMissingTimeOfDayThemes(shop);
+					const bool locked = !missing.empty() && shop.mSelectedTheme != n3ds::shop::THEME_AUTO;
+					if (locked)
+					{
+						description = "Follows the 3DS clock: Aurora 6-9, Blue Zig-Zag by day, Sunset Glow 17-20, Starry Night after dark. Free once you own those three. Missing: " + missing + ".";
+					}
+					else
+					{
+						description = std::string("Follows the 3DS clock: Aurora 6-9, Blue Zig-Zag by day, Sunset Glow 17-20, Starry Night after dark. Now: ")
+									  + ((now >= 0 && now < n3ds::shop::_NUM_THEMES && nullptr != THEMES[now].mName) ? THEMES[now].mName : "Blue Zig-Zag") + ".";
+					}
 					if (shop.mSelectedTheme == n3ds::shop::THEME_AUTO)
 					{
 						status = "ACTIVE";
 						statusColor = Color(0.4f, 1.0f, 1.0f, tabAlpha);
+					}
+					else if (locked)
+					{
+						status = "LOCKED";
+						statusColor = Color(0.6f, 0.6f, 0.6f, tabAlpha);
 					}
 					else
 					{
@@ -1601,7 +1641,7 @@ void N3DSMenu::render()
 					for (int k = 0; k < 4; ++k)
 					{
 						Color color = bands[k];
-						color.a = tabAlpha;
+						color.a = locked ? tabAlpha * 0.35f : tabAlpha;		// Faded while locked
 						drawer.drawRect(Recti(imageRect.x + k * 16, imageRect.y, 16, 48), color);
 					}
 				}
