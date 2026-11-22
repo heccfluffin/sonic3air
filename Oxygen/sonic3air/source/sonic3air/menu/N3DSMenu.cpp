@@ -266,6 +266,7 @@ namespace
 		int mArena = -1;			// If not -1: the picture is that boss arena (336 x 160, shown 1:1), not the zone picture
 		int mAlbumX = 0;			// For an arena: where the album's smaller view of it starts
 		int mAlbumY = 0;
+		bool mScribbled = false;	// The message looks hastily handwritten
 	};
 	const FunnyPostcard FUNNY_POSTCARDS[] =
 	{
@@ -275,7 +276,7 @@ namespace
 		{ "sleepy", "zone07_act2a", 312, "SLEEPY DAYS", "Tails is napping in the autumn leaves. Shh!", { { "yawn", 58, 41, false, 0 } }, { { 18, 12, 16, 18, 18, 36 }, { 42, 12, 40, 18, 42, 36 } } },
 		{ "wrongmonitor", "zone06_act1a", 100, "SURPRISE INSIDE", "Knuckles opened the wrong monitor. Again.", { { "monitor", 28, 30, false, 0 }, { "eggicon", 36, 33, false, 0 }, { "knuckles", 60, 22, true, 0 } }, {  } },
 		{ "decoys", "zone13_act1b", 100, "SPOT THE REAL ONE", "Eggman sent his very best. All of them.", { { "monitor", 10, 24, false, 0 }, { "eggicon", 18, 27, false, 0 }, { "monitor", 44, 24, false, 0 }, { "eggicon", 52, 27, false, 0 }, { "monitor", 78, 24, false, 0 }, { "eggicon", 86, 27, false, 0 }, { "sonic", 118, 16, true, 0 } }, {  } },
-		{ "speedlimit", "zone09_act1a", 100, "SPEED LIMIT", "Written at top speed. Sorry about the handwriting!", { { "peelout", 92, 33, false, 0 } }, { { 120, 6, 20, 26, 148, 6 } } },
+		{ "speedlimit", "zone09_act1a", 100, "SPEED LIMIT", "Written at top speed. Sorry about the handwriting!", { { "peelout", 92, 33, false, 0 } }, { { 120, 6, 20, 26, 148, 6 } }, -1, 0, 0, true },
 		{ "rolling", "zone03_act1a", 150, "ROLLING ALONG", "Saw Marble Garden from every angle. Mostly upside down.", { { "ball", 68, 46, false, 0 } }, { { 16, 56, 16, 24, 0, 56 } } },
 		{ "skyhigh", "zone12_act1b", 0, "HIGH IN THE SKY", "Great view up here. The edge is closer than it looks.", { { "sonictails", 24, 3, false, 0 } }, {  } },
 		{ "warm", "zone10_act1b", 0, "A WARM WELCOME", "It's not hot down here. It's warm. - Knuckles", { { "knuckles", 46, 27, false, 0 } }, {  } },
@@ -303,6 +304,32 @@ namespace
 				return &funny;
 		}
 		return nullptr;
+	}
+
+	// Prints text as if scribbled in a hurry: each word running uphill, the letters a bit off the line, the gaps uneven (always the same for the same seed)
+	void printScribbled(Drawer& drawer, Font& font, int x, int y, std::string_view text, const Color& color, uint32 seed = 0)
+	{
+		uint32 random = 0x2545f491u ^ (seed * 0x9e3779b9u);
+		int extraGap = 0;
+		int letterInWord = 0;
+		for (size_t i = 0; i < text.size(); ++i)
+		{
+			random = random * 1103515245u + 12345u;
+			const uint32 r = random >> 16;
+			if (text[i] == ' ')
+			{
+				extraGap += 1 + (int)(r % 3);
+				letterInWord = 0;
+				continue;
+			}
+			if (r % 4 == 0)
+				++extraGap;
+			const int left = font.getWidth(text, 0, (int)i + 1) - font.getWidth(text, (int)i, 1);
+			const int jitter = ((r >> 3) % 3 == 0) ? -1 : ((r >> 3) % 3 == 1) ? 1 : 0;
+			const int dy = jitter - letterInWord / 3 + 1;
+			++letterInWord;
+			drawer.printText(font, Recti(x + left + extraGap, y + dy, 0, 10), String(text.substr(i, 1)), 1, color);
+		}
 	}
 
 	// Puts the scene together into a 168 x 80 picture: the zone's view, then the sprites on top
@@ -1702,9 +1729,14 @@ void N3DSMenu::render()
 						drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 8, 0, 10), String(0, "%d / %d", (int)postcards.size(), n3ds::journal::getNumPossiblePostcards()), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
 						drawer.printText(global::mOxyfontSmall, Recti(px + 34, py + 24, 0, 10), funny->mHeadline, 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 						std::vector<std::string_view> textLines;
-						utils::splitTextIntoLines(textLines, funny->mMessage, global::mOxyfontTiny, 136);
+						utils::splitTextIntoLines(textLines, funny->mMessage, global::mOxyfontTiny, funny->mScribbled ? 120 : 136);
 						for (size_t k = 0; k < textLines.size() && k < 3; ++k)
-							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 36 + (int)k * 10, 0, 10), textLines[k], 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						{
+							if (funny->mScribbled)
+								printScribbled(drawer, global::mOxyfontTiny, px + 34, py + 36 + (int)k * 10, textLines[k], Color(1.0f, 1.0f, 1.0f, tabAlpha), (uint32)k);
+							else
+								drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 36 + (int)k * 10, 0, 10), textLines[k], 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						}
 						(void)postcard;
 						if (postcards.size() > 1)
 						{
@@ -2068,7 +2100,10 @@ void N3DSMenu::renderPostcard(float alpha)
 	{
 		drawer.printText(global::mSonicFontB, Recti(card.x + 14, bandY + 3, 0, 10), funny->mHeadline, 1, Color(1.0f, 0.85f, 0.2f, alpha));
 		drawer.printText(global::mOxyfontTiny, Recti(card.x + card.width - 14, bandY + 4, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 3, Color(0.9f, 0.8f, 0.7f, alpha));
-		drawer.printText(global::mOxyfontTiny, Recti(card.x + 14, bandY + 18, 0, 10), funny->mMessage, 1, Color(1.0f, 1.0f, 1.0f, alpha));
+		if (funny->mScribbled)
+			printScribbled(drawer, global::mOxyfontTiny, card.x + 14, bandY + 18, funny->mMessage, Color(1.0f, 1.0f, 1.0f, alpha));
+		else
+			drawer.printText(global::mOxyfontTiny, Recti(card.x + 14, bandY + 18, 0, 10), funny->mMessage, 1, Color(1.0f, 1.0f, 1.0f, alpha));
 	}
 	else
 	{

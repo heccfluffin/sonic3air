@@ -453,6 +453,16 @@ namespace
 		}
 		check(journal.mStamps == 7 && journal.mCardsCompleted == 4, "today's stamp completes the 4th card");
 		check(journal.mPostcards.size() == 4 && journal.mPostcards.back().mDate == 20261121, "... and its postcard arrives, dated today");
+		n3ds::filewriter::waitUntilDone();
+		check(readFile("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt").find("stamps=7") == std::string::npos,
+			  "the stamp isn't written right away (a slow SD card froze the title screen while it was)");
+		for (int i = 0; i < 15 * 60; ++i)
+		{
+			frame();
+			n3ds::journal::update();
+		}
+		n3ds::filewriter::waitUntilDone();
+		check(readFile("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt").find("stamps=7") != std::string::npos, "... but 15 seconds later");
 		frames(60);
 		shot("badges_4_cards_24h");
 

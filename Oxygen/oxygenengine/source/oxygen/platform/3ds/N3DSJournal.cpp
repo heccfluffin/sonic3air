@@ -264,7 +264,11 @@ namespace n3ds
 
 				n3ds::notificationlight::pulse(n3ds::notificationlight::Color::PINK);
 				RMX_LOG_INFO("Journal: stamp " << gData.mStamps << " of " << STAMPS_PER_CARD << " for today (" << gData.mDaysPlayed << " days played)");
-				save();
+
+				// Saved a bit later, not right away: the day's first start is usually this, and while the SD card writes the file
+				// (about 2 seconds on a slow card), everything else that reads from it waits - the title screen froze for that long.
+				// Quitting before then still saves it (see EngineMain).
+				gNextSave = svcGetSystemTick() + 15 * (uint64_t)SYSCLOCK_ARM11;
 			}
 		}
 
