@@ -188,6 +188,10 @@ bool SaveStateSerializer::serializeState(VectorBinarySerializer& serializer, Sta
 
 		// Simulation state
 		mSimulation.getSimulationState().serializeSaveState(serializer, formatVersion);
+
+		// Data cut off (damaged file): not loaded completely
+		if (serializer.isReading() && serializer.hasError())
+			return false;
 	}
 
 	if (serializer.isReading())

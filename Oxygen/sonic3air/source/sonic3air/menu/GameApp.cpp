@@ -405,6 +405,13 @@ bool GameApp::openFileBrowser()
 }
 
 #if defined(PLATFORM_3DS)
+namespace
+{
+	// End of the 3DS bottom screen's save state files: this, then the size of the state data and its CRC32
+	const char STATE_FOOTER_MAGIC[8] = { '3', 'D', 'S', 'C', 'R', 'C', '1', 0 };
+	const size_t STATE_FOOTER_SIZE = 16;
+}
+
 void GameApp::updateBottomScreen()
 {
 	// 3DS bottom screen: controls overview with touch buttons for a save state per save file
@@ -529,6 +536,17 @@ void GameApp::updateBottomScreen()
 			return;
 		}
 
+		// A checksum at the end, so a damaged file is noticed before loading it into the game (see below)
+		{
+			const uint32 size = (uint32)data.size();
+			const uint32 checksum = rmx::getCRC32(data.data(), data.size());
+			const size_t pos = data.size();
+			data.resize(pos + STATE_FOOTER_SIZE);
+			memcpy(&data[pos], STATE_FOOTER_MAGIC, 8);
+			memcpy(&data[pos + 8], &size, 4);
+			memcpy(&data[pos + 12], &checksum, 4);
+		}
+
 		// The file gets written in the background, as the SD card sometimes takes seconds to respond (the game froze for that long).
 		// Loading waits for it if needed, so the state counts as there right away.
 		const uint32 serializeMs = (uint32)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
@@ -550,6 +568,30 @@ void GameApp::updateBottomScreen()
 			n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::NO_STATE);
 			return;
 		}
+		// Save states from this version on end with a checksum: a damaged one doesn't get loaded at all. Older ones have none.
+		{
+			std::vector<uint8> content;
+			if (!FTX::FileSystem->readFile(filename, content))
+			{
+				n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::FAILED);
+				return;
+			}
+			const size_t footer = content.size() - std::min(content.size(), STATE_FOOTER_SIZE);
+			if (content.size() >= STATE_FOOTER_SIZE && memcmp(&content[footer], STATE_FOOTER_MAGIC, 8) == 0)
+			{
+				uint32 size = 0;
+				uint32 checksum = 0;
+				memcpy(&size, &content[footer + 8], 4);
+				memcpy(&checksum, &content[footer + 12], 4);
+				if (size != footer || checksum != rmx::getCRC32(content.data(), footer))
+				{
+					RMX_LOG_INFO("Bottom screen: save state for save file " << slot << " is damaged (checksum), not loaded");
+					n3ds::bottomscreen::showResult(n3ds::bottomscreen::Result::FAILED);
+					return;
+				}
+			}
+		}
+
 		// A save state contains the game's whole memory, including its in-memory copy of the save data (all data select
 		// slots, competition records, Blue Sphere progress). Keep the current copy instead of the older one from the state,
 		// otherwise the next time the game saves, it would write the old data back and roll back progress in other slots.

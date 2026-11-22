@@ -766,6 +766,14 @@ namespace lemon
 			serializer.serializeAs<uint32>(controlFlow.mCallStack.count);
 			if (serializer.isReading())
 			{
+				// A damaged save state must not make this write out of bounds: there's always at least one function on the call stack
+				if (serializer.hasError() || controlFlow.mCallStack.count == 0 || controlFlow.mCallStack.count > 0x400)
+				{
+					if (nullptr != outError)
+						*outError = "Invalid call stack size in save state";
+					controlFlow.mCallStack.count = 0;
+					return false;
+				}
 				controlFlow.mCallStack.resize(controlFlow.mCallStack.count);
 				for (uint16 i = 0; i < controlFlow.mCallStack.count; ++i)
 				{
@@ -797,6 +805,13 @@ namespace lemon
 
 					controlFlow.mCallStack[i].mLocalVariablesStart = controlFlow.mLocalVariablesSize;
 					const size_t numLocalVars = serializer.read<uint32>();
+					if (serializer.hasError() || controlFlow.mLocalVariablesSize + numLocalVars > ControlFlow::VAR_STACK_LIMIT)
+					{
+						if (nullptr != outError)
+							*outError = "Invalid local variables in save state";
+						controlFlow.mCallStack.clear();
+						return false;
+					}
 					for (size_t k = controlFlow.mLocalVariablesSize; k < controlFlow.mLocalVariablesSize + numLocalVars; ++k)
 					{
 						controlFlow.mLocalVariablesBuffer[k] = serializer.read<int64>();
@@ -834,6 +849,13 @@ namespace lemon
 			if (serializer.isReading())
 			{
 				const uint32 size = serializer.read<uint32>();
+				if (serializer.hasError() || size > ControlFlow::VALUE_STACK_LAST_INDEX - ControlFlow::VALUE_STACK_FIRST_INDEX)
+				{
+					if (nullptr != outError)
+						*outError = "Invalid value stack in save state";
+					controlFlow.mCallStack.clear();
+					return false;
+				}
 				controlFlow.mValueStackPtr = &controlFlow.mValueStackStart[size];
 				for (uint32 i = 0; i < size; ++i)
 				{
@@ -917,7 +939,13 @@ namespace lemon
 			}
 		}
 
-		// Done
+		// Done; reading past the end of the data means it was cut off
+		if (serializer.isReading() && serializer.hasError())
+		{
+			if (nullptr != outError)
+				*outError = "Save state data is incomplete";
+			return false;
+		}
 		return true;
 	}
 

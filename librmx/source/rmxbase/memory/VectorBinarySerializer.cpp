@@ -21,7 +21,10 @@ namespace
 		if (reading)
 		{
 			if (readPosition + sizeof(T) > buffer.size())
+			{
+				value = T();		// Defined value instead of whatever was there, for callers that read past the end (damaged data)
 				return false;
+			}
 
 			value = rmx::readMemoryUnaligned<T>(&buffer[readPosition]);
 			readPosition += sizeof(T);
@@ -49,7 +52,10 @@ namespace
 		if (reading)
 		{
 			if (readPosition >= buffer.size())
+			{
+				value = false;
 				return false;
+			}
 
 		#if !defined(PLATFORM_VITA)
 			value = *(bool*)&buffer[readPosition];
@@ -88,6 +94,10 @@ void VectorBinarySerializer::read(void* pointer, size_t size)
 	if (nullptr != source)
 	{
 		memcpy(pointer, source, size);
+	}
+	else
+	{
+		memset(pointer, 0, size);		// Past the end (damaged data): zeros instead of leaving it as it was
 	}
 }
 
