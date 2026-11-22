@@ -482,10 +482,59 @@ namespace
 		n3ds::filewriter::waitUntilDone();
 		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt");
 		size_t lines = 0;
-		for (size_t pos = saved.find("postcard="); pos != std::string::npos; pos = saved.find("postcard=", pos + 1))
+		for (size_t pos = saved.find("\npostcard="); pos != std::string::npos; pos = saved.find("\npostcard=", pos + 1))
 			++lines;
 		check(lines == 4, "the postcards are saved in the journal file (" + std::to_string(lines) + " lines)");
 		check(saved.find("postcard=" + journal.mPostcards.back().getSpriteName() + " 20261121\n") != std::string::npos, "... like \"postcard=" + journal.mPostcards.back().getSpriteName() + " 20261121\"");
+	}
+
+	void rewards()
+	{
+		// A journal from before vouchers and bonus boxes: the latest of its 3 cards gives one of each, as a welcome
+		fake::setTime(2026, 11, 21, 21, 0);
+		writeJournal("started=20261001\nlast_day=20261120\ndays_played=27\nstamps=6\ncards_completed=3\nplay_seconds=36000\n"
+					 "postcard=zone01_act1a 20261008\npostcard=zone02_act1a 20261015\npostcard=funny_decoys 20261022\n");
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		check(journal.mVouchers == 1 && journal.mBonusBoxes == 1 && journal.mRewardedCards == 3, "an older journal with 3 cards gets 1 voucher and 1 bonus box");
+		check(n3ds::journal::takeNewRewardNotice() && !n3ds::journal::takeNewRewardNotice(), "... with a notice for the 3DS menu, once");
+		check(journal.mPostcards.size() == 3, "... and no extra postcards");
+
+		check(n3ds::journal::giveWelcomePostcard() && journal.mPostcards.size() == 4, "the welcome postcard arrives the first time the journal is opened");
+		check(!n3ds::journal::giveWelcomePostcard() && journal.mPostcards.size() == 4, "... only once");
+
+		check(n3ds::journal::prepareBonus(n3ds::journal::BONUS_FIRE_SHIELD) && journal.mBonusBoxes == 0 && journal.mBonusReady == n3ds::journal::BONUS_FIRE_SHIELD,
+			  "opening the bonus box with a fire shield in it");
+		check(n3ds::journal::prepareBonus(n3ds::journal::BONUS_RINGS) && journal.mBonusReady == n3ds::journal::BONUS_RINGS, "... changing it to rings doesn't need another box");
+		n3ds::journal::bonusGiven();
+		check(journal.mBonusReady == n3ds::journal::BONUS_NONE, "given in the game: nothing ready any more");
+		check(!n3ds::journal::prepareBonus(n3ds::journal::BONUS_FIRE_SHIELD), "no box left to open");
+		check(n3ds::journal::useVoucher() && journal.mVouchers == 0 && !n3ds::journal::useVoucher(), "the voucher can be used once");
+
+		for (int i = 0; i < 4 * 60; ++i)
+		{
+			frame();
+			n3ds::journal::update();
+		}
+		check(journal.mCardsCompleted == 4 && journal.mPostcards.size() == 5, "the 4th card still gets its own postcard after the welcome one (" + std::to_string(journal.mPostcards.size()) + ")");
+		check(journal.mVouchers == 1 && journal.mBonusBoxes == 1, "... and a voucher and a bonus box");
+
+		n3ds::journal::save();
+		n3ds::filewriter::waitUntilDone();
+		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt");
+		check(saved.find("vouchers=1\n") != std::string::npos && saved.find("bonus_boxes=1\n") != std::string::npos && saved.find("rewarded_cards=4\n") != std::string::npos &&
+			  saved.find("welcome_postcard=1\n") != std::string::npos, "rewards are saved in the journal file");
+	}
+
+	void rewardsReload()
+	{
+		// Read back: nothing given twice, and an opened box stays ready
+		fake::setTime(2026, 11, 22, 10, 0);
+		writeJournal("started=20261001\nlast_day=20261122\ndays_played=28\nstamps=1\ncards_completed=4\nrewarded_cards=4\nvouchers=2\nbonus_boxes=0\nbonus_ready=3\nwelcome_postcard=1\n"
+					 "postcard=zone01_act1a 20261008\npostcard=zone02_act1a 20261015\npostcard=funny_decoys 20261022\npostcard=zone03_act1a 20261121\npostcard=zone04_act1a 20261121\n");
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		check(journal.mVouchers == 2 && journal.mBonusBoxes == 0 && journal.mBonusReady == n3ds::journal::BONUS_LIGHTNING_SHIELD, "vouchers and the ready bonus are read back");
+		check(!n3ds::journal::takeNewRewardNotice() && journal.mPostcards.size() == 5, "nothing is given twice");
+		check(!n3ds::journal::giveWelcomePostcard(), "no second welcome postcard");
 	}
 
 	void postcardsAll()
@@ -531,7 +580,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

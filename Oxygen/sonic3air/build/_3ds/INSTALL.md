@@ -203,9 +203,12 @@ What you bought and chose is saved in `savedata/3ds_shop.txt`.
 The **Journal** tab keeps a stamp card: one stamp for each day you play (the days don't have to be in a row),
 with the notification light glowing pink for it. Every full card of 7 stamps brings a **postcard** for the album
 there: views of the zones (the first 14 are one from each zone, 50 in all) and funny ones, some with bosses in their
-arenas, drawn from your own ROM (71 postcards in all). Select the album and press A to look closer. Each card also
-brings a little **medal** next to the clock on the bottom screen. The journal also counts your play time, days, steps, Play Coins spent and screenshots;
-it's saved in `savedata/3ds_journal.txt`.
+arenas, drawn from your own ROM (71 postcards in all). Select the album and press A to look closer; the first time
+you open the Journal, a welcome postcard drops in. Each card also brings a little **medal** next to the clock on the
+bottom screen, a **voucher** (10 Play Coins off your next purchase in the 3DS menu, used by itself) and a **bonus box**:
+open it in the Journal with a Fire, Lightning or Bubble Shield or 50 rings inside (just rings if you have a starting
+shield), and you get it at the start of your next act in a normal game. **Stats** shows your play time, days, steps,
+Play Coins spent, achievements, screenshots and postcards on one page. It's all saved in `savedata/3ds_journal.txt`.
 
 **Screenshots:** press L and R together to save the top screen as a PNG in `sdmc:/3ds/sonic3air/screenshots/`.
 

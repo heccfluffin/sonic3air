@@ -58,9 +58,40 @@ void AudioOut::shutdown()
 
 void AudioOut::reset()
 {
+#if defined(PLATFORM_3DS)
+	if (mKeepMusicOnReset)
+	{
+		mKeepMusicOnReset = false;
+		mAudioPlayer.beginKeepingSounds(CONTEXT_INGAME + CONTEXT_MUSIC);
+		resetGame();
+		return;
+	}
+#endif
 	mAudioPlayer.stopAllSounds();
 	resetGame();
 }
+
+#if defined(PLATFORM_3DS)
+void AudioOut::finishKeepingMusicSoon()
+{
+	mKeepMusicOnReset = false;
+	mKeepMusicTimeout = 0.5f;
+}
+
+void AudioOut::realtimeUpdate(float secondsPassed)
+{
+	AudioOutBase::realtimeUpdate(secondsPassed);
+	if (mKeepMusicTimeout > 0.0f)
+	{
+		mKeepMusicTimeout -= secondsPassed;
+		if (mKeepMusicTimeout <= 0.0f)
+		{
+			const int continued = mAudioPlayer.endKeepingSounds();
+			RMX_LOG_INFO("Save state: " << ((continued > 0) ? "the music continued" : "the music started over"));
+		}
+	}
+}
+#endif
 
 void AudioOut::resetGame()
 {

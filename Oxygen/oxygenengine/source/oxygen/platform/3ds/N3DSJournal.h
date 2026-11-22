@@ -21,6 +21,22 @@ namespace n3ds
 	{
 		static const int STAMPS_PER_CARD = 7;
 
+		// Rewards for each completed card, besides the postcard
+		static const int VOUCHER_PLAY_COINS = 10;		// A voucher: this many Play Coins off one purchase in the 3DS menu
+		static const int BONUS_RING_COUNT = 50;
+
+		// What a bonus box holds, chosen when it's opened; given at the start of the next act in a normal game
+		enum BonusGift
+		{
+			BONUS_NONE = 0,
+			BONUS_CLASSIC_SHIELD,		// The shields use the same numbers as n3ds::shop::Shield
+			BONUS_FIRE_SHIELD,
+			BONUS_LIGHTNING_SHIELD,
+			BONUS_BUBBLE_SHIELD,
+			BONUS_RINGS,
+			_NUM_BONUS_GIFTS
+		};
+
 		// A postcard for each completed stamp card: one of the game's zone preview pictures (sprites like "zone03_act1a"),
 		// or a funny one with a picture from the game's achievements
 		struct Postcard
@@ -30,7 +46,6 @@ namespace n3ds
 			int mAct = 1;				// 1 or 2
 			char mImage = 'a';			// Each act has two pictures, 'a' and 'b'
 			uint32_t mDate = 0;			// YYYYMMDD, when it arrived
-			bool mTest = false;			// From the test entry in the 3DS menu: shown, but never saved
 
 			std::string getSpriteName() const;		// Or "funny_<name>"
 		};
@@ -49,6 +64,11 @@ namespace n3ds
 			uint32_t mPlayCoinsSpent = 0;
 			uint32_t mThingsBought = 0;
 			uint32_t mScreenshots = 0;
+			uint32_t mVouchers = 0;			// Not used yet
+			uint32_t mBonusBoxes = 0;		// Not opened yet
+			int mBonusReady = BONUS_NONE;	// From an opened box, waiting for the next act
+			uint32_t mRewardedCards = 0;	// Completed cards that gave their voucher and bonus box
+			bool mWelcomePostcard = false;	// The free one for opening the journal the first time was given
 			std::vector<Postcard> mPostcards;		// In the order they arrived
 		};
 
@@ -67,11 +87,24 @@ namespace n3ds
 		// Whether a postcard arrived since this was last asked (then the newest one in "mPostcards" is new)
 		bool takeNewPostcardNotice();
 
-		// For trying out the postcards before a card is full (temporary): a random new one, shown until the game closes, never saved
-		bool addTestPostcard();
+		// A free postcard the first time the journal is opened; false if it was given before (or all postcards are collected)
+		bool giveWelcomePostcard();
+
+		// Whether vouchers or bonus boxes were given since this was last asked
+		bool takeNewRewardNotice();
+
+		// Uses one voucher, false if there's none
+		bool useVoucher();
+
+		// Opens a bonus box with the given gift inside, ready for the next act; choosing again while one is ready only changes
+		// what's inside, without another box. False if there's no box.
+		bool prepareBonus(int gift);
+
+		// The gift was given in the game
+		void bonusGiven();
 
 		// Counters
-		void addPurchase(int playCoins);
+		void addPurchase(int playCoins);		// What was actually paid
 		void addScreenshot();
 
 		// The 3DS step counter: steps in total (false if they can't be read)

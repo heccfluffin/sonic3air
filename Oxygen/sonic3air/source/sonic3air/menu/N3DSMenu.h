@@ -46,6 +46,7 @@ private:
 		SHOW,
 		CONFIRM,		// Asking whether to buy the selected item
 		POSTCARD,		// Looking at a postcard of the journal, big
+		STATS,			// The journal's numbers, all on one page
 		FADE_TO_MENU
 	};
 
@@ -64,8 +65,9 @@ private:
 	struct Item
 	{
 		std::string mName;
-		int mPrice = 0;
+		int mPrice = 0;					// What it costs now, with a voucher if there's one
 		bool mOwned = false;
+		bool mVoucher = false;			// The price includes a voucher
 	};
 
 private:
@@ -79,6 +81,8 @@ private:
 	void renderConfirmation(float alpha);
 	void openPostcard();
 	void renderPostcard(float alpha);
+	void renderStats(float alpha);
+	void updateJournalAnimations(float timeElapsed);
 	void createIcons();
 
 	// Reading from the SD card and system storage happens on the background thread (it can take a second at times)
@@ -147,6 +151,16 @@ private:
 	DrawerTexture mAlbumFunnyPicture;		// The funny postcard shown in the album, if any
 	std::string mAlbumFunnyName;			// Which one is loaded into it
 	bool mHasAlbumFunnyPicture = false;
+
+	// Little animations in the journal, played when its tab is first shown after the menu opened: the day's new stamp
+	// pops open, and a new postcard drops into the album (also the welcome postcard, the first time the journal is opened)
+	bool mPendingStampAnimation = false;
+	bool mPendingPostcardAnimation = false;
+	float mJournalAnimationTime = -1.0f;	// Seconds since the animations started, -1 when none plays
+	float mStampAnimationStart = -1.0f;		// When each one starts in that time, -1 if it's not part of it
+	float mPostcardAnimationStart = -1.0f;
+	bool mStampSoundPlayed = false;
+	bool mPostcardSoundPlayed = false;
 };
 
 #endif

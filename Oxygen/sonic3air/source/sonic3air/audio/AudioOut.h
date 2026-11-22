@@ -45,6 +45,16 @@ public:
 	void resumeSoundContext(int contextId);
 	void stopSoundContext(int contextId);
 
+#if defined(PLATFORM_3DS)
+	// Loading a save state: the next reset keeps the in-game music playing, and if the same music gets played again within half
+	// a second after "finishKeepingMusicSoon" (the game asks for it a frame or so later), it simply continues instead of starting
+	// over; otherwise it stops then.
+	void keepMusicOnNextReset()  { mKeepMusicOnReset = true; }
+	void finishKeepingMusicSoon();
+
+	void realtimeUpdate(float secondsPassed) override;
+#endif
+
 	void onSoundtrackPreferencesChanged();
 	void enableUnderwaterEffect(float value);
 
@@ -65,4 +75,8 @@ private:
 private:
 	uint64			  mMenuMusicId = -1;
 	CustomAudioMixer* mIngameAudioMixer = nullptr;
+#if defined(PLATFORM_3DS)
+	bool mKeepMusicOnReset = false;
+	float mKeepMusicTimeout = 0.0f;
+#endif
 };

@@ -32,6 +32,7 @@
 #include "oxygen/simulation/EmulatorInterface.h"
 #include "oxygen/simulation/Simulation.h"
 #if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSJournal.h"
 	#include "oxygen/platform/3ds/N3DSShop.h"
 #endif
 
@@ -575,6 +576,7 @@ void Game::onUpdateControls()
 
 #if defined(PLATFORM_3DS)
 	updateStartingShield();
+	updateBonusGift();
 
 	// 3DS: on the SEGA logo, intro and title screen (game mode 0x04), A works like Start, as Start is small and out of the way.
 	// Only while the title is actually running (not behind the A.I.R. menus), so A keeps its usual meaning everywhere else.
@@ -1078,18 +1080,70 @@ void Game::updateStartingShield()
 		return;
 	mStartingShieldState = StartingShieldState::NONE;
 
-	// Same rules as the game's own "RestoreShield": no shields in the outro, in special / bonus stages or in Competition Mode
-	const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
-	if (zoneAct == 0x0d01 || (zoneAct >> 8) >= 0x0e || emulatorInterface.readMemory8(0xfffffe48) != 0 || emulatorInterface.readMemory16(0xffffffe8) != 0)
+	if (!canGiveGiftNow())
 		return;
 
 	// Only if the character doesn't have a shield already (e.g. one kept from a checkpoint)
-	const uint32 bonusAddress = 0xffffb000 + 0x2b;
-	const uint8 bonus = emulatorInterface.readMemory8(bonusAddress);
-	if (bonus & 0x71)		// char.bonus.ALL_SHIELDS
+	if (emulatorInterface.readMemory8(0xffffb000 + 0x2b) & 0x71)		// char.bonus.ALL_SHIELDS
+		return;
+	giveShield(n3ds::shop::get().mSelectedShield);
+}
+
+void Game::updateBonusGift()
+{
+	const int gift = n3ds::journal::get().mBonusReady;
+	if (gift == n3ds::journal::BONUS_NONE)
 		return;
 
-	const int shield = n3ds::shop::get().mSelectedShield;
+	// Only in a normal game or Act Select, and after the starting shield (so a shield gift on top of it turns into rings)
+	if (mMode != Mode::NORMAL_GAME && mMode != Mode::ACT_SELECT)
+		return;
+	if (mStartingShieldState != StartingShieldState::NONE)
+		return;
+
+	// Wait until the character is in a level, in its normal state (base state 0x02); not in special stages and the like
+	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+	const uint8 gameMode = emulatorInterface.readMemory8(0xfffff600);
+	const bool levelRunning = (gameMode == 0x0c) && ((int8)emulatorInterface.readMemory8(0xfffff711) != 0);		// global.level_started
+	if (!levelRunning || emulatorInterface.readMemory8(0xffffb000 + 0x05) != 0x02 || !canGiveGiftNow())
+		return;
+
+	// A shield, if the character doesn't have one yet - otherwise rings, so the gift is never wasted
+	bool given = false;
+	if (gift >= n3ds::journal::BONUS_CLASSIC_SHIELD && gift <= n3ds::journal::BONUS_BUBBLE_SHIELD && (emulatorInterface.readMemory8(0xffffb000 + 0x2b) & 0x71) == 0)
+	{
+		given = giveShield(gift);
+		if (given)
+		{
+			static const uint8 SHIELD_SOUNDS[4] = { 0x3a, 0x3e, 0x41, 0x3f };		// Classic, fire, lightning, bubble
+			AudioOut::instance().playAudioDirect(SHIELD_SOUNDS[gift - n3ds::journal::BONUS_CLASSIC_SHIELD], AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
+		}
+	}
+	if (!given)
+	{
+		// Like the game's own "AddRings", without the extra life check (a level starts with no rings)
+		const uint16 rings = emulatorInterface.readMemory16(0xfffffe20);		// ring_counter
+		const uint16 totalRings = emulatorInterface.readMemory16(0xfffffec8);	// player.total_rings
+		emulatorInterface.writeMemory16(0xfffffe20, (uint16)std::min(rings + n3ds::journal::BONUS_RING_COUNT, 999));
+		emulatorInterface.writeMemory16(0xfffffec8, (uint16)std::min(totalRings + n3ds::journal::BONUS_RING_COUNT, 999));
+		emulatorInterface.writeMemory8(0xfffffe1d, emulatorInterface.readMemory8(0xfffffe1d) | 0x01);		// hud.dirty.rings
+		AudioOut::instance().playAudioDirect(0x33, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
+	}
+	n3ds::journal::bonusGiven();
+	RMX_LOG_INFO("Bonus box: " << (given ? "a shield" : "rings") << " given at the start of the act");
+}
+
+bool Game::canGiveGiftNow() const
+{
+	// Same rules as the game's own "RestoreShield": no shields in the outro, in special / bonus stages or in Competition Mode
+	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+	const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
+	return !(zoneAct == 0x0d01 || (zoneAct >> 8) >= 0x0e || emulatorInterface.readMemory8(0xfffffe48) != 0 || emulatorInterface.readMemory16(0xffffffe8) != 0);
+}
+
+bool Game::giveShield(int shield)
+{
+	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
 	uint32 updateRoutine = 0;
 	switch (shield)
 	{
@@ -1099,17 +1153,20 @@ void Game::updateStartingShield()
 		case n3ds::shop::SHIELD_CLASSIC:
 			// The classic shield needs the "Shield Types" setting to include it (like in the game's "RestoreShield")
 			if (getSetting(SharedDatabase::Setting::SETTING_SHIELD_TYPES, false) == 1)
-				return;
+				return false;
 			updateRoutine = 0x0194ce;	// InstaShield.Init, which also serves as the classic shield
 			break;
 		default:
-			return;
+			return false;
 	}
 
 	// Like the game's own "RestoreShield": set the flags and start the shield object in the shield slot
+	const uint32 bonusAddress = 0xffffb000 + 0x2b;
+	const uint8 bonus = emulatorInterface.readMemory8(bonusAddress);
 	emulatorInterface.writeMemory8(bonusAddress, (uint8)((bonus & ~0x71) | 0x01 | n3ds::shop::getShieldFlags(shield)));
 	emulatorInterface.writeMemory32(0xffffcce8, updateRoutine);
 	emulatorInterface.writeMemory16(0xffffcce8 + 0x42, 0xb000);
+	return true;
 }
 #endif
 

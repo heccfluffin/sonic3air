@@ -57,6 +57,14 @@ public:
 	void resumeAllSoundsByContext(int contextId);
 
 	void stopAllSounds(bool immediately = false);
+
+#if defined(PLATFORM_3DS)
+	// For loading a save state without restarting music that still fits: stops all sounds except the ones of the given context,
+	// which keep playing for now. Playing one of those again in between (or asking whether it's playing, which the game does
+	// to not restart music) keeps it, instead of restarting it.
+	void beginKeepingSounds(int contextId);
+	int endKeepingSounds();		// Stops the kept sounds that weren't played again in between; returns how many continued
+#endif
 	void stopAllSoundsByChannel(int channelId);
 	void stopAllSoundsByContext(int contextId);
 	void stopAllSoundsByChannelAndContext(int channelId, int contextId);
@@ -102,6 +110,9 @@ private:
 		int mContextId = -1;
 		int mChannelId = -1;
 		State mState = State::PLAYING;
+	#if defined(PLATFORM_3DS)
+		mutable bool mKept = false;		// See "beginKeepingSounds"
+	#endif
 	};
 
 	struct AutoStreamer
@@ -176,6 +187,10 @@ private:
 
 	uint32 mLastUniqueId = 0;
 	std::vector<PlayingSound> mPlayingSounds;
+#if defined(PLATFORM_3DS)
+	bool mKeepingSounds = false;
+	int mKeptSoundsCount = 0;
+#endif
 	std::vector<AutoStreamer> mAutoStreamers;
 	std::vector<ChannelOverride> mChannelOverrides;
 	std::vector<AudioModifier> mActiveAudioModifiers;

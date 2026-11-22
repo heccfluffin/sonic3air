@@ -34,6 +34,7 @@ namespace n3ds
 			bool gLoaded = false;
 			bool gNewStampNotice = false;
 			bool gNewPostcardNotice = false;
+			bool gNewRewardNotice = false;
 
 			// The zone preview pictures there are: acts per zone, for zones 1 to 14 (Hidden Palace, Sky Sanctuary and Doomsday have one)
 			const int ACTS_PER_ZONE[14] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1 };
@@ -63,14 +64,14 @@ namespace n3ds
 			{
 				char text[512];
 				snprintf(text, sizeof(text),
-						 "started=%u\nlast_day=%u\ndays_played=%u\nstamps=%d\ncards_completed=%u\nplay_seconds=%llu\nplay_coins_spent=%u\nthings_bought=%u\nscreenshots=%u\n",
+						 "started=%u\nlast_day=%u\ndays_played=%u\nstamps=%d\ncards_completed=%u\nplay_seconds=%llu\nplay_coins_spent=%u\nthings_bought=%u\nscreenshots=%u\n"
+						 "rewarded_cards=%u\nvouchers=%u\nbonus_boxes=%u\nbonus_ready=%d\nwelcome_postcard=%d\n",
 						 (unsigned)data.mStartedDate, (unsigned)data.mLastDayPlayed, (unsigned)data.mDaysPlayed, data.mStamps, (unsigned)data.mCardsCompleted,
-						 (unsigned long long)data.mPlaySeconds, (unsigned)data.mPlayCoinsSpent, (unsigned)data.mThingsBought, (unsigned)data.mScreenshots);
+						 (unsigned long long)data.mPlaySeconds, (unsigned)data.mPlayCoinsSpent, (unsigned)data.mThingsBought, (unsigned)data.mScreenshots,
+						 (unsigned)data.mRewardedCards, (unsigned)data.mVouchers, (unsigned)data.mBonusBoxes, data.mBonusReady, data.mWelcomePostcard ? 1 : 0);
 				std::string result = text;
 				for (const Postcard& postcard : data.mPostcards)
 				{
-					if (postcard.mTest)
-						continue;		// Only for trying out, never saved
 					snprintf(text, sizeof(text), "postcard=%s %u\n", postcard.getSpriteName().c_str(), (unsigned)postcard.mDate);
 					result += text;
 				}
@@ -108,7 +109,7 @@ namespace n3ds
 			}
 
 			// A random picture not collected yet, preferring zones without any postcard (and funny ones mixed in); false once all are collected
-			bool addPostcard(bool test = false)
+			bool addPostcard()
 			{
 				std::vector<Postcard> candidates;
 				for (int index = 0; index < NUM_FUNNY; ++index)
@@ -153,27 +154,38 @@ namespace n3ds
 				random = random * 1103515245u + 12345u;
 				Postcard postcard = candidates[(random >> 8) % candidates.size()];
 				postcard.mDate = today();
-				postcard.mTest = test;
 				gData.mPostcards.push_back(postcard);
 				gNewPostcardNotice = true;
 				RMX_LOG_INFO("Journal: a postcard arrived, " << postcard.getSpriteName() << " (" << gData.mPostcards.size() << " of " << getNumPossiblePostcards() << ")");
 				return true;
 			}
 
+			// Postcards there should be: one per completed card, and the welcome one
+			size_t getPostcardsDue()
+			{
+				return (size_t)gData.mCardsCompleted + (gData.mWelcomePostcard ? 1 : 0);
+			}
+
 			// One postcard per completed card (also for cards completed before there were postcards)
 			void catchUpPostcards()
 			{
-				const auto countReal = []()
-				{
-					size_t count = 0;
-					for (const Postcard& postcard : gData.mPostcards)
-						count += postcard.mTest ? 0 : 1;
-					return count;
-				};
-				while (countReal() < gData.mCardsCompleted && (int)gData.mPostcards.size() < getNumPossiblePostcards())
+				while (gData.mPostcards.size() < getPostcardsDue() && (int)gData.mPostcards.size() < getNumPossiblePostcards())
 				{
 					if (!addPostcard())
 						break;
+				}
+			}
+
+			// A voucher and a bonus box per completed card
+			void giveRewards()
+			{
+				while (gData.mRewardedCards < gData.mCardsCompleted)
+				{
+					++gData.mRewardedCards;
+					++gData.mVouchers;
+					++gData.mBonusBoxes;
+					gNewRewardNotice = true;
+					RMX_LOG_INFO("Journal: a voucher and a bonus box for card " << gData.mRewardedCards);
 				}
 			}
 
@@ -183,6 +195,7 @@ namespace n3ds
 					return;
 				gLoaded = true;
 
+				bool hasRewardedCards = false;
 				FILE* file = fopen(FILE_PATH, "r");
 				if (nullptr != file)
 				{
@@ -200,6 +213,11 @@ namespace n3ds
 						else if (sscanf(line, "play_coins_spent=%u", &value) == 1)	gData.mPlayCoinsSpent = value;
 						else if (sscanf(line, "things_bought=%u", &value) == 1)		gData.mThingsBought = value;
 						else if (sscanf(line, "screenshots=%u", &value) == 1)		gData.mScreenshots = value;
+						else if (sscanf(line, "rewarded_cards=%u", &value) == 1)	{ gData.mRewardedCards = value;  hasRewardedCards = true; }
+						else if (sscanf(line, "vouchers=%u", &value) == 1)			gData.mVouchers = value;
+						else if (sscanf(line, "bonus_boxes=%u", &value) == 1)		gData.mBonusBoxes = value;
+						else if (sscanf(line, "welcome_postcard=%u", &value) == 1)	gData.mWelcomePostcard = (value != 0);
+						else if (sscanf(line, "bonus_ready=%u", &value) == 1)		gData.mBonusReady = (value < _NUM_BONUS_GIFTS) ? (int)value : BONUS_NONE;
 						else
 						{
 							int zone = 0;
@@ -236,9 +254,15 @@ namespace n3ds
 				}
 				if (gData.mStartedDate == 0)
 					gData.mStartedDate = today();		// A new journal
-				if (gData.mPostcards.size() < gData.mCardsCompleted)
+				if (!hasRewardedCards && gData.mCardsCompleted > 0)
+				{
+					// A journal from before there were vouchers and bonus boxes: the rewards of the latest card, as a welcome
+					gData.mRewardedCards = gData.mCardsCompleted - 1;
+				}
+				if (gData.mPostcards.size() < getPostcardsDue() || gData.mRewardedCards < gData.mCardsCompleted)
 				{
 					catchUpPostcards();
+					giveRewards();
 					save();
 				}
 			}
@@ -259,6 +283,7 @@ namespace n3ds
 				{
 					++gData.mCardsCompleted;
 					catchUpPostcards();		// The card's postcard
+					giveRewards();
 				}
 				gNewStampNotice = true;
 
@@ -358,10 +383,56 @@ namespace n3ds
 			return (index >= 0 && index < NUM_FUNNY) ? FUNNY_POSTCARDS[index] : nullptr;
 		}
 
-		bool addTestPostcard()
+		bool giveWelcomePostcard()
 		{
 			load();
-			return addPostcard(true);
+			if (gData.mWelcomePostcard)
+				return false;
+			gData.mWelcomePostcard = true;
+			const bool added = addPostcard();
+			gNewPostcardNotice = false;		// It's shown right away
+			save();
+			return added;
+		}
+
+		bool takeNewRewardNotice()
+		{
+			const bool notice = gNewRewardNotice;
+			gNewRewardNotice = false;
+			return notice;
+		}
+
+		bool useVoucher()
+		{
+			load();
+			if (gData.mVouchers == 0)
+				return false;
+			--gData.mVouchers;
+			save();
+			return true;
+		}
+
+		bool prepareBonus(int gift)
+		{
+			load();
+			if (gift <= BONUS_NONE || gift >= _NUM_BONUS_GIFTS)
+				return false;
+			if (gData.mBonusReady == BONUS_NONE)
+			{
+				if (gData.mBonusBoxes == 0)
+					return false;
+				--gData.mBonusBoxes;
+			}
+			gData.mBonusReady = gift;
+			save();
+			return true;
+		}
+
+		void bonusGiven()
+		{
+			load();
+			gData.mBonusReady = BONUS_NONE;
+			// Saved with the next regular save (within a minute, and at exit) - not in the middle of the act's start
 		}
 
 		bool takeNewPostcardNotice()

@@ -150,6 +150,13 @@ private:
 	StartingShieldState mStartingShieldState = StartingShieldState::NONE;
 	bool isStartingShieldAllowed() const;
 	void updateStartingShield();
+
+	// A bonus box from the journal, opened in the "3DS" menu: given once, at the start of the next act in a normal game
+	void updateBonusGift();
+
+	// Whether the character is in a level and can get a shield or rings right now (false in the outro, special stages and the like)
+	bool canGiveGiftNow() const;
+	bool giveShield(int shield);		// As in n3ds::shop::Shield; false if it can't be given
 #endif
 	PlayerRecorder mPlayerRecorder;
 	GameClient mGameClient;

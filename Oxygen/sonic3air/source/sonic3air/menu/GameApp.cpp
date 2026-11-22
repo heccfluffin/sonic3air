@@ -616,7 +616,9 @@ void GameApp::updateBottomScreen()
 		std::vector<uint8> currentState;
 		const bool hasCurrentState = SaveStateSerializer(simulation, RenderParts::instance()).saveState(currentState);
 
-		// Same as the engine's save state menu
+		// Same as the engine's save state menu, except the music: if the same one fits after loading (like in Blue Sphere,
+		// or the same level), it continues instead of starting over
+		AudioOut::instance().keepMusicOnNextReset();
 		EngineMain::getDelegate().onPreSaveStateLoad();
 		const bool success = simulation.loadState(filename, false);
 		bool restored = false;
@@ -651,6 +653,7 @@ void GameApp::updateBottomScreen()
 				scriptRuntime.callFunctionByName("chooseFittingMusic", false);
 			}
 		}
+		AudioOut::instance().finishKeepingMusicSoon();
 		RMX_LOG_INFO("Bottom screen: save state for save file " << slot << (success ? " loaded" : " FAILED to load") << " (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
 		n3ds::bottomscreen::showResult(success ? n3ds::bottomscreen::Result::LOADED : n3ds::bottomscreen::Result::FAILED);
 	}

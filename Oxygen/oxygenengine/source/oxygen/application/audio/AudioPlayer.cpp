@@ -271,6 +271,11 @@ bool AudioPlayer::isPlayingSfxId(uint64 sfxId, AudioReference* outAudioRef) cons
 	{
 		if (playingSound.mBaseSourceReg->mAudioDefinition->mKeyId == sfxId)
 		{
+		#if defined(PLATFORM_3DS)
+			// Kept from before loading a save state: the game checks this to not restart music that's already playing,
+			// so it's still wanted
+			playingSound.mKept = false;
+		#endif
 			if (nullptr != outAudioRef)
 				*outAudioRef = playingSound.mAudioRef;
 			return true;
@@ -396,6 +401,51 @@ void AudioPlayer::stopAllSounds(bool immediately)
 	}
 	mPlayingSounds.clear();
 }
+
+#if defined(PLATFORM_3DS)
+void AudioPlayer::beginKeepingSounds(int contextId)
+{
+	std::vector<PlayingSound> kept;
+	for (PlayingSound& playingSound : mPlayingSounds)
+	{
+		if (playingSound.mContextId == contextId && playingSound.mState == PlayingSound::State::PLAYING)
+		{
+			playingSound.mKept = true;
+			kept.push_back(playingSound);
+		}
+		else
+		{
+			playingSound.mAudioRef.setVolumeChange(-20.0f);		// Fading out very fast, like in "stopAllSounds"
+		}
+	}
+	mKeptSoundsCount = (int)kept.size();
+	mPlayingSounds = std::move(kept);
+	mKeepingSounds = true;
+}
+
+int AudioPlayer::endKeepingSounds()
+{
+	if (!mKeepingSounds)
+		return 0;
+	mKeepingSounds = false;
+	int stopped = 0;
+	std::vector<PlayingSound> remaining;
+	for (PlayingSound& playingSound : mPlayingSounds)
+	{
+		if (playingSound.mKept)
+		{
+			playingSound.mAudioRef.setVolumeChange(-20.0f);
+			++stopped;
+		}
+		else
+		{
+			remaining.push_back(playingSound);
+		}
+	}
+	mPlayingSounds = std::move(remaining);
+	return mKeptSoundsCount - stopped;
+}
+#endif
 
 void AudioPlayer::stopAllSoundsByChannel(int channelId)
 {
@@ -568,6 +618,22 @@ AudioPlayer::PlayingSound* AudioPlayer::playAudioInternal(SourceRegistration* so
 {
 	if (nullptr == sourceReg)
 		return nullptr;
+
+#if defined(PLATFORM_3DS)
+	// The same sound kept from before loading a save state: let it continue
+	if (mKeepingSounds)
+	{
+		for (PlayingSound& playingSound : mPlayingSounds)
+		{
+			if (playingSound.mKept && playingSound.mBaseSourceReg == sourceReg && playingSound.mChannelId == channelId && playingSound.mContextId == contextId &&
+				playingSound.mState == PlayingSound::State::PLAYING)
+			{
+				playingSound.mKept = false;
+				return &playingSound;
+			}
+		}
+	}
+#endif
 
 	// Stop all old sounds of this channel
 	if (channelId != 0xff && sourceReg->mType != SourceRegistration::Type::EMULATION_CONTINUOUS)

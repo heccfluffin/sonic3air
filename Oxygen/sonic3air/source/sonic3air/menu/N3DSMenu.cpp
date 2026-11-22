@@ -63,7 +63,9 @@ namespace
 	static constexpr uint32 JOURNAL_SCREENSHOTS = 0x606;
 	static constexpr uint32 JOURNAL_STARTED = 0x607;
 	static constexpr uint32 JOURNAL_POSTCARDS = 0x608;		// The postcard album, flipped through with left / right
-	static constexpr uint32 JOURNAL_TEST_POSTCARD = 0x609;	// Temporary: a postcard for trying them out, never saved
+	static constexpr uint32 JOURNAL_STATS = 0x609;			// Opens the page with all the numbers above
+	static constexpr uint32 JOURNAL_BONUS = 0x60a;			// Bonus box, with the gift to choose as options
+	static constexpr uint32 JOURNAL_VOUCHERS = 0x60b;
 
 	std::string formatNumber(uint32 value)
 	{
@@ -491,6 +493,61 @@ namespace
 		}
 		return 0;
 	}
+
+	const char* getBonusGiftName(int gift)
+	{
+		switch (gift)
+		{
+			case n3ds::journal::BONUS_CLASSIC_SHIELD:	return "Classic Shield";
+			case n3ds::journal::BONUS_FIRE_SHIELD:		return "Fire Shield";
+			case n3ds::journal::BONUS_LIGHTNING_SHIELD:	return "Lightning Shield";
+			case n3ds::journal::BONUS_BUBBLE_SHIELD:	return "Bubble Shield";
+			case n3ds::journal::BONUS_RINGS:			return "50 Rings";
+			default:									return "Nothing";
+		}
+	}
+
+	// With a voucher from the journal, things not owned yet cost a bit less
+	template<typename ITEM>		// N3DSMenu::Item, which is private there
+	void applyVoucher(ITEM& item)
+	{
+		if (item.mOwned || item.mPrice <= 0 || n3ds::journal::get().mVouchers == 0)
+			return;
+		item.mPrice = std::max(item.mPrice - n3ds::journal::VOUCHER_PLAY_COINS, 0);
+		item.mVoucher = true;
+	}
+
+	// Journal animations: when the stamp pops open and the postcard lands, in seconds after each one starts
+	const float STAMP_POP_TIME = 0.35f;
+	const float POSTCARD_LAND_TIME = 0.45f;
+
+	// A little four-pointed sparkle
+	void drawSparkle(Drawer& drawer, int x, int y, int size, const Color& color)
+	{
+		drawer.drawRect(Recti(x - size, y, size * 2 + 1, 1), color);
+		drawer.drawRect(Recti(x, y - size, 1, size * 2 + 1), color);
+		if (size >= 3)
+			drawer.drawRect(Recti(x - 1, y - 1, 3, 3), color);
+	}
+
+	// Sparkles flying out of a rectangle and fading, "time" in seconds since they started (they last 0.8 seconds)
+	void drawSparkleBurst(Drawer& drawer, const Recti& rect, float time, float alpha, int count)
+	{
+		if (time < 0.0f || time > 0.8f)
+			return;
+		const float t = time / 0.8f;
+		const float cx = rect.x + rect.width * 0.5f;
+		const float cy = rect.y + rect.height * 0.5f;
+		for (int k = 0; k < count; ++k)
+		{
+			const float angle = (float)k / (float)count * 6.2832f + 0.4f;
+			const float distance = 0.5f + t * 0.45f;
+			const int x = roundToInt(cx + std::cos(angle) * rect.width * distance);
+			const int y = roundToInt(cy + std::sin(angle) * rect.height * distance);
+			const int size = (k % 2 == 0) ? 3 : 2;
+			drawSparkle(drawer, x, y, size, Color(1.0f, 1.0f, 0.75f, alpha * (1.0f - t)));
+		}
+	}
 }
 
 
@@ -525,6 +582,7 @@ GameMenuBase::BaseState N3DSMenu::getBaseState() const
 		case State::SHOW:		  return BaseState::SHOW;
 		case State::CONFIRM:	  return BaseState::SHOW;
 		case State::POSTCARD:	  return BaseState::SHOW;
+		case State::STATS:		  return BaseState::SHOW;
 		case State::FADE_TO_MENU: return BaseState::FADE_OUT;
 		default:				  return BaseState::INACTIVE;
 	}
@@ -553,7 +611,12 @@ void N3DSMenu::onFadeIn()
 	const std::string greeting = n3ds::profile::getGreeting();
 	const bool newStamp = n3ds::journal::takeNewStampNotice();
 	const bool newPostcard = n3ds::journal::takeNewPostcardNotice();
-	showMessage(newPostcard ? (greeting + " A postcard arrived in your Journal!") : newStamp ? (greeting + " New stamp in your Journal!") : greeting, false);
+	const bool newRewards = n3ds::journal::takeNewRewardNotice();
+	showMessage(newPostcard ? (greeting + (newRewards ? " Postcard and gifts in your Journal!" : " A postcard arrived in your Journal!")) :
+				newRewards ? (greeting + " Gifts arrived in your Journal!") : newStamp ? (greeting + " New stamp in your Journal!") : greeting, false);
+	mPendingStampAnimation = newStamp;
+	mPendingPostcardAnimation = newPostcard;
+	mJournalAnimationTime = -1.0f;
 	mMessageTimeout = 5.0f;
 
 	// The 3DS step counter, for the journal (quick, no SD card involved)
@@ -987,14 +1050,21 @@ void N3DSMenu::rebuildTabs()
 			if (!postcards.empty())
 				entry.setSelectedIndexByValue((uint32)(postcards.size() - 1));
 		}
-		entries.addEntry("Test: Send a Postcard", JOURNAL_TEST_POSTCARD);
-		entries.addEntry("Play Time", JOURNAL_PLAY_TIME);
-		entries.addEntry("Days Played", JOURNAL_DAYS);
-		entries.addEntry("Steps", JOURNAL_STEPS);
-		entries.addEntry("Play Coins", JOURNAL_PLAY_COINS);
-		entries.addEntry("Achievements", JOURNAL_ACHIEVEMENTS);
-		entries.addEntry("Screenshots", JOURNAL_SCREENSHOTS);
-		entries.addEntry("Journal Started", JOURNAL_STARTED);
+		{
+			// The gifts a bonus box can hold: shields only without a starting shield (it would replace that one), rings always
+			const n3ds::journal::Data& journal = n3ds::journal::get();
+			GameMenuEntry& entry = entries.addEntry("Bonus Box", JOURNAL_BONUS);
+			const bool startingShield = shop.mOwnsShield && shop.mSelectedShield != n3ds::shop::SHIELD_OFF;
+			for (int gift = n3ds::journal::BONUS_FIRE_SHIELD; gift <= n3ds::journal::BONUS_RINGS; ++gift)
+			{
+				if (gift == n3ds::journal::BONUS_RINGS || !startingShield)
+					entry.addOption(getBonusGiftName(gift), (uint32)gift);
+			}
+			if (journal.mBonusReady != n3ds::journal::BONUS_NONE)
+				entry.setSelectedIndexByValue((uint32)journal.mBonusReady);
+		}
+		entries.addEntry("Vouchers", JOURNAL_VOUCHERS);
+		entries.addEntry("Stats", JOURNAL_STATS);
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -1039,6 +1109,7 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 			outItem.mName = THEMES[data].mName;
 			outItem.mPrice = THEMES[data].mPrice;
 			outItem.mOwned = (shop.mOwnedThemes & (1 << data)) != 0;
+			applyVoucher(outItem);
 			return true;
 
 		case Tab::Id::SECRETS:
@@ -1049,6 +1120,7 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 			outItem.mName = secret->mName;
 			outItem.mPrice = getSecretPrice(data);
 			outItem.mOwned = PlayerProgress::instance().mUnlocks.isSecretUnlocked(data);
+			applyVoucher(outItem);
 			return true;
 		}
 
@@ -1058,6 +1130,7 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 			outItem.mName = "Starting Shield";
 			outItem.mPrice = SHIELD_PRICE;
 			outItem.mOwned = shop.mOwnsShield;
+			applyVoucher(outItem);
 			return true;
 	}
 	return false;
@@ -1118,7 +1191,17 @@ void N3DSMenu::update(float timeElapsed)
 	const bool accept = (keys.Start.justPressed() || keys.A.justPressed() || keys.X.justPressed());
 	const bool back = (keys.Back.justPressed() || keys.B.justPressed());
 
-	if (mState == State::POSTCARD)
+	updateJournalAnimations(timeElapsed);
+
+	if (mState == State::STATS)
+	{
+		if (accept || back)
+		{
+			playMenuSound(0xad);
+			mState = State::SHOW;
+		}
+	}
+	else if (mState == State::POSTCARD)
 	{
 		// Left / right for the other postcards, any button back to the journal
 		GameMenuEntry& entry = mActiveMenu->selected();
@@ -1235,6 +1318,53 @@ void N3DSMenu::update(float timeElapsed)
 	}
 }
 
+void N3DSMenu::updateJournalAnimations(float timeElapsed)
+{
+	// Start once the journal tab is shown
+	const bool journalShown = (mState == State::SHOW && mActiveTab == Tab::Id::JOURNAL && std::fabs(mActiveTabAnimated - (float)Tab::Id::JOURNAL) < 0.05f);
+	if (mJournalAnimationTime < 0.0f && journalShown)
+	{
+		// The welcome postcard, the first time the journal is opened
+		if (!n3ds::journal::get().mWelcomePostcard && n3ds::journal::giveWelcomePostcard())
+		{
+			rebuildTabs();
+			mPendingPostcardAnimation = true;
+			showMessage("A welcome postcard arrived in your album!", false);
+			mMessageTimeout = 5.0f;
+		}
+		if (mPendingStampAnimation || mPendingPostcardAnimation)
+		{
+			mJournalAnimationTime = 0.0f;
+			mStampAnimationStart = mPendingStampAnimation ? 0.25f : -1.0f;
+			mPostcardAnimationStart = mPendingPostcardAnimation ? (mPendingStampAnimation ? 1.2f : 0.25f) : -1.0f;
+			mStampSoundPlayed = false;
+			mPostcardSoundPlayed = false;
+			mPendingStampAnimation = false;
+			mPendingPostcardAnimation = false;
+		}
+	}
+	if (mJournalAnimationTime < 0.0f)
+		return;
+
+	mJournalAnimationTime += timeElapsed;
+	if (mStampAnimationStart >= 0.0f && !mStampSoundPlayed && mJournalAnimationTime >= mStampAnimationStart + STAMP_POP_TIME)
+	{
+		playMenuSound(0x33);		// Ring
+		mStampSoundPlayed = true;
+	}
+	if (mPostcardAnimationStart >= 0.0f && !mPostcardSoundPlayed && mJournalAnimationTime >= mPostcardAnimationStart + POSTCARD_LAND_TIME)
+	{
+		playMenuSound(0xb8);		// Emerald
+		mPostcardSoundPlayed = true;
+	}
+	if (mJournalAnimationTime > std::max(mStampAnimationStart, mPostcardAnimationStart) + 2.0f)
+	{
+		mJournalAnimationTime = -1.0f;
+		mStampAnimationStart = -1.0f;
+		mPostcardAnimationStart = -1.0f;
+	}
+}
+
 void N3DSMenu::onAccept()
 {
 	n3ds::shop::Data& shop = n3ds::shop::get();
@@ -1262,19 +1392,39 @@ void N3DSMenu::onAccept()
 
 	if (mActiveTab == Tab::Id::JOURNAL)
 	{
-		// Temporary, for trying out the postcards before a stamp card is full
-		if (data == JOURNAL_TEST_POSTCARD)
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		if (data == JOURNAL_STATS)
 		{
-			if (n3ds::journal::addTestPostcard())
+			playMenuSound(0x63);
+			mState = State::STATS;
+			return;
+		}
+		if (data == JOURNAL_VOUCHERS)
+		{
+			playMenuSound(0x5b);
+			showMessage((journal.mVouchers > 0) ? "Used by itself on your next purchase" : "Complete a stamp card to get a voucher", journal.mVouchers == 0);
+			return;
+		}
+		if (data == JOURNAL_BONUS)
+		{
+			// Open a box (or change what's in the one that's open) with the chosen gift
+			const GameMenuEntry& entry = mActiveMenu->selected();
+			const int gift = entry.hasSelected() ? (int)entry.selected().mValue : n3ds::journal::BONUS_NONE;
+			const int before = journal.mBonusReady;
+			if (before == gift)
 			{
-				playMenuSound(0x63);
-				rebuildTabs();
-				showMessage("A test postcard arrived - it isn't saved", false);
+				playMenuSound(0x5b);
+				showMessage(std::string(getBonusGiftName(gift)) + " is ready for your next act", false);
+			}
+			else if (n3ds::journal::prepareBonus(gift))
+			{
+				playMenuSound((before == n3ds::journal::BONUS_NONE) ? 0xb8 : 0x63);
+				showMessage(std::string(before == n3ds::journal::BONUS_NONE ? "Opened! " : "Changed to ") + getBonusGiftName(gift) + " for your next act", false);
 			}
 			else
 			{
-				playMenuSound(0xb2);
-				showMessage("You have all the postcards already", true);
+				playMenuSound(0xad);
+				showMessage("Complete a stamp card to get a bonus box", true);
 			}
 			return;
 		}
@@ -1388,7 +1538,7 @@ void N3DSMenu::buySelected()
 		return;
 
 	int coinsLeft = mPlayCoins;
-	if (!n3ds::playcoins::spend(item.mPrice, coinsLeft))
+	if (item.mPrice > 0 && !n3ds::playcoins::spend(item.mPrice, coinsLeft))
 	{
 		mPlayCoins = coinsLeft;
 		playMenuSound(0xad);
@@ -1422,7 +1572,9 @@ void N3DSMenu::buySelected()
 			n3ds::shop::save();
 			break;
 	}
-	RMX_LOG_INFO("3DS menu: bought '" << item.mName << "' for " << item.mPrice << " Play Coins");
+	RMX_LOG_INFO("3DS menu: bought '" << item.mName << "' for " << item.mPrice << " Play Coins" << (item.mVoucher ? " with a voucher" : ""));
+	if (item.mVoucher)
+		n3ds::journal::useVoucher();
 	n3ds::journal::addPurchase(item.mPrice);
 
 	playMenuSound(0x33);	// Ring sound
@@ -1439,7 +1591,7 @@ void N3DSMenu::render()
 
 	int anchorX = 200;
 	float alpha = 1.0f;
-	if (mState != State::SHOW && mState != State::CONFIRM && mState != State::POSTCARD)
+	if (mState != State::SHOW && mState != State::CONFIRM && mState != State::POSTCARD && mState != State::STATS)
 	{
 		anchorX += roundToInt((1.0f - mVisibility) * 300.0f);
 		alpha = mVisibility;
@@ -1514,7 +1666,7 @@ void N3DSMenu::render()
 					}
 					else
 					{
-						status = String(0, "%d PLAY COINS", item.mPrice).toStdString();
+						status = String(0, item.mVoucher ? "VOUCHER: %d PLAY COINS" : "%d PLAY COINS", item.mPrice).toStdString();
 						statusColor = (mPlayCoins >= item.mPrice) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.7f, 0.5f, 0.5f, tabAlpha);
 					}
 				}
@@ -1720,9 +1872,32 @@ void N3DSMenu::render()
 					drawer.printText(global::mSonicFontB, Recti(px - 178, py + 5, 0, 10), "STAMP CARD", 1, color);
 					drawer.printText(global::mSonicFontB, Recti(px + 172, py + 5, 0, 10), String(0, "DAY %d OF %d", journal.mStamps, n3ds::journal::STAMPS_PER_CARD), 3,
 									 (journal.mStamps >= n3ds::journal::STAMPS_PER_CARD) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.6f, 0.9f, 1.0f, tabAlpha));
+					const float stampTime = (mJournalAnimationTime >= 0.0f && mStampAnimationStart >= 0.0f) ? (mJournalAnimationTime - mStampAnimationStart) : 99.0f;
 					for (int k = 0; k < n3ds::journal::STAMPS_PER_CARD; ++k)
 					{
-						const Recti monitorRect(px - 180 + k * 37, py + 18, 32, 32);
+						Recti monitorRect(px - 180 + k * 37, py + 18, 32, 32);
+						if (k == journal.mStamps - 1 && stampTime < STAMP_POP_TIME + 0.8f)
+						{
+							// The day's new stamp: the closed monitor wobbles, then pops open with a little jump, a flash and sparkles
+							if (stampTime < STAMP_POP_TIME)
+							{
+								monitorRect.x += (stampTime > 0.0f) ? (((int)(stampTime * 30.0f) % 2 == 0) ? 1 : -1) : 0;
+								if (mHasJournalIcons)
+									drawer.drawRect(monitorRect, mStampEmpty, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+								continue;
+							}
+							const float u = stampTime - STAMP_POP_TIME;
+							if (u < 0.3f)
+								monitorRect.y -= roundToInt(std::sin(u / 0.3f * 3.1416f) * 8.0f);
+							if (mHasJournalIcons)
+								drawer.drawRect(monitorRect, mStampIcons[k], Color(1.0f, 1.0f, 1.0f, tabAlpha));
+							else
+								drawer.drawRect(monitorRect, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+							if (u < 0.35f)
+								drawer.drawRect(monitorRect, Color(1.0f, 1.0f, 1.0f, tabAlpha * 0.8f * (1.0f - u / 0.35f)));
+							drawSparkleBurst(drawer, monitorRect, u, tabAlpha, 6);
+							continue;
+						}
 						if (!mHasJournalIcons)
 							drawer.drawRect(monitorRect, (k < journal.mStamps) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.3f, 0.3f, 0.4f, tabAlpha));
 						else if (k < journal.mStamps)
@@ -1738,7 +1913,24 @@ void N3DSMenu::render()
 					// The postcard album: the zone's preview picture on a cream card, slowly panning across it
 					const std::vector<n3ds::journal::Postcard>& postcards = n3ds::journal::get().mPostcards;
 					customText = true;
-					const Recti card(px - 180, py + 4, 206, 86);
+					// A new postcard drops in from above, bounces a little, and flashes
+					int drop = 0;
+					float landed = -1.0f;		// Seconds since it landed
+					if (mJournalAnimationTime >= 0.0f && mPostcardAnimationStart >= 0.0f)
+					{
+						const float t = mJournalAnimationTime - mPostcardAnimationStart;
+						if (t < 0.0f)
+							drop = -1000;		// Not its turn yet
+						else if (t < POSTCARD_LAND_TIME)
+							drop = -roundToInt(150.0f * (1.0f - (t / POSTCARD_LAND_TIME) * (t / POSTCARD_LAND_TIME)));
+						else
+						{
+							landed = t - POSTCARD_LAND_TIME;
+							if (landed < 0.25f)
+								drop = -roundToInt(std::sin(landed / 0.25f * 3.1416f) * 7.0f);
+						}
+					}
+					const Recti card(px - 180, py + 4 + drop, 206, 86);
 					const Recti window(card.x + 3, card.y + 3, card.width - 6, card.height - 6);
 					const bool hasPostcard = entry.hasSelected() && entry.selected().mValue < postcards.size();
 					drawer.drawRect(card, hasPostcard ? Color(0.98f, 0.95f, 0.86f, tabAlpha) : Color(0.98f, 0.95f, 0.86f, tabAlpha * 0.3f));
@@ -1851,6 +2043,13 @@ void N3DSMenu::render()
 						for (size_t k = 0; k < textLines.size() && k < 4; ++k)
 							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 30 + (int)k * 10, 0, 10), textLines[k], 1, color2);
 					}
+
+					if (landed >= 0.0f)
+					{
+						if (landed < 0.4f)
+							drawer.drawRect(window, Color(1.0f, 1.0f, 1.0f, tabAlpha * 0.8f * (1.0f - landed / 0.4f)));
+						drawSparkleBurst(drawer, card, landed, tabAlpha, 10);
+					}
 				}
 				else if (tabIndex == Tab::Id::JOURNAL)
 				{
@@ -1895,10 +2094,6 @@ void N3DSMenu::render()
 							status = formatNumber(journal.mScreenshots);
 							description = "Taken with L + R, in the folder 3ds/sonic3air/screenshots on the SD card.";
 							break;
-						case JOURNAL_TEST_POSTCARD:
-							status = "PRESS A";
-							description = "Temporary, for testing: sends a random postcard to the album above. It's never saved.";
-							break;
 						case JOURNAL_STARTED:
 							status = n3ds::journal::formatDate(journal.mStartedDate);
 							description = "When this journal began. Here's to many more days!";
@@ -1906,10 +2101,53 @@ void N3DSMenu::render()
 					}
 
 					// The game's monitor with a fitting icon
+					const DrawerTexture* icon = mHasJournalIcons ? &mJournalIcons[clamp((int)(entry.mData - JOURNAL_PLAY_TIME), 0, NUM_JOURNAL_ICONS - 1)] : nullptr;
+					float iconAlpha = 1.0f;
+					switch (entry.mData)
+					{
+						case JOURNAL_STATS:
+						{
+							const uint64 minutes = journal.mPlaySeconds / 60;
+							status = (minutes >= 60) ? String(0, "%u H %02u MIN", (unsigned)(minutes / 60), (unsigned)(minutes % 60)).toStdString() : String(0, "%u MIN", (unsigned)minutes).toStdString();
+							description = "Play time, days played, steps, Play Coins, achievements, screenshots and postcards, all on one page.";
+							icon = mHasJournalIcons ? &mJournalIcons[0] : nullptr;
+							break;
+						}
+						case JOURNAL_BONUS:
+						{
+							const int gift = entry.hasSelected() ? (int)entry.selected().mValue : n3ds::journal::BONUS_RINGS;
+							const bool hasBox = (journal.mBonusBoxes > 0 || journal.mBonusReady != n3ds::journal::BONUS_NONE);
+							String giftName(getBonusGiftName(gift));
+							giftName.upperCase();
+							status = isSelected ? ("< " + giftName.toStdString() + " >") : giftName.toStdString();
+							statusColor = (journal.mBonusReady == gift) ? Color(0.4f, 1.0f, 1.0f, tabAlpha) : hasBox ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.6f, 0.6f, 0.7f, tabAlpha);
+							const std::string more = (journal.mBonusBoxes == 0) ? std::string() :
+													 (journal.mBonusBoxes == 1) ? std::string(" 1 more box is waiting.") : (" " + formatNumber(journal.mBonusBoxes) + " more boxes are waiting.");
+							if (journal.mBonusReady != n3ds::journal::BONUS_NONE)
+								description = std::string("Ready: ") + getBonusGiftName(journal.mBonusReady) + " at the start of your next act in a normal game." + more;
+							else if (journal.mBonusBoxes > 0)
+								description = ((journal.mBonusBoxes == 1) ? std::string("A box to open! ") : (formatNumber(journal.mBonusBoxes) + " boxes to open! ")) +
+											  "Pick a gift with Left and Right, then A. It comes at the start of your next act.";
+							else
+								description = "One for every full stamp card: a shield or 50 rings at the start of your next act.";
+							if (gift >= n3ds::journal::BONUS_CLASSIC_SHIELD && gift <= n3ds::journal::BONUS_BUBBLE_SHIELD)
+								icon = mHasShieldIcons ? &mShieldIcons[gift] : nullptr;		// Same numbers as the shop's shields
+							else
+								icon = mHasJournalIcons ? &mStampIcons[0] : nullptr;			// The ring monitor
+							iconAlpha = hasBox ? 1.0f : 0.4f;
+							break;
+						}
+						case JOURNAL_VOUCHERS:
+							status = (journal.mVouchers == 0) ? std::string("NONE YET") : (journal.mVouchers == 1) ? std::string("1 VOUCHER") : (formatNumber(journal.mVouchers) + " VOUCHERS");
+							statusColor = (journal.mVouchers > 0) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.6f, 0.6f, 0.7f, tabAlpha);
+							description = String(0, "%d Play Coins off a purchase in this menu, used by itself. One for every full stamp card.", n3ds::journal::VOUCHER_PLAY_COINS).toStdString();
+							icon = mHasJournalIcons ? &mJournalIcons[3] : nullptr;		// The ring
+							iconAlpha = (journal.mVouchers > 0) ? 1.0f : 0.4f;
+							break;
+					}
 					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
-					const int iconIndex = clamp((int)(entry.mData - JOURNAL_PLAY_TIME), 0, NUM_JOURNAL_ICONS - 1);
-					if (mHasJournalIcons)
-						drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 8, 32, 32), mJournalIcons[iconIndex], Color(1.0f, 1.0f, 1.0f, tabAlpha));
+					if (nullptr != icon)
+						drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 8, 32, 32), *const_cast<DrawerTexture*>(icon), Color(1.0f, 1.0f, 1.0f, tabAlpha * iconAlpha));
 				}
 				else if (tabIndex == Tab::Id::SHIELD)
 				{
@@ -2032,6 +2270,8 @@ void N3DSMenu::render()
 		renderConfirmation(alpha);
 	else if (mState == State::POSTCARD)
 		renderPostcard(alpha);
+	else if (mState == State::STATS)
+		renderStats(alpha);
 
 	drawer.performRendering();
 }
@@ -2176,6 +2416,64 @@ void N3DSMenu::renderPostcard(float alpha)
 	drawer.printText(global::mOxyfontSmall, Recti(200, (int)mRect.height - 12, 0, 10), hint, 5, Color(1.0f, 1.0f, 1.0f, alpha));
 }
 
+void N3DSMenu::renderStats(float alpha)
+{
+	Drawer& drawer = EngineMain::instance().getDrawer();
+	const n3ds::journal::Data& journal = n3ds::journal::get();
+
+	// Darken everything, then a box with the numbers in two columns
+	drawer.drawRect(Recti(0, 0, (int)mRect.width, (int)mRect.height), Color(0.0f, 0.0f, 0.0f, 0.6f * alpha));
+	const Recti box(8, 6, 384, 228);
+	drawer.drawRect(Recti(box.x - 2, box.y - 2, box.width + 4, box.height + 4), Color(0.6f, 0.8f, 1.0f, alpha));
+	drawer.drawRect(box, Color(0.02f, 0.1f, 0.35f, alpha));
+	drawer.printText(global::mSonicFontB, Recti(200, box.y + 8, 0, 10), "STATS", 5, Color(1.0f, 1.0f, 1.0f, alpha));
+
+	struct Stat
+	{
+		const char* mName;
+		std::string mValue;
+		std::string mNote;
+		const DrawerTexture* mIcon;
+	};
+	Stat stats[8];
+	{
+		const uint64 minutes = journal.mPlaySeconds / 60;
+		stats[0] = { "PLAY TIME", (minutes >= 60) ? String(0, "%u h %02u min", (unsigned)(minutes / 60), (unsigned)(minutes % 60)).toStdString() : String(0, "%u min", (unsigned)minutes).toStdString(),
+					 "Since the journal began", &mJournalIcons[0] };
+	}
+	stats[1] = { "DAYS PLAYED", formatNumber(journal.mDaysPlayed), "They don't need to be in a row", &mJournalIcons[1] };
+	stats[2] = { "STEPS", mHasSteps ? formatNumber(mStepsTotal) : std::string("---"), mHasSteps ? "Counted by your 3DS" : "Could not be read", &mJournalIcons[2] };
+	stats[3] = { "PLAY COINS SPENT", formatNumber(journal.mPlayCoinsSpent), (journal.mThingsBought == 1) ? std::string("On 1 thing in this menu") : ("On " + formatNumber(journal.mThingsBought) + " things in this menu"), &mJournalIcons[3] };
+	{
+		const std::vector<SharedDatabase::Achievement>& achievements = SharedDatabase::getAchievements();
+		int completed = 0;
+		for (const SharedDatabase::Achievement& achievement : achievements)
+		{
+			if (PlayerProgress::instance().mAchievements.getAchievementState(achievement.mType) != 0)
+				++completed;
+		}
+		stats[4] = { "ACHIEVEMENTS", String(0, "%d / %d", completed, (int)achievements.size()).toStdString(), "Completed so far", &mJournalIcons[4] };
+	}
+	stats[5] = { "SCREENSHOTS", formatNumber(journal.mScreenshots), "Taken with L + R", &mJournalIcons[5] };
+	stats[6] = { "POSTCARDS", String(0, "%d / %d", (int)journal.mPostcards.size(), n3ds::journal::getNumPossiblePostcards()).toStdString(),
+				 (journal.mCardsCompleted == 1) ? std::string("1 stamp card completed") : (formatNumber(journal.mCardsCompleted) + " stamp cards completed"), &mStampIcons[6] };
+	stats[7] = { "JOURNAL STARTED", n3ds::journal::formatDate(journal.mStartedDate), "Here's to many more days!", &mJournalIcons[6] };
+
+	for (int k = 0; k < 8; ++k)
+	{
+		const int x = box.x + 10 + (k % 2) * 190;
+		const int y = box.y + 28 + (k / 2) * 46;
+		drawer.drawRect(Recti(x, y + 4, 32, 32), Color(0.05f, 0.08f, 0.2f, alpha));
+		if (mHasJournalIcons)
+			drawer.drawRect(Recti(x, y + 4, 32, 32), *const_cast<DrawerTexture*>(stats[k].mIcon), Color(1.0f, 1.0f, 1.0f, alpha));
+		drawer.printText(global::mOxyfontSmall, Recti(x + 40, y + 2, 0, 10), stats[k].mName, 1, Color(0.6f, 0.9f, 1.0f, alpha));
+		drawer.printText(global::mOxyfontRegular, Recti(x + 40, y + 14, 0, 10), stats[k].mValue, 1, Color(1.0f, 0.85f, 0.2f, alpha));
+		drawer.printText(global::mOxyfontTiny, Recti(x + 40, y + 28, 0, 10), stats[k].mNote, 1, Color(0.85f, 0.85f, 0.9f, alpha));
+	}
+
+	drawer.printText(global::mOxyfontSmall, Recti(box.x + box.width - 10, box.y + 8, 0, 10), "B: Back", 3, Color(1.0f, 1.0f, 1.0f, alpha));
+}
+
 void N3DSMenu::renderConfirmation(float alpha)
 {
 	Drawer& drawer = EngineMain::instance().getDrawer();
@@ -2191,7 +2489,7 @@ void N3DSMenu::renderConfirmation(float alpha)
 
 	String title(0, "Buy %s?", item.mName.c_str());
 	drawer.printText(global::mSonicFontB, Recti(200, box.y + 10, 0, 10), title, 5, Color(1.0f, 1.0f, 1.0f, alpha));
-	drawer.printText(global::mOxyfontRegular, Recti(200, box.y + 30, 0, 10), String(0, "%d Play Coins  (you have %d)", item.mPrice, mPlayCoins), 5, Color(1.0f, 0.85f, 0.2f, alpha));
+	drawer.printText(global::mOxyfontRegular, Recti(200, box.y + 30, 0, 10), String(0, item.mVoucher ? "%d Play Coins with your voucher  (you have %d)" : "%d Play Coins  (you have %d)", item.mPrice, mPlayCoins), 5, Color(1.0f, 0.85f, 0.2f, alpha));
 
 	const Color blink(1.0f, 1.0f - std::fabs(std::fmod(FTX::getTime(), 1.0f) - 0.5f) * 2.0f, 0.0f, alpha);
 	drawer.printText(global::mOxyfontSmall, Recti(200, box.y + 56, 0, 10), "A: Buy        B: Cancel", 5, blink);
