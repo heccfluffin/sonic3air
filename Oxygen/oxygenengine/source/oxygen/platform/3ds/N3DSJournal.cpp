@@ -51,6 +51,7 @@ namespace n3ds
 			uint64_t gPlayTicks = 0;		// Not counted in whole seconds yet
 			uint64_t gNextDayCheck = 0;
 			uint64_t gNextSave = 0;
+			uint32_t gGameDistance = 0;		// Toward the next step, in 1/256 pixels
 
 			bool gPtmInitialized = false;
 
@@ -65,10 +66,10 @@ namespace n3ds
 				char text[512];
 				snprintf(text, sizeof(text),
 						 "started=%u\nlast_day=%u\ndays_played=%u\nstamps=%d\ncards_completed=%u\nplay_seconds=%llu\nplay_coins_spent=%u\nthings_bought=%u\nscreenshots=%u\n"
-						 "rewarded_cards=%u\nvouchers=%u\nbonus_boxes=%u\nbonus_ready=%d\nwelcome_postcard=%d\n",
+						 "rewarded_cards=%u\nvouchers=%u\nbonus_boxes=%u\nbonus_ready=%d\nwelcome_postcard=%d\ngame_steps=%llu\n",
 						 (unsigned)data.mStartedDate, (unsigned)data.mLastDayPlayed, (unsigned)data.mDaysPlayed, data.mStamps, (unsigned)data.mCardsCompleted,
 						 (unsigned long long)data.mPlaySeconds, (unsigned)data.mPlayCoinsSpent, (unsigned)data.mThingsBought, (unsigned)data.mScreenshots,
-						 (unsigned)data.mRewardedCards, (unsigned)data.mVouchers, (unsigned)data.mBonusBoxes, data.mBonusReady, data.mWelcomePostcard ? 1 : 0);
+						 (unsigned)data.mRewardedCards, (unsigned)data.mVouchers, (unsigned)data.mBonusBoxes, data.mBonusReady, data.mWelcomePostcard ? 1 : 0, (unsigned long long)data.mGameSteps);
 				std::string result = text;
 				for (const Postcard& postcard : data.mPostcards)
 				{
@@ -216,6 +217,7 @@ namespace n3ds
 						else if (sscanf(line, "rewarded_cards=%u", &value) == 1)	{ gData.mRewardedCards = value;  hasRewardedCards = true; }
 						else if (sscanf(line, "vouchers=%u", &value) == 1)			gData.mVouchers = value;
 						else if (sscanf(line, "bonus_boxes=%u", &value) == 1)		gData.mBonusBoxes = value;
+						else if (sscanf(line, "game_steps=%llu", &bigValue) == 1)	gData.mGameSteps = bigValue;
 						else if (sscanf(line, "welcome_postcard=%u", &value) == 1)	gData.mWelcomePostcard = (value != 0);
 						else if (sscanf(line, "bonus_ready=%u", &value) == 1)		gData.mBonusReady = (value < _NUM_BONUS_GIFTS) ? (int)value : BONUS_NONE;
 						else
@@ -455,6 +457,19 @@ namespace n3ds
 			gData.mPlayCoinsSpent += (uint32_t)std::max(playCoins, 0);
 			++gData.mThingsBought;
 			save();
+		}
+
+		void addGameDistance(uint32_t subpixels)
+		{
+			// Saved with the play time, once a minute
+			load();
+			gGameDistance += subpixels;
+			const uint32_t stepLength = GAME_STEP_PIXELS * 256;
+			if (gGameDistance >= stepLength)
+			{
+				gData.mGameSteps += gGameDistance / stepLength;
+				gGameDistance %= stepLength;
+			}
 		}
 
 		void addScreenshot()

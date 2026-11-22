@@ -578,6 +578,20 @@ void Game::onUpdateControls()
 	updateStartingShield();
 	updateBonusGift();
 
+	// Sonic's steps for the journal: running on the ground in a level (game mode 0x0c, not the attract demo), not rolling or in the air
+	{
+		EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+		if (emulatorInterface.readMemory8(0xfffff600) == 0x0c && (int8)emulatorInterface.readMemory8(0xfffff711) != 0)		// global.level_started
+		{
+			if ((emulatorInterface.readMemory8(0xffffb000 + 0x2a) & 0x06) == 0)		// char.flags: not IN_AIR, not ROLLING
+			{
+				const int16 groundSpeed = (int16)emulatorInterface.readMemory16(0xffffb000 + 0x1c);
+				if (groundSpeed != 0)
+					n3ds::journal::addGameDistance((uint32)std::abs((int)groundSpeed));
+			}
+		}
+	}
+
 	// 3DS: on the SEGA logo, intro and title screen (game mode 0x04), A works like Start, as Start is small and out of the way.
 	// Only while the title is actually running (not behind the A.I.R. menus), so A keeps its usual meaning everywhere else.
 	if (GameApp::hasInstance() && GameApp::instance().isOnTitleScreen() && EmulatorInterface::instance().readMemory8(0xfffff600) == 0x04)

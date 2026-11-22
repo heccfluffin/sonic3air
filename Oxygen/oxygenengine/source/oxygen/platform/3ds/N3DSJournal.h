@@ -25,6 +25,9 @@ namespace n3ds
 		static const int VOUCHER_PLAY_COINS = 10;		// A voucher: this many Play Coins off one purchase in the 3DS menu
 		static const int BONUS_RING_COUNT = 50;
 
+		// Sonic's steps in the game: one for every this many pixels run on the ground
+		static const int GAME_STEP_PIXELS = 24;
+
 		// What a bonus box holds, chosen when it's opened; given at the start of the next act in a normal game
 		enum BonusGift
 		{
@@ -64,6 +67,7 @@ namespace n3ds
 			uint32_t mPlayCoinsSpent = 0;
 			uint32_t mThingsBought = 0;
 			uint32_t mScreenshots = 0;
+			uint64_t mGameSteps = 0;		// Taken by the character in the game
 			uint32_t mVouchers = 0;			// Not used yet
 			uint32_t mBonusBoxes = 0;		// Not opened yet
 			int mBonusReady = BONUS_NONE;	// From an opened box, waiting for the next act
@@ -106,6 +110,7 @@ namespace n3ds
 		// Counters
 		void addPurchase(int playCoins);		// What was actually paid
 		void addScreenshot();
+		void addGameDistance(uint32_t subpixels);		// Run on the ground this frame, in 1/256 pixels
 
 		// The 3DS step counter: steps in total (false if they can't be read)
 		bool getSteps(uint32_t& outTotal);

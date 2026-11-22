@@ -2109,7 +2109,7 @@ void N3DSMenu::render()
 						{
 							const uint64 minutes = journal.mPlaySeconds / 60;
 							status = (minutes >= 60) ? String(0, "%u H %02u MIN", (unsigned)(minutes / 60), (unsigned)(minutes % 60)).toStdString() : String(0, "%u MIN", (unsigned)minutes).toStdString();
-							description = "Play time, days played, steps, Play Coins, achievements, screenshots and postcards, all on one page.";
+							description = "Play time, days played, your steps and Sonic's, Play Coins, achievements, screenshots and postcards, all on one page.";
 							icon = mHasJournalIcons ? &mJournalIcons[0] : nullptr;
 							break;
 						}
@@ -2427,6 +2427,7 @@ void N3DSMenu::renderStats(float alpha)
 	drawer.drawRect(Recti(box.x - 2, box.y - 2, box.width + 4, box.height + 4), Color(0.6f, 0.8f, 1.0f, alpha));
 	drawer.drawRect(box, Color(0.02f, 0.1f, 0.35f, alpha));
 	drawer.printText(global::mSonicFontB, Recti(200, box.y + 8, 0, 10), "STATS", 5, Color(1.0f, 1.0f, 1.0f, alpha));
+	drawer.printText(global::mOxyfontTiny, Recti(box.x + 10, box.y + 9, 0, 10), "Since " + n3ds::journal::formatDate(journal.mStartedDate), 1, Color(0.85f, 0.85f, 0.9f, alpha));
 
 	struct Stat
 	{
@@ -2439,11 +2440,12 @@ void N3DSMenu::renderStats(float alpha)
 	{
 		const uint64 minutes = journal.mPlaySeconds / 60;
 		stats[0] = { "PLAY TIME", (minutes >= 60) ? String(0, "%u h %02u min", (unsigned)(minutes / 60), (unsigned)(minutes % 60)).toStdString() : String(0, "%u min", (unsigned)minutes).toStdString(),
-					 "Since the journal began", &mJournalIcons[0] };
+					 "Since the journal began", &mJournalIcons[6] };
 	}
 	stats[1] = { "DAYS PLAYED", formatNumber(journal.mDaysPlayed), "They don't need to be in a row", &mJournalIcons[1] };
-	stats[2] = { "STEPS", mHasSteps ? formatNumber(mStepsTotal) : std::string("---"), mHasSteps ? "Counted by your 3DS" : "Could not be read", &mJournalIcons[2] };
-	stats[3] = { "PLAY COINS SPENT", formatNumber(journal.mPlayCoinsSpent), (journal.mThingsBought == 1) ? std::string("On 1 thing in this menu") : ("On " + formatNumber(journal.mThingsBought) + " things in this menu"), &mJournalIcons[3] };
+	stats[2] = { "YOUR STEPS", mHasSteps ? formatNumber(mStepsTotal) : std::string("---"), mHasSteps ? "Counted by your 3DS" : "Could not be read", &mJournalIcons[2] };
+	stats[3] = { "SONIC'S STEPS", formatNumber((uint32)std::min<uint64>(journal.mGameSteps, 0xffffffff)), "Running around in the game", &mJournalIcons[0] };
+	stats[4] = { "PLAY COINS SPENT", formatNumber(journal.mPlayCoinsSpent), (journal.mThingsBought == 1) ? std::string("On 1 thing in this menu") : ("On " + formatNumber(journal.mThingsBought) + " things in this menu"), &mJournalIcons[3] };
 	{
 		const std::vector<SharedDatabase::Achievement>& achievements = SharedDatabase::getAchievements();
 		int completed = 0;
@@ -2452,12 +2454,11 @@ void N3DSMenu::renderStats(float alpha)
 			if (PlayerProgress::instance().mAchievements.getAchievementState(achievement.mType) != 0)
 				++completed;
 		}
-		stats[4] = { "ACHIEVEMENTS", String(0, "%d / %d", completed, (int)achievements.size()).toStdString(), "Completed so far", &mJournalIcons[4] };
+		stats[5] = { "ACHIEVEMENTS", String(0, "%d / %d", completed, (int)achievements.size()).toStdString(), "Completed so far", &mJournalIcons[4] };
 	}
-	stats[5] = { "SCREENSHOTS", formatNumber(journal.mScreenshots), "Taken with L + R", &mJournalIcons[5] };
-	stats[6] = { "POSTCARDS", String(0, "%d / %d", (int)journal.mPostcards.size(), n3ds::journal::getNumPossiblePostcards()).toStdString(),
+	stats[6] = { "SCREENSHOTS", formatNumber(journal.mScreenshots), "Taken with L + R", &mJournalIcons[5] };
+	stats[7] = { "POSTCARDS", String(0, "%d / %d", (int)journal.mPostcards.size(), n3ds::journal::getNumPossiblePostcards()).toStdString(),
 				 (journal.mCardsCompleted == 1) ? std::string("1 stamp card completed") : (formatNumber(journal.mCardsCompleted) + " stamp cards completed"), &mStampIcons[6] };
-	stats[7] = { "JOURNAL STARTED", n3ds::journal::formatDate(journal.mStartedDate), "Here's to many more days!", &mJournalIcons[6] };
 
 	for (int k = 0; k < 8; ++k)
 	{

@@ -518,9 +518,14 @@ namespace
 		check(journal.mCardsCompleted == 4 && journal.mPostcards.size() == 5, "the 4th card still gets its own postcard after the welcome one (" + std::to_string(journal.mPostcards.size()) + ")");
 		check(journal.mVouchers == 1 && journal.mBonusBoxes == 1, "... and a voucher and a bonus box");
 
+		for (int i = 0; i < 100; ++i)
+			n3ds::journal::addGameDistance(6 * 256);		// 100 frames at Sonic's top speed: 600 pixels
+		check(journal.mGameSteps == 600 / n3ds::journal::GAME_STEP_PIXELS, "Sonic's steps: one per " + std::to_string(n3ds::journal::GAME_STEP_PIXELS) + " pixels (" + std::to_string(journal.mGameSteps) + ")");
+
 		n3ds::journal::save();
 		n3ds::filewriter::waitUntilDone();
 		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt");
+		check(saved.find("game_steps=25\n") != std::string::npos, "... saved in the journal file");
 		check(saved.find("vouchers=1\n") != std::string::npos && saved.find("bonus_boxes=1\n") != std::string::npos && saved.find("rewarded_cards=4\n") != std::string::npos &&
 			  saved.find("welcome_postcard=1\n") != std::string::npos, "rewards are saved in the journal file");
 	}
