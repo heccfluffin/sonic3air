@@ -207,9 +207,8 @@ arenas, drawn from your own ROM (71 postcards in all). Select the album and pres
 you open the Journal, a welcome postcard drops in. Each card also brings a little **medal** next to the clock on the
 bottom screen, a **voucher** (10 Play Coins off your next purchase in the 3DS menu, used by itself) and a **bonus box**:
 open it in the Journal with a Fire, Lightning or Bubble Shield or 50 rings inside (just rings if you have a starting
-shield), and you get it at the start of your next act in a normal game. **Stats** shows your play time, days, your
-steps (from the 3DS step counter) and Sonic's (running in the game), Play Coins spent, achievements, screenshots and
-postcards on one page. It's all saved in `savedata/3ds_journal.txt`.
+shield), and you get it at the start of your next act in a normal game. **Stats** shows your play time, days, Sonic's
+steps (running around in the game), Play Coins spent, achievements, screenshots and postcards on one page. It's all saved in `savedata/3ds_journal.txt`.
 
 **Screenshots:** press L and R together to save the top screen as a PNG in `sdmc:/3ds/sonic3air/screenshots/`.
 

@@ -112,9 +112,6 @@ namespace n3ds
 		void addScreenshot();
 		void addGameDistance(uint32_t subpixels);		// Run on the ground this frame, in 1/256 pixels
 
-		// The 3DS step counter: steps in total (false if they can't be read)
-		bool getSteps(uint32_t& outTotal);
-
 		std::string formatDate(uint32_t yyyymmdd);		// Like "21 Nov 2026"
 	}
 }

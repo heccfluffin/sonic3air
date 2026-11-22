@@ -53,8 +53,6 @@ namespace n3ds
 			uint64_t gNextSave = 0;
 			uint32_t gGameDistance = 0;		// Toward the next step, in 1/256 pixels
 
-			bool gPtmInitialized = false;
-
 			uint32_t today()
 			{
 				const n3ds::profile::LocalTime now = n3ds::profile::getLocalTime();
@@ -477,21 +475,6 @@ namespace n3ds
 			load();
 			++gData.mScreenshots;
 			save();
-		}
-
-		bool getSteps(uint32_t& outTotal)
-		{
-			// Only the total: libctru's PTMU_GetStepHistory (for "steps today") describes its buffer with a size the PTM service
-			// doesn't expect (the Azahar emulator stops on that, expecting 2 bytes per hour), so it's not used
-			if (!gPtmInitialized)
-				gPtmInitialized = R_SUCCEEDED(ptmuInit());
-			if (!gPtmInitialized)
-				return false;
-			u32 total = 0;
-			if (R_FAILED(PTMU_GetTotalStepCount(&total)))
-				return false;
-			outTotal = total;
-			return true;
 		}
 
 		std::string formatDate(uint32_t yyyymmdd)

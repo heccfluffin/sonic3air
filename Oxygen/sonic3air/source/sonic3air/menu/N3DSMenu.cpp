@@ -55,13 +55,6 @@ namespace
 
 	// Journal entries
 	static constexpr uint32 JOURNAL_STAMPS = 0x600;
-	static constexpr uint32 JOURNAL_PLAY_TIME = 0x601;
-	static constexpr uint32 JOURNAL_DAYS = 0x602;
-	static constexpr uint32 JOURNAL_STEPS = 0x603;
-	static constexpr uint32 JOURNAL_PLAY_COINS = 0x604;
-	static constexpr uint32 JOURNAL_ACHIEVEMENTS = 0x605;
-	static constexpr uint32 JOURNAL_SCREENSHOTS = 0x606;
-	static constexpr uint32 JOURNAL_STARTED = 0x607;
 	static constexpr uint32 JOURNAL_POSTCARDS = 0x608;		// The postcard album, flipped through with left / right
 	static constexpr uint32 JOURNAL_STATS = 0x609;			// Opens the page with all the numbers above
 	static constexpr uint32 JOURNAL_BONUS = 0x60a;			// Bonus box, with the gift to choose as options
@@ -619,9 +612,6 @@ void N3DSMenu::onFadeIn()
 	mJournalAnimationTime = -1.0f;
 	mMessageTimeout = 5.0f;
 
-	// The 3DS step counter, for the journal (quick, no SD card involved)
-	mHasSteps = n3ds::journal::getSteps(mStepsTotal);
-
 	// Play Coins and the player's own pictures get read in the background: the menu opens right away, they show up when ready
 	const uint32 greetingMs = msSince(startTicks);
 	startBackgroundLoading();
@@ -791,7 +781,7 @@ void N3DSMenu::createIcons()
 			mStampEmpty.bitmapUpdated();
 		}
 
-		// Icons of the journal's numbers, in the order of the entries: play time (Sonic), days played (Tails), steps (speed shoes),
+		// Icons of the journal's numbers on the Stats page: play time (Sonic), days played (Tails), Sonic's steps (speed shoes),
 		// Play Coins (ring), achievements (invincibility), screenshots (lightning, like a flash), journal started (Knuckles)
 		static const int JOURNAL_ICONS[NUM_JOURNAL_ICONS][2] = { { 64, 32 }, { 80, 32 }, { 80, 0 }, { 64, 0 }, { 96, 0 }, { 64, 16 }, { 96, 32 } };
 		for (int k = 0; k < NUM_JOURNAL_ICONS; ++k)
@@ -2055,53 +2045,9 @@ void N3DSMenu::render()
 				{
 					const n3ds::journal::Data& journal = n3ds::journal::get();
 					statusColor = Color(0.6f, 0.9f, 1.0f, tabAlpha);
-					switch (entry.mData)
-					{
-						case JOURNAL_PLAY_TIME:
-						{
-							const uint64 minutes = journal.mPlaySeconds / 60;
-							status = (minutes >= 60) ? String(0, "%u H %02u MIN", (unsigned)(minutes / 60), (unsigned)(minutes % 60)).toStdString() : String(0, "%u MIN", (unsigned)minutes).toStdString();
-							description = "Time spent playing on this 3DS since the journal began.";
-							break;
-						}
-						case JOURNAL_DAYS:
-							status = formatNumber(journal.mDaysPlayed);
-							description = "Days you played - they don't need to be in a row.";
-							break;
-						case JOURNAL_STEPS:
-							status = mHasSteps ? formatNumber(mStepsTotal) : std::string("---");
-							description = mHasSteps ? std::string("Walked with your 3DS, as counted by its step counter. Walking earns Play Coins, up to 10 a day.")
-													: std::string("The 3DS step counter could not be read.");
-							break;
-						case JOURNAL_PLAY_COINS:
-							status = formatNumber(journal.mPlayCoinsSpent) + " SPENT";
-							description = (journal.mThingsBought == 1) ? std::string("On 1 thing in this menu.") : ("On " + formatNumber(journal.mThingsBought) + " things in this menu.");
-							break;
-						case JOURNAL_ACHIEVEMENTS:
-						{
-							const std::vector<SharedDatabase::Achievement>& achievements = SharedDatabase::getAchievements();
-							int completed = 0;
-							for (const SharedDatabase::Achievement& achievement : achievements)
-							{
-								if (PlayerProgress::instance().mAchievements.getAchievementState(achievement.mType) != 0)
-									++completed;
-							}
-							status = String(0, "%d / %d", completed, (int)achievements.size()).toStdString();
-							description = "Completed achievements - the notification light glows purple for each new one.";
-							break;
-						}
-						case JOURNAL_SCREENSHOTS:
-							status = formatNumber(journal.mScreenshots);
-							description = "Taken with L + R, in the folder 3ds/sonic3air/screenshots on the SD card.";
-							break;
-						case JOURNAL_STARTED:
-							status = n3ds::journal::formatDate(journal.mStartedDate);
-							description = "When this journal began. Here's to many more days!";
-							break;
-					}
 
 					// The game's monitor with a fitting icon
-					const DrawerTexture* icon = mHasJournalIcons ? &mJournalIcons[clamp((int)(entry.mData - JOURNAL_PLAY_TIME), 0, NUM_JOURNAL_ICONS - 1)] : nullptr;
+					const DrawerTexture* icon = nullptr;
 					float iconAlpha = 1.0f;
 					switch (entry.mData)
 					{
@@ -2109,7 +2055,7 @@ void N3DSMenu::render()
 						{
 							const uint64 minutes = journal.mPlaySeconds / 60;
 							status = (minutes >= 60) ? String(0, "%u H %02u MIN", (unsigned)(minutes / 60), (unsigned)(minutes % 60)).toStdString() : String(0, "%u MIN", (unsigned)minutes).toStdString();
-							description = "Play time, days played, your steps and Sonic's, Play Coins, achievements, screenshots and postcards, all on one page.";
+							description = "Play time, days played, Sonic's steps, Play Coins, achievements, screenshots and postcards, all on one page.";
 							icon = mHasJournalIcons ? &mJournalIcons[0] : nullptr;
 							break;
 						}
@@ -2427,7 +2373,6 @@ void N3DSMenu::renderStats(float alpha)
 	drawer.drawRect(Recti(box.x - 2, box.y - 2, box.width + 4, box.height + 4), Color(0.6f, 0.8f, 1.0f, alpha));
 	drawer.drawRect(box, Color(0.02f, 0.1f, 0.35f, alpha));
 	drawer.printText(global::mSonicFontB, Recti(200, box.y + 8, 0, 10), "STATS", 5, Color(1.0f, 1.0f, 1.0f, alpha));
-	drawer.printText(global::mOxyfontTiny, Recti(box.x + 10, box.y + 9, 0, 10), "Since " + n3ds::journal::formatDate(journal.mStartedDate), 1, Color(0.85f, 0.85f, 0.9f, alpha));
 
 	struct Stat
 	{
@@ -2440,12 +2385,11 @@ void N3DSMenu::renderStats(float alpha)
 	{
 		const uint64 minutes = journal.mPlaySeconds / 60;
 		stats[0] = { "PLAY TIME", (minutes >= 60) ? String(0, "%u h %02u min", (unsigned)(minutes / 60), (unsigned)(minutes % 60)).toStdString() : String(0, "%u min", (unsigned)minutes).toStdString(),
-					 "Since the journal began", &mJournalIcons[6] };
+					 "Since the journal began", &mJournalIcons[0] };
 	}
 	stats[1] = { "DAYS PLAYED", formatNumber(journal.mDaysPlayed), "They don't need to be in a row", &mJournalIcons[1] };
-	stats[2] = { "YOUR STEPS", mHasSteps ? formatNumber(mStepsTotal) : std::string("---"), mHasSteps ? "Counted by your 3DS" : "Could not be read", &mJournalIcons[2] };
-	stats[3] = { "SONIC'S STEPS", formatNumber((uint32)std::min<uint64>(journal.mGameSteps, 0xffffffff)), "Running around in the game", &mJournalIcons[0] };
-	stats[4] = { "PLAY COINS SPENT", formatNumber(journal.mPlayCoinsSpent), (journal.mThingsBought == 1) ? std::string("On 1 thing in this menu") : ("On " + formatNumber(journal.mThingsBought) + " things in this menu"), &mJournalIcons[3] };
+	stats[2] = { "SONIC'S STEPS", formatNumber((uint32)std::min<uint64>(journal.mGameSteps, 0xffffffff)), "Running around in the game", &mJournalIcons[2] };
+	stats[3] = { "PLAY COINS SPENT", formatNumber(journal.mPlayCoinsSpent), (journal.mThingsBought == 1) ? std::string("On 1 thing in this menu") : ("On " + formatNumber(journal.mThingsBought) + " things in this menu"), &mJournalIcons[3] };
 	{
 		const std::vector<SharedDatabase::Achievement>& achievements = SharedDatabase::getAchievements();
 		int completed = 0;
@@ -2454,11 +2398,12 @@ void N3DSMenu::renderStats(float alpha)
 			if (PlayerProgress::instance().mAchievements.getAchievementState(achievement.mType) != 0)
 				++completed;
 		}
-		stats[5] = { "ACHIEVEMENTS", String(0, "%d / %d", completed, (int)achievements.size()).toStdString(), "Completed so far", &mJournalIcons[4] };
+		stats[4] = { "ACHIEVEMENTS", String(0, "%d / %d", completed, (int)achievements.size()).toStdString(), "Completed so far", &mJournalIcons[4] };
 	}
-	stats[6] = { "SCREENSHOTS", formatNumber(journal.mScreenshots), "Taken with L + R", &mJournalIcons[5] };
-	stats[7] = { "POSTCARDS", String(0, "%d / %d", (int)journal.mPostcards.size(), n3ds::journal::getNumPossiblePostcards()).toStdString(),
+	stats[5] = { "SCREENSHOTS", formatNumber(journal.mScreenshots), "Taken with L + R", &mJournalIcons[5] };
+	stats[6] = { "POSTCARDS", String(0, "%d / %d", (int)journal.mPostcards.size(), n3ds::journal::getNumPossiblePostcards()).toStdString(),
 				 (journal.mCardsCompleted == 1) ? std::string("1 stamp card completed") : (formatNumber(journal.mCardsCompleted) + " stamp cards completed"), &mStampIcons[6] };
+	stats[7] = { "JOURNAL STARTED", n3ds::journal::formatDate(journal.mStartedDate), "Here's to many more days!", &mJournalIcons[6] };
 
 	for (int k = 0; k < 8; ++k)
 	{
