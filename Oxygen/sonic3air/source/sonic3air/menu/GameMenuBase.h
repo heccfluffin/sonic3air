@@ -210,6 +210,11 @@ protected:
 	bool updateFadeIn(float timeStep);
 	bool updateFadeOut(float timeStep);
 
+	// L / R: the previous / next tab from anywhere in a menu with tabs, like in the 3DS's own menus.
+	// Returns true if the tab changed; "activeMenu" then is the new tab's first entry if the cursor was in a tab's content, otherwise the tab row.
+	static bool switchTabWithShoulderButtons(GameMenuEntry& tabEntry, size_t& activeTab, GameMenuEntries*& activeMenu, GameMenuEntries& tabMenuEntries,
+											 const std::function<GameMenuEntries*(size_t)>& getTabContent);
+
 protected:
 	float mVisibility = 0.0f;
 };

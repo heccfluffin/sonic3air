@@ -300,8 +300,15 @@ void ModsMenu::update(float timeElapsed)
 					TOGGLE_INFO,
 					BACK
 				};
-				const ButtonEffect buttonEffect = (keys.Right.justPressed() && mActiveTab == 0) ? ButtonEffect::SWITCH_TAB :
-												  (keys.Left.justPressed() && mActiveTab == 1) ? ButtonEffect::SWITCH_TAB :
+			#if defined(PLATFORM_3DS)
+				const bool shoulderRight = keys.R.justPressed();		// L / R switch tabs too, like in the 3DS's own menus
+				const bool shoulderLeft = keys.L.justPressed();
+			#else
+				const bool shoulderRight = false;
+				const bool shoulderLeft = false;
+			#endif
+				const ButtonEffect buttonEffect = ((keys.Right.justPressed() || shoulderRight) && mActiveTab == 0) ? ButtonEffect::SWITCH_TAB :
+												  ((keys.Left.justPressed() || shoulderLeft) && mActiveTab == 1) ? ButtonEffect::SWITCH_TAB :
 												  (keys.Y.justPressed()) ? ButtonEffect::TOGGLE_INFO :
 												  (keys.Start.justPressed() || keys.Back.justPressed() || keys.B.justPressed()) ? ButtonEffect::BACK : ButtonEffect::NONE;
 

@@ -502,6 +502,34 @@ size_t GameMenuEntries::getNextInteractableIndex(size_t index, bool loop) const
 
 
 
+bool GameMenuBase::switchTabWithShoulderButtons(GameMenuEntry& tabEntry, size_t& activeTab, GameMenuEntries*& activeMenu, GameMenuEntries& tabMenuEntries,
+												const std::function<GameMenuEntries*(size_t)>& getTabContent)
+{
+	const InputManager::ControllerScheme& keys = InputManager::instance().getController(0);
+	const int change = keys.L.justPressed() ? -1 : keys.R.justPressed() ? 1 : 0;
+	if (change == 0 || !tabEntry.changeSelectedIndex(change))
+		return false;
+
+	activeTab = tabEntry.mSelectedIndex;
+	if (activeMenu != &tabMenuEntries)
+	{
+		// The cursor was in a tab's content: to the first entry of the new tab (its entry 0 stands for the tab row)
+		GameMenuEntries* content = getTabContent(activeTab);
+		const size_t first = (nullptr != content) ? content->getNextInteractableIndex(0, false) : 0;
+		if (first != 0)
+		{
+			activeMenu = content;
+			content->mSelectedEntryIndex = (int)first;
+		}
+		else
+		{
+			activeMenu = &tabMenuEntries;
+		}
+	}
+	playMenuSound(0xb7);
+	return true;
+}
+
 void GameMenuBase::playMenuSound(uint8 sfxId)
 {
 	// Potentially suited menu sounds:

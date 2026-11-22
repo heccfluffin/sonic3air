@@ -121,50 +121,50 @@ namespace
 	const PostcardView POSTCARD_VIEWS[] =
 	{
 		{ "zone01_act1a", 40, "The jungle by the sea" },
-		{ "zone01_act1b", 60, "The jungle on fire" },
+		{ "zone01_act1b", 60, "Catakiller Jr. in the fire" },
 		{ "zone01_act2a", 180, "After the fire" },
 		{ "zone01_act2b", 220, "Deep in the jungle" },
-		{ "zone02_act1a", 60, "Hydrocity's waterfalls" },
+		{ "zone02_act1a", 60, "A Turbo Spiker by the falls" },
 		{ "zone02_act1b", 0, "Under the water" },
 		{ "zone02_act2a", 50, "The big water slide" },
-		{ "zone02_act2b", 200, "Down the waterways" },
+		{ "zone02_act2b", 200, "Jawz in the waterways" },
 		{ "zone03_act1a", 180, "The fruit trees of the ruins" },
 		{ "zone03_act1b", 60, "Over the green hills" },
-		{ "zone03_act2a", 100, "Among the old pillars" },
+		{ "zone03_act2a", 100, "A Mantis among the pillars" },
 		{ "zone03_act2b", 180, "Palm trees and ruins" },
 		{ "zone04_act1a", 120, "Carnival lights" },
-		{ "zone04_act1b", 280, "The striped barrel" },
+		{ "zone04_act1b", 280, "A Batbot by the barrel" },
 		{ "zone04_act2a", 100, "Balloons at the carnival" },
-		{ "zone04_act2b", 160, "The carnival after dark" },
+		{ "zone04_act2b", 160, "A Batbot after dark" },
 		{ "zone05_act1a", 160, "Ice crystals" },
 		{ "zone05_act1b", 120, "The snowfields" },
-		{ "zone05_act2a", 60, "Below the ice cliffs" },
+		{ "zone05_act2a", 60, "A Star Pointer on the ice" },
 		{ "zone05_act2b", 140, "Glittering ice caves" },
-		{ "zone06_act1a", 200, "The towers of the base" },
+		{ "zone06_act1a", 200, "A Ribot by the towers" },
 		{ "zone06_act1b", 280, "The flying saucer" },
 		{ "zone06_act2a", 80, "The launch pool" },
 		{ "zone06_act2b", 200, "Inside the base" },
-		{ "zone07_act1a", 200, "The mushroom woods" },
-		{ "zone07_act1b", 140, "Among the tall trees" },
-		{ "zone07_act2a", 120, "Autumn leaves" },
+		{ "zone07_act1a", 200, "Butterdroids in the woods" },
+		{ "zone07_act1b", 140, "A Mushmeanie in the trees" },
+		{ "zone07_act2a", 120, "A Dragonfly in the leaves" },
 		{ "zone07_act2b", 180, "Giant mushrooms" },
-		{ "zone08_act1a", 220, "The airship in the sky" },
-		{ "zone08_act1b", 0, "Inside the airship" },
+		{ "zone08_act1a", 220, "Dropping in by parachute" },
+		{ "zone08_act1b", 0, "A Blaster inside the airship" },
 		{ "zone08_act2a", 60, "The engine rooms" },
 		{ "zone08_act2b", 170, "On top of the airship" },
-		{ "zone09_act1a", 160, "Sunset over the desert" },
+		{ "zone09_act1a", 160, "A Sandworm at sunset" },
 		{ "zone09_act1b", 20, "Inside the pyramid" },
 		{ "zone09_act2a", 220, "The torchlit halls" },
 		{ "zone09_act2b", 0, "Sinking sands" },
 		{ "zone10_act1a", 180, "The lava works" },
-		{ "zone10_act1b", 220, "The rocks of the reef" },
-		{ "zone10_act2a", 180, "Crystals of the reef" },
+		{ "zone10_act1b", 220, "A rock that looks back" },
+		{ "zone10_act2a", 180, "Eyes in the crystals" },
 		{ "zone10_act2b", 160, "Deep in the reef" },
 		{ "zone11_act1a", 280, "The palace walls" },
 		{ "zone11_act1b", 140, "The Master Emerald" },
 		{ "zone12_act1a", 0, "Ruins above the clouds" },
-		{ "zone12_act1b", 260, "High in the sky" },
-		{ "zone13_act1a", 0, "A spiky welcome" },
+		{ "zone12_act1b", 260, "An Eggrobo high in the sky" },
+		{ "zone13_act1a", 0, "A Spikebonker's welcome" },
 		{ "zone13_act1b", 0, "The conveyor halls" },
 		{ "zone13_act2a", 280, "Eggman's monitors" },
 		{ "zone13_act2b", 0, "A window on the world" },
@@ -1107,7 +1107,7 @@ void N3DSMenu::update(float timeElapsed)
 	{
 		// Left / right for the other postcards, any button back to the journal
 		GameMenuEntry& entry = mActiveMenu->selected();
-		const int direction = keys.Left.justPressedOrRepeat() ? -1 : keys.Right.justPressedOrRepeat() ? 1 : 0;
+		const int direction = (keys.Left.justPressedOrRepeat() || keys.L.justPressedOrRepeat()) ? -1 : (keys.Right.justPressedOrRepeat() || keys.R.justPressedOrRepeat()) ? 1 : 0;
 		if (direction != 0 && entry.mData == JOURNAL_POSTCARDS)
 		{
 			const int index = (int)entry.mSelectedIndex + direction;
@@ -1138,6 +1138,8 @@ void N3DSMenu::update(float timeElapsed)
 	}
 	else if (mState == State::SHOW)
 	{
+		switchTabWithShoulderButtons(mTabMenuEntries[0], mActiveTab, mActiveMenu, mTabMenuEntries, [this](size_t tab) { return &mTabs[tab].mMenuEntries; });
+
 		if (mActiveMenu == &mTabMenuEntries && (keys.Down.justPressedOrRepeat() || keys.Up.justPressedOrRepeat()))
 		{
 			// Switch from title to tab content
@@ -1579,7 +1581,10 @@ void N3DSMenu::render()
 				}
 				else if (tabIndex == Tab::Id::THEMES && entry.mData == AUTO_THEME)
 				{
-					description = "Follows the 3DS clock: Aurora in the morning, Blue by day, Sunset Glow in the evening, Starry Night after dark. Uses the ones you own.";
+					// Which one it is right now: during the day that's Blue Zig-Zag, so selecting it then doesn't seem to change anything
+					const int now = n3ds::shop::resolveTheme(n3ds::shop::THEME_AUTO);
+					description = std::string("Follows the 3DS clock: Aurora 6-9, Blue Zig-Zag by day, Sunset Glow 17-20, Starry Night after dark (if you own them). Now: ")
+								  + ((now >= 0 && now < n3ds::shop::_NUM_THEMES && nullptr != THEMES[now].mName) ? THEMES[now].mName : "Blue Zig-Zag") + ".";
 					if (shop.mSelectedTheme == n3ds::shop::THEME_AUTO)
 					{
 						status = "ACTIVE";

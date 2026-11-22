@@ -209,6 +209,11 @@ void ExtrasMenu::update(float timeElapsed)
 	{
 		const InputManager::ControllerScheme& keys = InputManager::instance().getController(0);
 
+	#if defined(PLATFORM_3DS)
+		switchTabWithShoulderButtons(mTabMenuEntries[0], mActiveTab, mActiveMenu, mTabMenuEntries,
+									 [this](size_t tab) { return showExtrasMenuTabContent((int)tab) ? &mTabs[tab].mMenuEntries : nullptr; });
+	#endif
+
 		if (mActiveMenu == &mTabMenuEntries && (keys.Down.justPressedOrRepeat() || keys.Up.justPressedOrRepeat()) && showExtrasMenuTabContent((int)mActiveTab))
 		{
 			// Switch from title to tab content

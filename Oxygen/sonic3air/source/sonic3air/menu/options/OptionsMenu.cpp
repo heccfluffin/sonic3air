@@ -444,6 +444,11 @@ void OptionsMenu::update(float timeElapsed)
 		mOptionEntries[option::MASTER_VOLUME].loadValue();
 		mOptionEntries[option::RENDERER].mGameMenuEntry->setSelectedIndexByValue((int)config.mRenderMethod);
 
+	#if defined(PLATFORM_3DS)
+		if (switchTabWithShoulderButtons(mTabMenuEntries[0], mActiveTab, mActiveMenu, mTabMenuEntries, [this](size_t tab) { return &mTabs[tab].mMenuEntries; }))
+			refreshControlsDisplay();
+	#endif
+
 		if (mActiveMenu == &mTabMenuEntries && (keys.Down.justPressedOrRepeat() || keys.Up.justPressedOrRepeat()))
 		{
 			// Switch from title to tab content
