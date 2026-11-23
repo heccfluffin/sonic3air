@@ -100,6 +100,9 @@ namespace n3ds
 		// Uses one voucher, false if there's none
 		bool useVoucher();
 
+		// Vouchers from elsewhere (like Robotnik medal levels); shown with the next reward notice
+		void addVouchers(int count);
+
 		// Opens a bonus box with the given gift inside, ready for the next act; choosing again while one is ready only changes
 		// what's inside, without another box. False if there's no box.
 		bool prepareBonus(int gift);

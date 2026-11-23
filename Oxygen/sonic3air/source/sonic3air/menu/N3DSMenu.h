@@ -57,7 +57,8 @@ private:
 			THEMES	= 0,
 			SECRETS	= 1,
 			SHIELD	= 2,
-			JOURNAL	= 3
+			JOURNAL	= 3,
+			CHALLENGE = 4		// Doctor Robotnik's Daily Challenge
 		};
 		GameMenuEntries mMenuEntries;
 	};
@@ -82,6 +83,7 @@ private:
 	void openPostcard();
 	void renderPostcard(float alpha);
 	void renderStats(float alpha);
+	void createRobotnik();
 	void updateJournalAnimations(float timeElapsed);
 	void createIcons();
 
@@ -101,7 +103,7 @@ private:
 	MenuBackground* mMenuBackground = nullptr;
 
 	GameMenuEntries mTabMenuEntries;
-	static const int NUM_TABS = 4;
+	static const int NUM_TABS = 5;
 	Tab mTabs[NUM_TABS];
 	size_t mActiveTab = 0;
 	float mActiveTabAnimated = 0.0f;
@@ -159,6 +161,16 @@ private:
 	float mPostcardAnimationStart = -1.0f;
 	bool mStampSoundPlayed = false;
 	bool mPostcardSoundPlayed = false;
+
+	// Doctor Robotnik in his Egg Mobile, drawn from the player's ROM when the challenge tab is first shown: head talking (2 frames),
+	// hurt and defeated; and the game's monitors for the challenges (with his face, and broken once beaten)
+	DrawerTexture mRobotnik[4];
+	bool mRobotnikCreated = false;
+	bool mHasRobotnik = false;
+	DrawerTexture mEggmanMonitor;
+	DrawerTexture mBrokenMonitor;
+	std::string mRobotnikLine;			// What he says right now, to notice when it changes
+	float mRobotnikTalkStart = 0.0f;	// He moves his mouth for a moment after that
 };
 
 #endif

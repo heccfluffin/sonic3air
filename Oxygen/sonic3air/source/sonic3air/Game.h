@@ -157,6 +157,12 @@ private:
 	// Whether the character is in a level and can get a shield or rings right now (false in the outro, special stages and the like)
 	bool canGiveGiftNow() const;
 	bool giveShield(int shield);		// As in n3ds::shop::Shield; false if it can't be given
+
+	// Sonic's steps for the journal, and Doctor Robotnik's daily challenges: what happens in the level, every frame
+	void updateLevelTracking();
+	bool isChallengeModeActive() const;		// Normal game or Act Select
+	uint16 mChallengeZoneAct = 0xffff;		// The act being tracked
+	bool mChallengeHit = false;				// The character got hurt (or died) in it
 #endif
 	PlayerRecorder mPlayerRecorder;
 	GameClient mGameClient;

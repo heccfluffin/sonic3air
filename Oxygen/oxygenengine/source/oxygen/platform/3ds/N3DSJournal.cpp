@@ -391,7 +391,10 @@ namespace n3ds
 			gData.mWelcomePostcard = true;
 			const bool added = addPostcard();
 			gNewPostcardNotice = false;		// It's shown right away
-			save();
+
+			// Saved a bit later, not right away: the album loads the postcard's picture now, and while the SD card writes the file
+			// (about 2 seconds on a slow card), reading anything else from it waits - the menu froze for that long
+			gNextSave = svcGetSystemTick() + 15 * (uint64_t)SYSCLOCK_ARM11;
 			return added;
 		}
 
@@ -410,6 +413,15 @@ namespace n3ds
 			--gData.mVouchers;
 			save();
 			return true;
+		}
+
+		void addVouchers(int count)
+		{
+			load();
+			if (count <= 0)
+				return;
+			gData.mVouchers += (uint32_t)count;
+			save();
 		}
 
 		bool prepareBonus(int gift)

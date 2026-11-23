@@ -34,6 +34,7 @@
 	#include "oxygen/platform/3ds/N3DSExitGuard.h"
 	#include "oxygen/platform/3ds/N3DSFileWriter.h"
 	#include "oxygen/platform/3ds/N3DSLog.h"
+	#include "oxygen/platform/3ds/N3DSChallenges.h"
 	#include "oxygen/platform/3ds/N3DSJournal.h"
 	#include "oxygen/platform/3ds/N3DSNotificationLight.h"
 	#include "oxygen/platform/3ds/N3DSSplash.h"
@@ -381,6 +382,7 @@ void EngineMain::run()
 	mInternal.mModManager.copyModSettingsToConfig();
 	Configuration::instance().saveSettings();
 	n3ds::journal::save();		// Play time since the last save
+	n3ds::challenges::save();	// Progress of the daily challenges
 	n3ds::exitguard::step("finishing background file writes");
 	n3ds::filewriter::waitUntilDone();		// The settings, and maybe a save state, the game's save data or the 3DS menu's file
 	n3ds::log::setSynchronous();			// The exit steps from here on go to the log file directly

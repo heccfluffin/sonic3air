@@ -25,6 +25,7 @@
 #include "oxygen/helper/FileHelper.h"
 #include "oxygen/helper/Utils.h"
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
+#include "oxygen/platform/3ds/N3DSChallenges.h"
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
 #include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSPlayCoins.h"
@@ -59,6 +60,8 @@ namespace
 	static constexpr uint32 JOURNAL_STATS = 0x609;			// Opens the page with all the numbers above
 	static constexpr uint32 JOURNAL_BONUS = 0x60a;			// Bonus box, with the gift to choose as options
 	static constexpr uint32 JOURNAL_VOUCHERS = 0x60b;
+	static constexpr uint32 CHALLENGE_MEDAL = 0x700;		// Doctor Robotnik's Daily Challenge: him, and the Robotnik medal
+	static constexpr uint32 CHALLENGE_FIRST = 0x701;		// Today's three challenges, 0x701 to 0x703
 
 	std::string formatNumber(uint32 value)
 	{
@@ -202,7 +205,14 @@ namespace
 		// Tails jumping back in shock (his hurt frame)
 		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x14a08a, 0x89, 0x3200e0 } }, 0x0a8a3c,
 		  { { 0x148eb8, 0x0000, 0x89, 0, 0, 0x100 } } },
+		// Doctor Robotnik in the Egg Mobile (its full body, frame 10), with his head on top (robotnikhead.lemon): talking (frames 0 and 1),
+		// hurt (2) and defeated (3)
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 0, 0, -28, 0x280 } } },
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 1, 0, -28, 0x280 } } },
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 2, 0, -28, 0x280 } } },
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 3, 0, -28, 0x280 } } },
 	};
+	const int ROBOTNIK_ROM_SPRITE = 6;		// The first of his four
 
 	// The bosses' arenas, drawn from the level in the ROM (positions from the boss scripts and the level object lists)
 	using LevelView = n3ds::romsprites::LevelView;
@@ -553,7 +563,8 @@ N3DSMenu::N3DSMenu(MenuBackground& menuBackground) :
 					.addOption("THEMES",  Tab::Id::THEMES)
 					.addOption("SECRETS", Tab::Id::SECRETS)
 					.addOption("SHIELD",  Tab::Id::SHIELD)
-					.addOption("JOURNAL", Tab::Id::JOURNAL);
+					.addOption("JOURNAL", Tab::Id::JOURNAL)
+					.addOption("CHALLENGE", Tab::Id::CHALLENGE);
 
 	for (int i = 0; i < NUM_TABS; ++i)
 	{
@@ -605,8 +616,11 @@ void N3DSMenu::onFadeIn()
 	const bool newStamp = n3ds::journal::takeNewStampNotice();
 	const bool newPostcard = n3ds::journal::takeNewPostcardNotice();
 	const bool newRewards = n3ds::journal::takeNewRewardNotice();
+	const bool beatenChallenge = (n3ds::challenges::takeBeatenNotice() >= 0);
+	const bool medalLevelUp = n3ds::challenges::takeLevelUpNotice();
 	showMessage(newPostcard ? (greeting + (newRewards ? " Postcard and gifts in your Journal!" : " A postcard arrived in your Journal!")) :
-				newRewards ? (greeting + " Gifts arrived in your Journal!") : newStamp ? (greeting + " New stamp in your Journal!") : greeting, false);
+				newRewards ? (greeting + " Gifts arrived in your Journal!") : newStamp ? (greeting + " New stamp in your Journal!") :
+				medalLevelUp ? (greeting + " Robotnik medal level up - a voucher!") : beatenChallenge ? (greeting + " Robotnik is fuming!") : greeting, false);
 	mPendingStampAnimation = newStamp;
 	mPendingPostcardAnimation = newPostcard;
 	mJournalAnimationTime = -1.0f;
@@ -793,6 +807,21 @@ void N3DSMenu::createIcons()
 			mJournalIcons[k].bitmapUpdated();
 		}
 		mHasJournalIcons = true;
+
+		// Daily challenges: a monitor with Robotnik's face, and a broken one for a beaten challenge
+		{
+			Bitmap& bitmap = mEggmanMonitor.accessBitmap();
+			bitmap.create(32, 32, 0);
+			copyRect(bitmap, 0, 0, 32, 32, 0, 0, false);
+			copyRect(bitmap, 80, 48, 16, 16, 8, 3, true);
+			mEggmanMonitor.bitmapUpdated();
+		}
+		{
+			Bitmap& bitmap = mBrokenMonitor.accessBitmap();
+			bitmap.create(32, 32, 0);
+			copyRect(bitmap, 32, 0, 32, 32, 0, 0, false);
+			mBrokenMonitor.bitmapUpdated();
+		}
 	}
 
 	// Sonic's Drop Dash and Super Peel-Out sprites (definitions as in the game's "data/sprites/characters/sonic_additional.json")
@@ -1055,6 +1084,19 @@ void N3DSMenu::rebuildTabs()
 		}
 		entries.addEntry("Vouchers", JOURNAL_VOUCHERS);
 		entries.addEntry("Stats", JOURNAL_STATS);
+		entries.addEntry("Back", BACK);
+		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
+	}
+
+	// Doctor Robotnik's Daily Challenge: him with the medal, and today's three challenges
+	{
+		GameMenuEntries& entries = mTabs[Tab::Id::CHALLENGE].mMenuEntries;
+		const int selected = entries.mSelectedEntryIndex;
+		entries.resize(1);
+		n3ds::challenges::get(PlayerProgress::instance().mUnlocks.mFinishedZoneAct);
+		entries.addEntry("Robotnik Medal", CHALLENGE_MEDAL);
+		for (int k = 0; k < n3ds::challenges::NUM_PER_DAY; ++k)
+			entries.addEntry((k == 0) ? "Easy" : (k == 1) ? "Medium" : "Hard", CHALLENGE_FIRST + k);
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -1380,6 +1422,27 @@ void N3DSMenu::onAccept()
 		return;
 	}
 
+	if (mActiveTab == Tab::Id::CHALLENGE)
+	{
+		const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+		if (data >= CHALLENGE_FIRST && data < CHALLENGE_FIRST + n3ds::challenges::NUM_PER_DAY && challenges.mChallenges[data - CHALLENGE_FIRST].mDone)
+		{
+			playMenuSound(0x6b);
+			showMessage("Already beaten! Robotnik is still fuming", false);
+		}
+		else if (data == CHALLENGE_MEDAL)
+		{
+			playMenuSound(0x5b);
+			showMessage(String(0, "%u challenges beaten, %u perfect days", (unsigned)challenges.mBeaten, (unsigned)challenges.mPerfectDays).toStdString(), false);
+		}
+		else
+		{
+			playMenuSound(0x5b);
+			showMessage("Start a normal game or Act Select - it counts right away", false);
+		}
+		return;
+	}
+
 	if (mActiveTab == Tab::Id::JOURNAL)
 	{
 		const n3ds::journal::Data& journal = n3ds::journal::get();
@@ -1605,6 +1668,7 @@ void N3DSMenu::render()
 			const char* text = (tabIndex == Tab::Id::THEMES) ? "Pick a look for the bottom screen" :
 							   (tabIndex == Tab::Id::SECRETS) ? "Unlock secrets early with Play Coins" :
 							   (tabIndex == Tab::Id::JOURNAL) ? "Your days with Sonic 3 A.I.R. on this 3DS" :
+							   (tabIndex == Tab::Id::CHALLENGE) ? "Doctor Robotnik's Daily Challenge" :
 							   shop.mOwnsShield ? "Start each act and life with this shield" : "Start each act and life with a shield";
 			py += 3;
 			drawer.printText(global::mSonicFontB, Recti(baseX, py, 0, 10), text, 5, Color(0.6f, 0.8f, 1.0f, tabAlpha));
@@ -1633,9 +1697,10 @@ void N3DSMenu::render()
 
 				// Card background, like in the Extras menu
 				DrawerTexture& frameTexture = global::mAchievementsFrame;
-				const bool isPostcards = (tabIndex == Tab::Id::JOURNAL && entry.mData == JOURNAL_POSTCARDS);		// A taller card, for the whole picture
-				const int cardHeight = isPostcards ? 92 : 56;
-				drawer.drawRect(Recti(px - 185, py, frameTexture.getWidth(), isPostcards ? (frameTexture.getHeight() + cardHeight - 56) : frameTexture.getHeight()), frameTexture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+				const bool isTall = (tabIndex == Tab::Id::JOURNAL && entry.mData == JOURNAL_POSTCARDS) ||		// A taller card, for the whole picture
+									(tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_MEDAL);		// Or for Robotnik and his medal
+				const int cardHeight = isTall ? 92 : 56;
+				drawer.drawRect(Recti(px - 185, py, frameTexture.getWidth(), isTall ? (frameTexture.getHeight() + cardHeight - 56) : frameTexture.getHeight()), frameTexture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 
 				// Picture on the left, and texts
 				const Recti imageRect(px - 183, py + 2, 64, 48);
@@ -2086,7 +2151,7 @@ void N3DSMenu::render()
 						case JOURNAL_VOUCHERS:
 							status = (journal.mVouchers == 0) ? std::string("NONE YET") : (journal.mVouchers == 1) ? std::string("1 VOUCHER") : (formatNumber(journal.mVouchers) + " VOUCHERS");
 							statusColor = (journal.mVouchers > 0) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.6f, 0.6f, 0.7f, tabAlpha);
-							description = String(0, "%d Play Coins off a purchase in this menu, used by itself. One for every full stamp card.", n3ds::journal::VOUCHER_PLAY_COINS).toStdString();
+							description = String(0, "%d Play Coins off a purchase in this menu, used by itself. One for every full stamp card and Robotnik medal level.", n3ds::journal::VOUCHER_PLAY_COINS).toStdString();
 							icon = mHasJournalIcons ? &mJournalIcons[3] : nullptr;		// The ring
 							iconAlpha = (journal.mVouchers > 0) ? 1.0f : 0.4f;
 							break;
@@ -2094,6 +2159,135 @@ void N3DSMenu::render()
 					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
 					if (nullptr != icon)
 						drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 8, 32, 32), *const_cast<DrawerTexture*>(icon), Color(1.0f, 1.0f, 1.0f, tabAlpha * iconAlpha));
+				}
+				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_MEDAL)
+				{
+					// Doctor Robotnik hovering in his Egg Mobile, with what he thinks of today's challenges, and the Robotnik medal
+					customText = true;
+					createRobotnik();
+					const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+					int beatenToday = 0;
+					for (const n3ds::challenges::Challenge& challenge : challenges.mChallenges)
+						beatenToday += challenge.mDone ? 1 : 0;
+
+					// Which challenge is selected, if any: he talks about that one
+					int selectedChallenge = -1;
+					if (mActiveMenu == &tab.mMenuEntries)
+					{
+						const uint32 data = tab.mMenuEntries[tab.mMenuEntries.mSelectedEntryIndex].mData;
+						if (data >= CHALLENGE_FIRST && data < CHALLENGE_FIRST + n3ds::challenges::NUM_PER_DAY)
+							selectedChallenge = (int)(data - CHALLENGE_FIRST);
+					}
+					std::string line;
+					if (selectedChallenge >= 0)
+						line = n3ds::challenges::getTaunt(selectedChallenge, challenges.mChallenges[selectedChallenge].mDone, challenges.mDate);
+					else if (beatenToday == n3ds::challenges::NUM_PER_DAY)
+						line = "All three?! Grr... Enjoy your medal. Tomorrow, you're MINE!";
+					else if (beatenToday > 0)
+						line = "Lucky, hedgehog! The rest will crush you. Hohoho!";
+					else
+						line = "Hohoho! Three new challenges, just for you. You'll never beat them all!";
+					const float time = (float)FTX::getTime();
+					if (line != mRobotnikLine)
+					{
+						mRobotnikLine = line;
+						mRobotnikTalkStart = time;
+					}
+
+					// His face: defeated once all are beaten, hurt when looking at a beaten one, otherwise talking for a moment
+					int face = 0;
+					int shakeX = 0;
+					if (beatenToday == n3ds::challenges::NUM_PER_DAY)
+						face = 3;
+					else if (selectedChallenge >= 0 && challenges.mChallenges[selectedChallenge].mDone)
+					{
+						face = 2;
+						shakeX = (time - mRobotnikTalkStart < 0.5f) ? (((int)(time * 30.0f) % 2) ? 1 : -1) : 0;
+					}
+					else if (time - mRobotnikTalkStart < 1.6f)
+						face = ((int)(time * 7.0f) % 2 == 0) ? 1 : 0;
+					if (mHasRobotnik)
+					{
+						DrawerTexture& texture = mRobotnik[face];
+						const int bob = roundToInt(std::sin(time * 2.2f) * 3.0f);
+						drawer.drawRect(Recti(px - 176 + shakeX, py + 20 + bob, texture.getWidth(), texture.getHeight()), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+					}
+					else
+					{
+						drawer.drawRect(Recti(px - 170, py + 28, 32, 32), mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+					}
+
+					// Speech bubble, pointing at him
+					const Recti bubble(px - 112, py + 8, 178, 50);
+					const Color bubbleColor(0.98f, 0.96f, 0.9f, tabAlpha);
+					drawer.drawRect(Recti(bubble.x - 1, bubble.y - 1, bubble.width + 2, bubble.height + 2), Color(0.2f, 0.1f, 0.1f, tabAlpha));
+					drawer.drawRect(bubble, bubbleColor);
+					for (int k = 0; k < 4; ++k)
+						drawer.drawRect(Recti(bubble.x - 2 - k * 2, bubble.y + 28 + k, 2 + k * 2, 6 - k * 2 > 0 ? 6 - k * 2 : 1), bubbleColor);
+					std::vector<std::string_view> textLines;
+					utils::splitTextIntoLines(textLines, mRobotnikLine, global::mOxyfontTiny, bubble.width - 10);
+					const int textY = bubble.y + std::max(4, (bubble.height - (int)std::min<size_t>(textLines.size(), 4) * 10) / 2);
+					for (size_t k = 0; k < textLines.size() && k < 4; ++k)
+						drawer.printText(global::mOxyfontTiny, Recti(bubble.x + 5, textY + (int)k * 10, 0, 10), textLines[k], 1, Color(0.35f, 0.08f, 0.05f, tabAlpha));
+
+					// The Robotnik medal: a gold medal on a red ribbon, with its level
+					const int level = n3ds::challenges::getLevel(challenges.mXp);
+					const int medalX = px + 92;
+					const int medalY = py + 24;
+					drawer.drawRect(Recti(medalX - 8, py + 6, 6, 12), Color(0.85f, 0.15f, 0.15f, tabAlpha));
+					drawer.drawRect(Recti(medalX + 2, py + 6, 6, 12), Color(0.7f, 0.1f, 0.1f, tabAlpha));
+					static const int MEDAL_ROWS[14] = { 4, 7, 9, 10, 11, 11, 12, 12, 11, 11, 10, 9, 7, 4 };		// Half widths of a round medal
+					for (int row = 0; row < 14; ++row)
+					{
+						const int half = MEDAL_ROWS[row];
+						drawer.drawRect(Recti(medalX - half, medalY - 7 + row, half * 2, 1), (row < 3) ? Color(1.0f, 0.95f, 0.55f, tabAlpha) : (row > 10) ? Color(0.75f, 0.5f, 0.1f, tabAlpha) : Color(1.0f, 0.8f, 0.2f, tabAlpha));
+					}
+					drawer.printText(global::mOxyfontSmall, Recti(medalX, medalY - 2, 0, 10), std::to_string(level), 5, Color(0.45f, 0.2f, 0.0f, tabAlpha));
+
+					drawer.printText(global::mSonicFontB, Recti(px + 110, py + 9, 0, 10), String(0, "LEVEL %d", level), 1, color);
+					drawer.printText(global::mOxyfontTiny, Recti(px + 110, py + 22, 0, 10), n3ds::challenges::getRank(level), 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+
+					// Experience toward the next level (and its voucher)
+					const int xpInLevel = (int)(challenges.mXp % n3ds::challenges::XP_PER_LEVEL);
+					const Recti bar(px + 74, py + 40, 104, 5);
+					drawer.drawRect(Recti(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2), Color(0.1f, 0.05f, 0.05f, tabAlpha));
+					drawer.drawRect(Recti(bar.x, bar.y, bar.width * xpInLevel / n3ds::challenges::XP_PER_LEVEL, bar.height), Color(0.95f, 0.3f, 0.2f, tabAlpha));
+					drawer.printText(global::mOxyfontTiny, Recti(bar.x + bar.width, bar.y + 8, 0, 10), String(0, "%d / %d XP", xpInLevel, n3ds::challenges::XP_PER_LEVEL), 3, color2);
+
+					// Today, and when the next ones come
+					const n3ds::profile::LocalTime now = n3ds::profile::getLocalTime();
+					const int minutesLeft = 24 * 60 - (now.mHour * 60 + now.mMinute);
+					drawer.printText(global::mOxyfontTiny, Recti(px - 112, py + 66, 0, 10), String(0, "Beaten today: %d / %d", beatenToday, n3ds::challenges::NUM_PER_DAY), 1,
+									 (beatenToday == n3ds::challenges::NUM_PER_DAY) ? Color(0.5f, 1.0f, 0.6f, tabAlpha) : color2);
+					drawer.printText(global::mOxyfontTiny, Recti(px - 112, py + 77, 0, 10), String(0, "New ones in %d h %02d min", minutesLeft / 60, minutesLeft % 60), 1, color2);
+					drawer.printText(global::mOxyfontTiny, Recti(px + 178, py + 77, 0, 10), "A voucher every level", 3, Color(0.6f, 0.9f, 1.0f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData >= CHALLENGE_FIRST && entry.mData < CHALLENGE_FIRST + n3ds::challenges::NUM_PER_DAY)
+				{
+					// One of today's challenges: a monitor with Robotnik's face (broken once beaten), stars for how hard it is
+					const int index = (int)(entry.mData - CHALLENGE_FIRST);
+					const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+					const n3ds::challenges::Challenge& challenge = challenges.mChallenges[index];
+					drawer.drawRect(imageRect, Color(0.12f, 0.04f, 0.04f, tabAlpha));
+					drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 5, 32, 32), challenge.mDone ? mBrokenMonitor : mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+					const Color starColor = (index == 0) ? Color(0.4f, 1.0f, 0.4f, tabAlpha) : (index == 1) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(1.0f, 0.35f, 0.3f, tabAlpha);
+					for (int k = 0; k <= index; ++k)
+						drawSparkle(drawer, imageRect.x + 32 + (k * 2 - index) * 6, imageRect.y + 42, 3, starColor);
+
+					const std::string progress = n3ds::challenges::describeProgress(challenge);
+					if (challenge.mDone)
+					{
+						status = "BEATEN!";
+						statusColor = Color(0.5f, 1.0f, 0.6f, tabAlpha);
+						description = n3ds::challenges::describe(challenge) + String(0, ". Robotnik is fuming! +%d XP", n3ds::challenges::getXpFor(index)).toStdString();
+					}
+					else
+					{
+						status = String(0, "+%d XP", n3ds::challenges::getXpFor(index)).toStdString();
+						statusColor = starColor;
+						description = n3ds::challenges::describe(challenge) + "." + (progress.empty() ? std::string() : ("  " + progress + " so far.")) +
+									  "  Counts in a normal game or Act Select.";
+					}
 				}
 				else if (tabIndex == Tab::Id::SHIELD)
 				{
@@ -2360,6 +2554,23 @@ void N3DSMenu::renderPostcard(float alpha)
 	const String hint(0, "%s  %d of %d  %s        B: Back", canGoLeft ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)entry.mOptions.size(), canGoRight ? ">" : " ");
 	drawer.drawRect(Recti(0, (int)mRect.height - 16, (int)mRect.width, 16), Color(0.0f, 0.0f, 0.0f, 0.9f * alpha));
 	drawer.printText(global::mOxyfontSmall, Recti(200, (int)mRect.height - 12, 0, 10), hint, 5, Color(1.0f, 1.0f, 1.0f, alpha));
+}
+
+void N3DSMenu::createRobotnik()
+{
+	if (mRobotnikCreated)
+		return;
+	mRobotnikCreated = true;
+
+	// All four have the same size: his head is always within the Egg Mobile's width and at the same height
+	const uint64 startTicks = svcGetSystemTick();
+	mHasRobotnik = true;
+	for (int k = 0; k < 4 && mHasRobotnik; ++k)
+	{
+		mHasRobotnik = n3ds::romsprites::draw(ROM_SPRITES[ROBOTNIK_ROM_SPRITE + k], true, mRobotnik[k].accessBitmap());		// Facing right, to his speech bubble
+		mRobotnik[k].bitmapUpdated();
+	}
+	RMX_LOG_INFO("3DS menu: Robotnik " << (mHasRobotnik ? "drawn" : "could not be drawn") << " from the ROM (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
 }
 
 void N3DSMenu::renderStats(float alpha)

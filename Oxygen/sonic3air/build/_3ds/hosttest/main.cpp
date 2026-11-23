@@ -7,6 +7,7 @@
 #include "fake3ds.h"
 
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
+#include "oxygen/platform/3ds/N3DSChallenges.h"
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
 #include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
@@ -542,6 +543,69 @@ namespace
 		check(!n3ds::journal::giveWelcomePostcard(), "no second welcome postcard");
 	}
 
+	void challenges()
+	{
+		using namespace n3ds::challenges;
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+
+		// Today's challenges, set up by hand: 50 rings in Hydrocity, Angel Island 1 in under 2:30, Hydrocity without a hit
+		fake::setTime(2026, 11, 23, 18, 0);
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261123\nxp=90\nbeaten=9\nperfect_days=2\nzones=15\n"
+			"challenge=0 1 0 50 0 0\nchallenge=4 0 0 150 0 0\nchallenge=6 1 0 0 0 0\n";
+		const Data& data = get(15);
+		check(data.mDate == 20261123 && data.mXp == 90 && data.mChallenges[0].mType == Type::RINGS_IN_ZONE, "today's challenges are read back");
+		check(describe(data.mChallenges[0]) == "Collect 50 rings in Hydrocity" && describe(data.mChallenges[1]) == "Angel Island 1 in under 2:30" &&
+			  describe(data.mChallenges[2]) == "Clear Hydrocity without a hit", "... and described (" + describe(data.mChallenges[1]) + ")");
+
+		Frame frame;
+		frame.mZone = 0;
+		frame.mRings = 60;
+		onFrame(frame);
+		check(!data.mChallenges[0].mDone && data.mChallenges[0].mProgress == 0, "60 rings in Angel Island don't count for Hydrocity");
+		frame.mZone = 1;
+		frame.mRings = 49;
+		onFrame(frame);
+		check(!data.mChallenges[0].mDone && describeProgress(data.mChallenges[0]) == "49 / 50 rings", "49 rings in Hydrocity: not yet (" + describeProgress(data.mChallenges[0]) + ")");
+		frame.mRings = 50;
+		onFrame(frame);
+		check(data.mChallenges[0].mDone && data.mXp == 100 && getLevel(data.mXp) == 2, "50 rings: beaten, 10 XP, medal level 2");
+		check(takeBeatenNotice() == 0 && takeLevelUpNotice() && n3ds::journal::get().mVouchers == 1, "... with a Robotnik voucher for the new level");
+
+		onActCompleted(0, 0, 10, 160, false);
+		check(!data.mChallenges[1].mDone && describeProgress(data.mChallenges[1]) == "Best: 2:40", "Angel Island 1 in 2:40 is too slow");
+		onActCompleted(0, 1, 10, 100, false);
+		check(!data.mChallenges[1].mDone, "... and act 2 doesn't count");
+		onActCompleted(0, 0, 10, 140, false);
+		check(data.mChallenges[1].mDone && data.mXp == 120, "2:20: beaten, 20 XP");
+
+		onActCompleted(1, 1, 0, 100, true);
+		check(!data.mChallenges[2].mDone, "a hit in Hydrocity: not beaten");
+		onActCompleted(1, 0, 0, 100, false);
+		check(data.mChallenges[2].mDone && data.mXp == 150 && data.mPerfectDays == 3 && data.mBeaten == 12, "without a hit: beaten, 30 XP, a perfect day");
+
+		n3ds::filewriter::waitUntilDone();
+		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt");
+		check(saved.find("xp=150\n") != std::string::npos && saved.find("challenge=6 1 0 0 0 1\n") != std::string::npos, "saved right away");
+
+		// The next day: new challenges, the medal stays
+		fake::setTime(2026, 11, 24, 9, 0);
+		get();
+		check(data.mDate == 20261124 && data.mXp == 150 && !data.mChallenges[0].mDone && !data.mChallenges[1].mDone && !data.mChallenges[2].mDone,
+			  "a new day brings new challenges: " + describe(data.mChallenges[0]) + " / " + describe(data.mChallenges[1]) + " / " + describe(data.mChallenges[2]));
+
+		// Only zones already reached: with just Angel Island 1 finished, every challenge is there (or has no zone)
+		bool onlyAngelIsland = true;
+		for (int day = 1; day <= 28; ++day)
+		{
+			fake::setTime(2027, 2, day, 9, 0);
+			const Data& other = get(1);
+			for (const Challenge& challenge : other.mChallenges)
+				onlyAngelIsland = onlyAngelIsland && (challenge.mZone == 0);
+		}
+		check(onlyAngelIsland, "with only Angel Island reached, all challenges are there");
+		check(std::string(getRank(1)) == "Rookie" && std::string(getRank(99)) == "Robotnik's Nightmare", "medal ranks");
+	}
+
 	void postcardsAll()
 	{
 		// Loads of cards: every zone first, then the rest, and never more than there are pictures
@@ -585,7 +649,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

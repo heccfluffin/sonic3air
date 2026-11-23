@@ -17,7 +17,8 @@ namespace n3ds
 		enum class Color
 		{
 			PURPLE,		// Achievements and secrets
-			PINK		// The journal's stamp of the day
+			PINK,		// The journal's stamp of the day
+			RED			// A daily challenge of Doctor Robotnik beaten
 		};
 
 		// Lets the light glow in three soft breaths for a few seconds, then go dark again.

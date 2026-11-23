@@ -32,6 +32,7 @@
 #include "oxygen/simulation/EmulatorInterface.h"
 #include "oxygen/simulation/Simulation.h"
 #if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSChallenges.h"
 	#include "oxygen/platform/3ds/N3DSJournal.h"
 	#include "oxygen/platform/3ds/N3DSShop.h"
 #endif
@@ -578,19 +579,7 @@ void Game::onUpdateControls()
 	updateStartingShield();
 	updateBonusGift();
 
-	// Sonic's steps for the journal: running on the ground in a level (game mode 0x0c, not the attract demo), not rolling or in the air
-	{
-		EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
-		if (emulatorInterface.readMemory8(0xfffff600) == 0x0c && (int8)emulatorInterface.readMemory8(0xfffff711) != 0)		// global.level_started
-		{
-			if ((emulatorInterface.readMemory8(0xffffb000 + 0x2a) & 0x06) == 0)		// char.flags: not IN_AIR, not ROLLING
-			{
-				const int16 groundSpeed = (int16)emulatorInterface.readMemory16(0xffffb000 + 0x1c);
-				if (groundSpeed != 0)
-					n3ds::journal::addGameDistance((uint32)std::abs((int)groundSpeed));
-			}
-		}
-	}
+	updateLevelTracking();
 
 	// 3DS: on the SEGA logo, intro and title screen (game mode 0x04), A works like Start, as Start is small and out of the way.
 	// Only while the title is actually running (not behind the A.I.R. menus), so A keeps its usual meaning everywhere else.
@@ -1013,6 +1002,10 @@ void Game::onLevelStart()
 #if defined(PLATFORM_3DS)
 	if (isStartingShieldAllowed())
 		mStartingShieldState = StartingShieldState::PENDING;
+
+	// A fresh try at the act for the daily challenges; the zones reached so far choose the next challenges
+	mChallengeHit = false;
+	n3ds::challenges::get(mPlayerProgress.mUnlocks.mFinishedZoneAct);
 #endif
 }
 
@@ -1025,6 +1018,20 @@ void Game::onZoneActCompleted(uint16 zoneAndAct)
 	mPlayerProgress.mUnlocks.mFinishedZoneAct |= bitValue;
 	mPlayerProgress.mUnlocks.mFinishedZoneActByCharacter[character] |= bitValue;
 	mPlayerProgress.save();
+
+#if defined(PLATFORM_3DS)
+	// Doctor Robotnik's daily challenges: the act's time (the timer stops at the end), the rings, and whether there was a hit
+	n3ds::challenges::get(mPlayerProgress.mUnlocks.mFinishedZoneAct);
+	if (isChallengeModeActive())
+	{
+		EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+		const uint32 seconds = emulatorInterface.readMemory8(0xfffffe23) * 60 + emulatorInterface.readMemory8(0xfffffe24);		// timer.minutes, timer.seconds
+		const uint16 rings = emulatorInterface.readMemory16(0xfffffe20);		// ring_counter
+		if (n3ds::challenges::onActCompleted((uint8)(zoneAndAct >> 8), (uint8)(zoneAndAct & 0xff), rings, seconds, mChallengeHit))
+			AudioOut::instance().playAudioDirect(0x68, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
+	}
+	mChallengeHit = false;
+#endif
 }
 
 uint16 Game::onTriggerNextZone(uint16 zoneAndAct)
@@ -1145,6 +1152,50 @@ void Game::updateBonusGift()
 	}
 	n3ds::journal::bonusGiven();
 	RMX_LOG_INFO("Bonus box: " << (given ? "a shield" : "rings") << " given at the start of the act");
+}
+
+bool Game::isChallengeModeActive() const
+{
+	// "Undefined" after loading a save state
+	return (mMode == Mode::NORMAL_GAME || mMode == Mode::ACT_SELECT || mMode == Mode::UNDEFINED);
+}
+
+void Game::updateLevelTracking()
+{
+	// Only while a level runs (game mode 0x0c, not the attract demo)
+	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+	if (emulatorInterface.readMemory8(0xfffff600) != 0x0c || (int8)emulatorInterface.readMemory8(0xfffff711) == 0)		// global.level_started
+		return;
+
+	// Running on the ground (not rolling or in the air)
+	uint32 groundSubpixels = 0;
+	if ((emulatorInterface.readMemory8(0xffffb000 + 0x2a) & 0x06) == 0)		// char.flags: IN_AIR, ROLLING
+	{
+		groundSubpixels = (uint32)std::abs((int)(int16)emulatorInterface.readMemory16(0xffffb000 + 0x1c));		// char.groundspeed
+		if (groundSubpixels != 0)
+			n3ds::journal::addGameDistance(groundSubpixels);
+	}
+
+	// Hurt or died in this act (a new act starts clean)
+	const uint8 baseState = emulatorInterface.readMemory8(0xffffb000 + 0x05);		// char.base_state: 0x04 hurt, 0x06 died
+	const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
+	if (zoneAct != mChallengeZoneAct)
+	{
+		mChallengeZoneAct = zoneAct;
+		mChallengeHit = false;
+	}
+	if (baseState == 0x04 || baseState == 0x06)
+		mChallengeHit = true;
+
+	if (!isChallengeModeActive())
+		return;
+	n3ds::challenges::Frame frame;
+	frame.mZone = (uint8)(zoneAct >> 8);
+	frame.mAct = (uint8)(zoneAct & 0xff);
+	frame.mRings = emulatorInterface.readMemory16(0xfffffe20);		// ring_counter
+	frame.mGroundSubpixels = groundSubpixels;
+	if (n3ds::challenges::onFrame(frame))
+		AudioOut::instance().playAudioDirect(0x68, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
 }
 
 bool Game::canGiveGiftNow() const

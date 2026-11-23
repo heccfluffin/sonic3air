@@ -121,6 +121,10 @@ namespace n3ds
 						{
 							setColor((u8)(brightness * 255.0f), (u8)(brightness * 40.0f), (u8)(brightness * 110.0f));		// Pink: mostly red, a bit of blue
 						}
+						else if (animation == Animation::PULSE && gColor == Color::RED)
+						{
+							setColor((u8)(brightness * 255.0f), (u8)(brightness * 30.0f), 0);		// Red, a touch of orange
+						}
 						else if (animation == Animation::PULSE)
 						{
 							setColor((u8)(brightness * 150.0f), 0, (u8)(brightness * 255.0f));		// Purple: red and blue, no green
