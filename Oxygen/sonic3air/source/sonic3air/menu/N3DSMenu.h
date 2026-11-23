@@ -166,7 +166,9 @@ private:
 	// Doctor Robotnik in his Egg Mobile, drawn from the player's ROM when the challenge tab is first shown: head talking (2 frames),
 	// hurt and defeated; and the game's monitors for the challenges (with his face, and broken once beaten)
 	enum RobotnikSprite { ROBOTNIK_EGG_MOBILE_TALK1 = 0, ROBOTNIK_EGG_MOBILE_TALK2, ROBOTNIK_EGG_MOBILE_HURT, ROBOTNIK_EGG_MOBILE_DEFEATED,
-						  ROBOTNIK_MAD, NUM_ROBOTNIK_SPRITES };
+						  ROBOTNIK_MAD, ROBOTNIK_EGG_MOBILE_EMPTY, NUM_ROBOTNIK_SPRITES };
+	bool mRobotnikOnFoot = false;		// Out of his Egg Mobile, to stomp
+	float mRobotnikSwitchTime = -10.0f;	// When he last jumped out of it or back in
 	DrawerTexture mRobotnik[NUM_ROBOTNIK_SPRITES];
 	DrawerTexture mDust[8];				// The game's spin dash dust, 4 frames, then mirrored
 	bool mHasDust = false;

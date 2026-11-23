@@ -214,6 +214,8 @@ namespace
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 3, 0, -28, 0x280 } } },
 		// Doctor Robotnik on foot, mad with his mustache flaring (as he watches the Death Egg boss, boss_dez2.lemon): out of his Egg Mobile to stomp
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 2, 0, 0, 0x200 } } },
+		// The Egg Mobile on its own (its frame without his head), for when he jumps out of it
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 } } },
 		// The game's spin dash dust (dustcloud.lemon, animation 1), for his stomping; its art is copied per frame like a character's.
 		// (The braking dust frames share their art with the frame before, so they come out empty on their own.)
 		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0b, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0b, 0, 0, 0x100 } } },
@@ -221,7 +223,8 @@ namespace
 		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0d, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0d, 0, 0, 0x100 } } },
 		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0e, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0e, 0, 0, 0x100 } } },
 	};
-	const int DUST_ROM_SPRITE = 11;		// The first of the four dust frames
+	const int DUST_ROM_SPRITE = 12;		// The first of the four dust frames
+	const float ROBOTNIK_SWITCH_TIME = 0.5f;		// Seconds for jumping out of the Egg Mobile, or back in
 	const int ROBOTNIK_ROM_SPRITE = 6;		// The first of his sprites, see "N3DSMenu::mRobotnik"
 
 	// The bosses' arenas, drawn from the level in the ROM (positions from the boss scripts and the level object lists)
@@ -2342,18 +2345,30 @@ void N3DSMenu::render()
 					bool dust = false;
 					int dustFrame = 0;
 					float laughTime = -1.0f;		// Seconds into his laugh, if he's laughing
+
+					// Out of the Egg Mobile (or back in): a jump of half a second whenever that changes
+					const bool onFoot = !allBeaten && selectedChallenge >= 0 && challenges.mChallenges[selectedChallenge].mDone;
+					if (onFoot != mRobotnikOnFoot)
+					{
+						mRobotnikOnFoot = onFoot;
+						mRobotnikSwitchTime = time;
+					}
+					const float switchAge = time - mRobotnikSwitchTime;
+					const bool switching = (switchAge < ROBOTNIK_SWITCH_TIME);
+
 					if (allBeaten)
 					{
 						sprite = ROBOTNIK_EGG_MOBILE_DEFEATED;
 					}
-					else if (selectedChallenge >= 0 && challenges.mChallenges[selectedChallenge].mDone)
+					else if (onFoot)
 					{
-						// Stomping: up for a moment, then down with a thud and a shake, every 0.6 seconds for the first few stomps
+						// Stomping (once he's landed): up for a moment, then down with a thud and a shake, every 0.6 seconds for the first few stomps
 						sprite = ROBOTNIK_MAD;
 						offsetY = 0;
-						if (sinceLine < 2.4f)
+						const float stompTime = switchAge - ROBOTNIK_SWITCH_TIME + 0.22f;		// Landing from the jump is the first thud
+						if (stompTime >= 0.0f && stompTime < 2.4f)
 						{
-							const float phase = std::fmod(sinceLine, 0.6f);
+							const float phase = std::fmod(stompTime, 0.6f);
 							if (phase < 0.15f)
 								offsetY = -roundToInt(std::sin(phase / 0.15f * 1.5708f) * 4.0f);
 							else if (phase < 0.22f)
@@ -2381,7 +2396,27 @@ void N3DSMenu::render()
 						// Saying something new: his mouth moving for a moment
 						sprite = ((int)(time * 7.0f) % 2 == 0) ? ROBOTNIK_EGG_MOBILE_TALK2 : ROBOTNIK_EGG_MOBILE_TALK1;
 					}
-					if (mHasRobotnik)
+					if (mHasRobotnik && switching && !allBeaten)
+					{
+						// Jumping out: he leaps up out of the cockpit and lands on the floor, while the empty Egg Mobile floats up and fades away.
+						// Jumping back in: the same backwards.
+						const int boxX = px - 185;
+						const float u = switchAge / ROBOTNIK_SWITCH_TIME;
+						DrawerTexture& full = mRobotnik[ROBOTNIK_EGG_MOBILE_TALK1];
+						DrawerTexture& ship = mRobotnik[ROBOTNIK_EGG_MOBILE_EMPTY];
+						DrawerTexture& foot = mRobotnik[ROBOTNIK_MAD];
+						const int fullTop = py + (92 - full.getHeight()) / 2;
+						const float away = mRobotnikOnFoot ? u : (1.0f - u);		// 0 = the Egg Mobile is here, 1 = it's gone
+						const int cockpitY = fullTop - 6;
+						const int floorY = py + 92 - 6 - foot.getHeight();
+						const int fromY = mRobotnikOnFoot ? cockpitY : floorY;
+						const int toY = mRobotnikOnFoot ? floorY : cockpitY;
+						const int footY = roundToInt(interpolate((float)fromY, (float)toY, u) - std::sin(u * 3.1416f) * 14.0f);
+						drawer.drawRect(Recti(boxX + (CARD_BOX_WIDTH - foot.getWidth()) / 2, footY, foot.getWidth(), foot.getHeight()), foot, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						const int shipY = fullTop + full.getHeight() - ship.getHeight() - roundToInt(away * away * 34.0f);
+						drawer.drawRect(Recti(boxX + (CARD_BOX_WIDTH - ship.getWidth()) / 2, shipY, ship.getWidth(), ship.getHeight()), ship, Color(1.0f, 1.0f, 1.0f, tabAlpha * (1.0f - away)));
+					}
+					else if (mHasRobotnik)
 					{
 						DrawerTexture& texture = mRobotnik[sprite];
 						const int boxX = px - 185;
