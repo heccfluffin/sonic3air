@@ -210,6 +210,13 @@ open it in the Journal with a Fire, Lightning or Bubble Shield or 50 rings insid
 shield), and you get it at the start of your next act in a normal game. **Stats** shows your play time, days, Sonic's
 steps (running around in the game), Play Coins spent, achievements, screenshots and postcards on one page. It's all saved in `savedata/3ds_journal.txt`.
 
+The **Challenge** tab has **Doctor Robotnik's Daily Challenge**: three new challenges every day (easy, medium and hard,
+like collecting rings in a zone, finishing an act in time or without a hit), in zones you've already reached. They count
+in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile) taunts you about each one, and grumbles
+once it's beaten. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30), and every 100 XP it levels up,
+gets a new rank and metal (bronze, silver, gold, emerald), and gives you a voucher. The notification light glows red
+when you beat one. Saved in `savedata/3ds_challenges.txt`.
+
 **Screenshots:** press L and R together to save the top screen as a PNG in `sdmc:/3ds/sonic3air/screenshots/`.
 
 

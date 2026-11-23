@@ -167,6 +167,8 @@ private:
 	DrawerTexture mRobotnik[4];
 	bool mRobotnikCreated = false;
 	bool mHasRobotnik = false;
+	DrawerTexture mMedals[4];			// The Robotnik medal: bronze, silver, gold, emerald (as it levels up)
+	bool mHasMedals = false;
 	DrawerTexture mEggmanMonitor;
 	DrawerTexture mBrokenMonitor;
 	std::string mRobotnikLine;			// What he says right now, to notice when it changes

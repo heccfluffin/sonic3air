@@ -822,6 +822,87 @@ void N3DSMenu::createIcons()
 			copyRect(bitmap, 32, 0, 32, 32, 0, 0, false);
 			mBrokenMonitor.bitmapUpdated();
 		}
+
+		// The Robotnik medal: a striped ribbon, a round shaded medal with a rim and a shine, and his face (the monitor icon) on it
+		{
+			struct Metal { uint32 mLight, mBase, mDark; };
+			const auto abgr = [](int r, int g, int b)  { return 0xff000000 | ((uint32)b << 16) | ((uint32)g << 8) | (uint32)r; };
+			const Metal METALS[4] =
+			{
+				{ abgr(245, 185, 120), abgr(205, 127, 50),  abgr(120, 64, 20) },	// Bronze
+				{ abgr(250, 250, 255), abgr(190, 196, 210), abgr(100, 106, 120) },	// Silver
+				{ abgr(255, 244, 150), abgr(240, 188, 40),  abgr(150, 92, 8) },		// Gold
+				{ abgr(200, 255, 232), abgr(80, 216, 164),  abgr(24, 112, 84) },	// Emerald
+			};
+			const uint32 ribbonRed = abgr(214, 40, 40);
+			const uint32 ribbonDark = abgr(140, 20, 24);
+			const uint32 ribbonWhite = abgr(250, 250, 250);
+			const int width = 36;
+			const int height = 50;
+			const float cx = 17.5f;
+			const float cy = 32.5f;
+			for (int metal = 0; metal < 4; ++metal)
+			{
+				Bitmap& bitmap = mMedals[metal].accessBitmap();
+				bitmap.create(width, height, 0);
+
+				// Ribbon: two straps meeting behind the medal, each with a white stripe
+				for (int y = 0; y < 24; ++y)
+				{
+					for (int side = 0; side < 2; ++side)
+					{
+						const int x0 = (side == 0) ? (3 + y / 3) : (width - 13 - y / 3);
+						for (int x = 0; x < 10; ++x)
+						{
+							const uint32 color = (x == 0 || x == 9) ? ribbonDark : (x >= 4 && x <= 5) ? ribbonWhite : ribbonRed;
+							*bitmap.getPixelPointer(x0 + x, y) = color;
+						}
+					}
+				}
+
+				// The medal: dark rim, then the metal getting lighter toward the top left
+				for (int y = 16; y < height; ++y)
+				{
+					for (int x = 0; x < width; ++x)
+					{
+						const float dx = (float)x - cx;
+						const float dy = (float)y - cy;
+						const float distance = std::sqrt(dx * dx + dy * dy);
+						if (distance > 16.0f)
+							continue;
+						uint32 color;
+						if (distance > 14.5f)
+							color = METALS[metal].mDark;
+						else if (distance > 12.5f)
+							color = ((dx + dy) < 0.0f) ? METALS[metal].mLight : METALS[metal].mBase;		// A raised edge, lit from the top left
+						else if (distance > 11.5f)
+							color = METALS[metal].mDark;
+						else
+							color = ((dx + dy) < -9.0f) ? METALS[metal].mLight : METALS[metal].mBase;
+						*bitmap.getPixelPointer(x, y) = color;
+					}
+				}
+				// A little shine
+				for (int k = 0; k < 3; ++k)
+					*bitmap.getPixelPointer(10 + k, 22 + 2 - k) = abgr(255, 255, 255);
+
+				// His face in the middle, without the monitor screen's green behind it
+				for (int y = 0; y < 16; ++y)
+				{
+					for (int x = 0; x < 16; ++x)
+					{
+						const uint32 color = *sheet.getPixelPointer(80 + x, 48 + y);
+						const int r = (int)(color & 0xff);
+						const int g = (int)((color >> 8) & 0xff);
+						const int b = (int)((color >> 16) & 0xff);
+						if (color != 0 && !(g > r + 40 && g > b + 40))
+							*bitmap.getPixelPointer(10 + x, 25 + y) = color;
+					}
+				}
+				mMedals[metal].bitmapUpdated();
+			}
+			mHasMedals = true;
+		}
 	}
 
 	// Sonic's Drop Dash and Super Peel-Out sprites (definitions as in the game's "data/sprites/characters/sonic_additional.json")
@@ -1668,7 +1749,7 @@ void N3DSMenu::render()
 			const char* text = (tabIndex == Tab::Id::THEMES) ? "Pick a look for the bottom screen" :
 							   (tabIndex == Tab::Id::SECRETS) ? "Unlock secrets early with Play Coins" :
 							   (tabIndex == Tab::Id::JOURNAL) ? "Your days with Sonic 3 A.I.R. on this 3DS" :
-							   (tabIndex == Tab::Id::CHALLENGE) ? "Doctor Robotnik's Daily Challenge" :
+							   (tabIndex == Tab::Id::CHALLENGE) ? "Daily challenges from Doctor Robotnik" :
 							   shop.mOwnsShield ? "Start each act and life with this shield" : "Start each act and life with a shield";
 			py += 3;
 			drawer.printText(global::mSonicFontB, Recti(baseX, py, 0, 10), text, 5, Color(0.6f, 0.8f, 1.0f, tabAlpha));
@@ -2219,37 +2300,39 @@ void N3DSMenu::render()
 
 					// Speech bubble, pointing at him
 					const Recti bubble(px - 112, py + 8, 178, 50);
-					const Color bubbleColor(0.98f, 0.96f, 0.9f, tabAlpha);
-					drawer.drawRect(Recti(bubble.x - 1, bubble.y - 1, bubble.width + 2, bubble.height + 2), Color(0.2f, 0.1f, 0.1f, tabAlpha));
+					const Color bubbleColor(0.16f, 0.04f, 0.05f, tabAlpha);
+					const Color borderColor(0.9f, 0.25f, 0.2f, tabAlpha);
+					drawer.drawRect(Recti(bubble.x - 1, bubble.y - 1, bubble.width + 2, bubble.height + 2), borderColor);
 					drawer.drawRect(bubble, bubbleColor);
 					for (int k = 0; k < 4; ++k)
-						drawer.drawRect(Recti(bubble.x - 2 - k * 2, bubble.y + 28 + k, 2 + k * 2, 6 - k * 2 > 0 ? 6 - k * 2 : 1), bubbleColor);
+					{
+						// The pointer toward him, with its border
+						const int length = 2 + k * 2;
+						const int rows = std::max(6 - k * 2, 1);
+						drawer.drawRect(Recti(bubble.x - 1 - length, bubble.y + 27 + k, length + 1, rows + 2), borderColor);
+						drawer.drawRect(Recti(bubble.x - length, bubble.y + 28 + k, length + 1, rows), bubbleColor);
+					}
 					std::vector<std::string_view> textLines;
 					utils::splitTextIntoLines(textLines, mRobotnikLine, global::mOxyfontTiny, bubble.width - 10);
 					const int textY = bubble.y + std::max(4, (bubble.height - (int)std::min<size_t>(textLines.size(), 4) * 10) / 2);
 					for (size_t k = 0; k < textLines.size() && k < 4; ++k)
-						drawer.printText(global::mOxyfontTiny, Recti(bubble.x + 5, textY + (int)k * 10, 0, 10), textLines[k], 1, Color(0.35f, 0.08f, 0.05f, tabAlpha));
+						drawer.printText(global::mOxyfontTiny, Recti(bubble.x + 5, textY + (int)k * 10, 0, 10), textLines[k], 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 
-					// The Robotnik medal: a gold medal on a red ribbon, with its level
+					// The Robotnik medal, its metal by level: bronze, silver, gold, then emerald
 					const int level = n3ds::challenges::getLevel(challenges.mXp);
-					const int medalX = px + 92;
-					const int medalY = py + 24;
-					drawer.drawRect(Recti(medalX - 8, py + 6, 6, 12), Color(0.85f, 0.15f, 0.15f, tabAlpha));
-					drawer.drawRect(Recti(medalX + 2, py + 6, 6, 12), Color(0.7f, 0.1f, 0.1f, tabAlpha));
-					static const int MEDAL_ROWS[14] = { 4, 7, 9, 10, 11, 11, 12, 12, 11, 11, 10, 9, 7, 4 };		// Half widths of a round medal
-					for (int row = 0; row < 14; ++row)
+					const int metal = (level <= 2) ? 0 : (level <= 4) ? 1 : (level <= 6) ? 2 : 3;
+					if (mHasMedals)
 					{
-						const int half = MEDAL_ROWS[row];
-						drawer.drawRect(Recti(medalX - half, medalY - 7 + row, half * 2, 1), (row < 3) ? Color(1.0f, 0.95f, 0.55f, tabAlpha) : (row > 10) ? Color(0.75f, 0.5f, 0.1f, tabAlpha) : Color(1.0f, 0.8f, 0.2f, tabAlpha));
+						DrawerTexture& medal = mMedals[metal];
+						const int sway = roundToInt(std::sin(time * 1.6f) * 1.0f);
+						drawer.drawRect(Recti(px + 70 + sway, py + 6, medal.getWidth(), medal.getHeight()), medal, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 					}
-					drawer.printText(global::mOxyfontSmall, Recti(medalX, medalY - 2, 0, 10), std::to_string(level), 5, Color(0.45f, 0.2f, 0.0f, tabAlpha));
-
-					drawer.printText(global::mSonicFontB, Recti(px + 110, py + 9, 0, 10), String(0, "LEVEL %d", level), 1, color);
-					drawer.printText(global::mOxyfontTiny, Recti(px + 110, py + 22, 0, 10), n3ds::challenges::getRank(level), 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+					drawer.printText(global::mSonicFontB, Recti(px + 112, py + 10, 0, 10), String(0, "LEVEL %d", level), 1, color);
+					drawer.printText(global::mOxyfontTiny, Recti(px + 112, py + 23, 0, 10), n3ds::challenges::getRank(level), 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 
 					// Experience toward the next level (and its voucher)
 					const int xpInLevel = (int)(challenges.mXp % n3ds::challenges::XP_PER_LEVEL);
-					const Recti bar(px + 74, py + 40, 104, 5);
+					const Recti bar(px + 112, py + 38, 66, 5);
 					drawer.drawRect(Recti(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2), Color(0.1f, 0.05f, 0.05f, tabAlpha));
 					drawer.drawRect(Recti(bar.x, bar.y, bar.width * xpInLevel / n3ds::challenges::XP_PER_LEVEL, bar.height), Color(0.95f, 0.3f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontTiny, Recti(bar.x + bar.width, bar.y + 8, 0, 10), String(0, "%d / %d XP", xpInLevel, n3ds::challenges::XP_PER_LEVEL), 3, color2);
