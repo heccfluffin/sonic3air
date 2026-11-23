@@ -212,8 +212,13 @@ namespace
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 1, 0, -28, 0x280 } } },
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 2, 0, -28, 0x280 } } },
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 3, 0, -28, 0x280 } } },
+		// Doctor Robotnik on foot, as he watches the Death Egg boss (boss_dez2.lemon) - the same style as in his Egg Mobile:
+		// standing, his head in its other frame (for laughing), and mad with his mustache flaring
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 0, 0, 0, 0x200 } } },
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 1, 0, 0, 0x200 } } },
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 2, 0, 0, 0x200 } } },
 	};
-	const int ROBOTNIK_ROM_SPRITE = 6;		// The first of his four
+	const int ROBOTNIK_ROM_SPRITE = 6;		// The first of his sprites, see "N3DSMenu::mRobotnik"
 
 	// The bosses' arenas, drawn from the level in the ROM (positions from the boss scripts and the level object lists)
 	using LevelView = n3ds::romsprites::LevelView;
@@ -1566,7 +1571,7 @@ void N3DSMenu::onAccept()
 		else
 		{
 			playMenuSound(0x5b);
-			showMessage("Start a normal game or Act Select - it counts right away", false);
+			showMessage("Play a normal game or Act Select to try it", false);
 		}
 		return;
 	}
@@ -2323,44 +2328,61 @@ void N3DSMenu::render()
 						mRobotnikTalkStart = time;
 					}
 
-					// His face: defeated once all are beaten, hurt when looking at a beaten one, otherwise talking for a moment
-					int face = 0;
-					int shakeX = 0;
+					// Robotnik himself: standing with his hands on his hips; laughing at "Hohoho" (head thrown back, a little hop), stomping
+					// mad at a beaten challenge (mustache flaring, a hop and a thud with dust), and sulking in his Egg Mobile once all are beaten
+					const float sinceLine = time - mRobotnikTalkStart;
+					int sprite = ROBOTNIK_STANDING;
+					int offsetX = 0;
+					int offsetY = 0;
+					bool dust = false;
 					if (allBeaten)
-						face = 3;
+					{
+						sprite = ROBOTNIK_EGG_MOBILE_DEFEATED;
+						offsetY = roundToInt(std::sin(time * 2.2f) * 3.0f);
+					}
 					else if (selectedChallenge >= 0 && challenges.mChallenges[selectedChallenge].mDone)
 					{
-						face = 2;
-						shakeX = (time - mRobotnikTalkStart < 0.5f) ? (((int)(time * 30.0f) % 2) ? 1 : -1) : 0;
+						// Stomping: up for a moment, then down with a thud and a shake, every 0.6 seconds for the first few stomps
+						sprite = ROBOTNIK_MAD;
+						if (sinceLine < 2.4f)
+						{
+							const float phase = std::fmod(sinceLine, 0.6f);
+							if (phase < 0.15f)
+								offsetY = -roundToInt(std::sin(phase / 0.15f * 1.5708f) * 4.0f);
+							else if (phase < 0.22f)
+								offsetY = -roundToInt(std::cos((phase - 0.15f) / 0.07f * 1.5708f) * 4.0f);
+							else if (phase < 0.32f)
+							{
+								offsetX = ((int)(time * 40.0f) % 2) ? 1 : -1;
+								dust = true;
+							}
+						}
 					}
-					else
+					else if (mRobotnikLine.find("Hoho") != std::string::npos && std::fmod(sinceLine, 5.0f) < 1.4f)
 					{
-						// "Hohoho!": a proper laugh, his head flapping fast and the Egg Mobile bouncing - right away, then again every few seconds.
-						// Otherwise he just moves his mouth for a moment while saying something new.
-						const bool laughs = (mRobotnikLine.find("Hoho") != std::string::npos);
-						const float sinceLine = time - mRobotnikTalkStart;
-						const float laughPhase = laughs ? std::fmod(sinceLine, 5.0f) : 99.0f;
-						if (laughPhase < 1.4f)
-						{
-							face = ((int)(time * 14.0f) % 2 == 0) ? 1 : 0;
-							shakeX = 0;
-							mRobotnikLaughBounce = ((int)(time * 14.0f) % 2 == 0) ? -2 : 0;
-						}
-						else
-						{
-							mRobotnikLaughBounce = 0;
-							if (sinceLine < 1.6f)
-								face = ((int)(time * 7.0f) % 2 == 0) ? 1 : 0;
-						}
+						// Laughing: head back and forth, hopping with it
+						const bool back = ((int)(time * 8.0f) % 2 == 0);
+						sprite = back ? ROBOTNIK_LAUGHING : ROBOTNIK_STANDING;
+						offsetY = back ? -2 : 0;
 					}
-					if (face >= 2)
-						mRobotnikLaughBounce = 0;
 					if (mHasRobotnik)
 					{
-						DrawerTexture& texture = mRobotnik[face];
-						const int bob = roundToInt(std::sin(time * 2.2f) * 3.0f) + mRobotnikLaughBounce;
-						drawer.drawRect(Recti(px - 185 + (CARD_BOX_WIDTH - texture.getWidth()) / 2 + shakeX, py + (92 - texture.getHeight()) / 2 + bob, texture.getWidth(), texture.getHeight()),
-										texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						DrawerTexture& texture = mRobotnik[sprite];
+						const int boxX = px - 185;
+						const int x = boxX + (CARD_BOX_WIDTH - texture.getWidth()) / 2 + offsetX;
+						const int y = (sprite == ROBOTNIK_EGG_MOBILE_DEFEATED) ? (py + (92 - texture.getHeight()) / 2) : (py + 92 - 6 - texture.getHeight());		// Standing on the box's floor
+						drawer.drawRect(Recti(x, y + offsetY, texture.getWidth(), texture.getHeight()), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						if (dust)
+						{
+							// Little clouds of dust at his feet
+							for (int k = 0; k < 2; ++k)
+							{
+								const int side = (k == 0) ? -1 : 1;
+								const int dx = boxX + CARD_BOX_WIDTH / 2 + side * (texture.getWidth() / 2 + 2);
+								drawer.drawRect(Recti(dx - 2, py + 92 - 9, 5, 3), Color(0.8f, 0.75f, 0.65f, tabAlpha * 0.8f));
+								drawer.drawRect(Recti(dx - 1 + side * 3, py + 92 - 11, 3, 2), Color(0.8f, 0.75f, 0.65f, tabAlpha * 0.6f));
+							}
+						}
 					}
 					else
 					{
@@ -2455,11 +2477,12 @@ void N3DSMenu::render()
 					drawer.printText(global::mSonicFontB, Recti(px + 112, py + 13, 0, 10), String(0, "LEVEL %d", level), 1, color);
 
 					// Experience toward the next level (and its voucher)
-					const int xpInLevel = (int)(challenges.mXp % n3ds::challenges::XP_PER_LEVEL);
+					const int xpInLevel = (int)n3ds::challenges::getXpIntoLevel(challenges.mXp);
+					const int xpNeeded = (int)n3ds::challenges::getXpForNextLevel(level);
 					const Recti bar(px + 112, py + 31, 56, 5);
 					drawer.drawRect(Recti(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2), Color(0.1f, 0.05f, 0.05f, tabAlpha));
-					drawer.drawRect(Recti(bar.x, bar.y, bar.width * xpInLevel / n3ds::challenges::XP_PER_LEVEL, bar.height), Color(0.95f, 0.3f, 0.2f, tabAlpha));
-					drawer.printText(global::mOxyfontTiny, Recti(bar.x + bar.width, bar.y + 8, 0, 10), String(0, "%d / %d XP", xpInLevel, n3ds::challenges::XP_PER_LEVEL), 3, color2);
+					drawer.drawRect(Recti(bar.x, bar.y, bar.width * xpInLevel / xpNeeded, bar.height), Color(0.95f, 0.3f, 0.2f, tabAlpha));
+					drawer.printText(global::mOxyfontTiny, Recti(bar.x + bar.width, bar.y + 8, 0, 10), String(0, "%d / %d XP", xpInLevel, xpNeeded), 3, color2);
 
 					// Today, and when the next ones come
 					const n3ds::profile::LocalTime now = n3ds::profile::getLocalTime();
@@ -2604,7 +2627,10 @@ void N3DSMenu::render()
 		{
 			const float messageAlpha = alpha * std::min(mMessageTimeout * 2.0f, 1.0f);
 			const Color messageColor = mMessageIsError ? Color(1.0f, 0.5f, 0.4f, messageAlpha) : Color(0.6f, 1.0f, 0.6f, messageAlpha);
-			drawer.printText(global::mOxyfontSmall, Recti(anchorX + 192, barY + 3, 0, 10), mMessage, 3, messageColor);
+			// Right-aligned next to the Play Coins: a message too long for the space gets the smaller font
+			const int space = 384 - global::mOxyfontSmall.getWidth(coinsText) - 12;
+			const bool small = (global::mOxyfontSmall.getWidth(mMessage) > space);
+			drawer.printText(small ? global::mOxyfontTiny : global::mOxyfontSmall, Recti(anchorX + 192, barY + (small ? 4 : 3), 0, 10), mMessage, 3, messageColor);
 		}
 		else
 		{
@@ -2805,7 +2831,7 @@ void N3DSMenu::createRobotnik()
 	// All four have the same size: his head is always within the Egg Mobile's width and at the same height
 	const uint64 startTicks = svcGetSystemTick();
 	mHasRobotnik = true;
-	for (int k = 0; k < 4 && mHasRobotnik; ++k)
+	for (int k = 0; k < NUM_ROBOTNIK_SPRITES && mHasRobotnik; ++k)
 	{
 		mHasRobotnik = n3ds::romsprites::draw(ROM_SPRITES[ROBOTNIK_ROM_SPRITE + k], true, mRobotnik[k].accessBitmap());		// Facing right, to his speech bubble
 		mRobotnik[k].bitmapUpdated();

@@ -753,7 +753,29 @@ namespace n3ds
 
 		int getLevel(uint32_t xp)
 		{
-			return (int)(xp / XP_PER_LEVEL) + 1;
+			int level = 1;
+			while (xp >= getXpForNextLevel(level))
+			{
+				xp -= getXpForNextLevel(level);
+				++level;
+			}
+			return level;
+		}
+
+		uint32_t getXpForNextLevel(int level)
+		{
+			return (uint32_t)std::min(40 + 10 * std::max(level, 1), 150);
+		}
+
+		uint32_t getXpIntoLevel(uint32_t xp)
+		{
+			int level = 1;
+			while (xp >= getXpForNextLevel(level))
+			{
+				xp -= getXpForNextLevel(level);
+				++level;
+			}
+			return xp;
 		}
 
 		std::string getRank(int level)

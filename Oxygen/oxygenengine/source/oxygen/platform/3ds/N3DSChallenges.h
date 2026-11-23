@@ -22,7 +22,7 @@ namespace n3ds
 		static const int MAX_PER_DAY = 5;			// Easy, medium, hard; expert from medal level 10, Robotnik's Special from level 20
 		static const int EXPERT_LEVEL = 10;
 		static const int SPECIAL_LEVEL = 20;
-		static const int XP_PER_LEVEL = 100;		// Each medal level gives a voucher
+
 
 		enum class Type : uint8_t
 		{
@@ -110,7 +110,11 @@ namespace n3ds
 		int getXpFor(int index);		// 10, 20, 30, 40 or 50
 		const char* getSlotName(int index);		// "Easy" to "Robotnik's Special"
 		int getSlotsForLevel(int level);
-		int getLevel(uint32_t xp);		// 1 and up
+		// Medal levels: the first takes 50 XP, each one after it 10 more, up to 150 (a perfect first day already brings level 2).
+		// Each level gives a voucher.
+		int getLevel(uint32_t xp);					// 1 and up
+		uint32_t getXpForNextLevel(int level);		// XP from this level to the next
+		uint32_t getXpIntoLevel(uint32_t xp);		// XP gathered toward the next level
 		std::string getRank(int level);		// A name for every two levels up to the top, then "Robotnik's Nightmare II", "III" and so on, without end
 
 		// The medal's metal: bronze, silver, gold, diamond, platinum, emerald

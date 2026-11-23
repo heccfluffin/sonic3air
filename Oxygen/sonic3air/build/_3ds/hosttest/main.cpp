@@ -563,10 +563,10 @@ namespace
 
 		// Today's challenges, set up by hand: 50 rings in Hydrocity, Angel Island 1 in under 2:30, Hydrocity without a hit
 		fake::setTime(2026, 11, 23, 18, 0);
-		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261123\nxp=90\nbeaten=9\nperfect_days=2\nzones=15\n"
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261123\nxp=40\nbeaten=9\nperfect_days=2\nzones=15\n"
 			"challenge=0 1 0 50 0 0\nchallenge=4 0 0 150 0 0\nchallenge=6 1 0 0 0 0\n";
 		const Data& data = get(15);
-		check(data.mDate == 20261123 && data.mXp == 90 && data.mChallenges[0].mType == Type::RINGS_IN_ZONE, "today's challenges are read back");
+		check(data.mDate == 20261123 && data.mXp == 40 && data.mChallenges[0].mType == Type::RINGS_IN_ZONE, "today's challenges are read back");
 		check(describe(data.mChallenges[0]) == "Collect 50 rings in Hydrocity" && describe(data.mChallenges[1]) == "Angel Island 1 in under 2:30" &&
 			  describe(data.mChallenges[2]) == "Clear Hydrocity without a hit", "... and described (" + describe(data.mChallenges[1]) + ")");
 
@@ -581,7 +581,7 @@ namespace
 		check(!data.mChallenges[0].mDone && describeProgress(data.mChallenges[0]) == "49 / 50 rings", "49 rings in Hydrocity: not yet (" + describeProgress(data.mChallenges[0]) + ")");
 		frame.mRings = 50;
 		onFrame(frame);
-		check(data.mChallenges[0].mDone && data.mXp == 100 && getLevel(data.mXp) == 2, "50 rings: beaten, 10 XP, medal level 2");
+		check(data.mChallenges[0].mDone && data.mXp == 50 && getLevel(data.mXp) == 2, "50 rings: beaten, 10 XP, medal level 2 (at 50 XP)");
 		check(takeBeatenNotice() == 0 && takeLevelUpNotice() && n3ds::journal::get().mVouchers == 1, "... with a Robotnik voucher for the new level");
 
 		actDone(0, 0, 10, 160, false);
@@ -589,21 +589,21 @@ namespace
 		actDone(0, 1, 10, 100, false);
 		check(!data.mChallenges[1].mDone, "... and act 2 doesn't count");
 		actDone(0, 0, 10, 140, false);
-		check(data.mChallenges[1].mDone && data.mXp == 120, "2:20: beaten, 20 XP");
+		check(data.mChallenges[1].mDone && data.mXp == 70, "2:20: beaten, 20 XP");
 
 		actDone(1, 1, 0, 100, true);
 		check(!data.mChallenges[2].mDone, "a hit in Hydrocity: not beaten");
 		actDone(1, 0, 0, 100, false);
-		check(data.mChallenges[2].mDone && data.mXp == 150 && data.mPerfectDays == 3 && data.mBeaten == 12, "without a hit: beaten, 30 XP, a perfect day");
+		check(data.mChallenges[2].mDone && data.mXp == 100 && data.mPerfectDays == 3 && data.mBeaten == 12, "without a hit: beaten, 30 XP, a perfect day");
 
 		n3ds::filewriter::waitUntilDone();
 		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt");
-		check(saved.find("xp=150\n") != std::string::npos && saved.find("challenge=6 1 0 0 0 1\n") != std::string::npos, "saved right away");
+		check(saved.find("xp=100\n") != std::string::npos && saved.find("challenge=6 1 0 0 0 1\n") != std::string::npos, "saved right away");
 
 		// The next day: new challenges, the medal stays
 		fake::setTime(2026, 11, 24, 9, 0);
 		get();
-		check(data.mDate == 20261124 && data.mXp == 150 && !data.mChallenges[0].mDone && !data.mChallenges[1].mDone && !data.mChallenges[2].mDone,
+		check(data.mDate == 20261124 && data.mXp == 100 && !data.mChallenges[0].mDone && !data.mChallenges[1].mDone && !data.mChallenges[2].mDone,
 			  "a new day brings new challenges: " + describe(data.mChallenges[0]) + " / " + describe(data.mChallenges[1]) + " / " + describe(data.mChallenges[2]));
 
 		// Only zones already reached: with just Angel Island 1 finished, every challenge is there (or has no zone)
@@ -622,6 +622,9 @@ namespace
 		check(getMetal(4) == Metal::BRONZE && getMetal(5) == Metal::SILVER && getMetal(10) == Metal::GOLD && getMetal(15) == Metal::DIAMOND &&
 			  getMetal(20) == Metal::PLATINUM && getMetal(25) == Metal::PLATINUM && getMetal(26) == Metal::EMERALD && getMetal(500) == Metal::EMERALD,
 			  "medal metals: bronze 1-4, silver 5-9, gold 10-14, diamond 15-19, platinum 20-25, emerald from 26");
+		check(getLevel(49) == 1 && getLevel(50) == 2 && getLevel(110) == 3 && getXpIntoLevel(120) == 10 && getXpForNextLevel(2) == 60 &&
+			  getLevel(949) == 10 && getLevel(950) == 11 && getXpForNextLevel(11) == 150 && getXpForNextLevel(40) == 150 && getLevel(2300) == 20,
+			  "medal levels: 50 XP for the first, 10 more for each after it, up to 150 (level 20 at 2,300 XP)");
 		check(getSlotsForLevel(9) == 3 && getSlotsForLevel(10) == 4 && getSlotsForLevel(20) == 5, "an Expert challenge from level 10, Robotnik's Special from level 20");
 	}
 
@@ -727,7 +730,7 @@ namespace
 
 		// Yesterday's challenges at medal level 20: today has all five
 		fake::setTime(2026, 11, 23, 18, 0);
-		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261122\nxp=1950\nbeaten=60\nperfect_days=12\nzones=4095\n"
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261122\nxp=2300\nbeaten=60\nperfect_days=12\nzones=4095\n"
 			"challenge=0 1 0 50 50 1\nchallenge=4 0 0 150 0 0\nchallenge=6 1 0 0 0 0\nchallenge=3 0 0 250 0 0\n";
 		const Data& data = get(4095);
 		std::string list;
