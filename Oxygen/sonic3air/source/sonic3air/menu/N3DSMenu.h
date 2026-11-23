@@ -174,6 +174,7 @@ private:
 	DrawerTexture mBrokenMonitor;
 	std::string mRobotnikLine;			// What he says right now, to notice when it changes
 	float mRobotnikTalkStart = 0.0f;	// He moves his mouth for a moment after that
+	int mRobotnikLaughBounce = 0;		// While he laughs, the Egg Mobile hops a little
 };
 
 #endif

@@ -525,6 +525,40 @@ namespace
 	const float STAMP_POP_TIME = 0.35f;
 	const float POSTCARD_LAND_TIME = 0.45f;
 
+	// A card like in A.I.R.'s menus ("achievements_frame.png", drawn here so it can be as tall as its texts need): a box with a
+	// 2 pixel border for the picture on the left, and a dark band for the texts, its right end slanted at the bottom
+	const int CARD_BOX_WIDTH = 68;
+	const int CARD_WIDTH = 362;
+	void drawCardFrame(Drawer& drawer, int x, int y, int height, float alpha, bool withBox = true)
+	{
+		const Color color(34.0f / 255.0f, 34.0f / 255.0f, 34.0f / 255.0f, alpha);
+		if (withBox)
+		{
+			drawer.drawRect(Recti(x, y, CARD_BOX_WIDTH, 2), color);
+			drawer.drawRect(Recti(x, y + height - 2, CARD_BOX_WIDTH, 2), color);
+			drawer.drawRect(Recti(x, y + 2, 2, height - 4), color);
+			drawer.drawRect(Recti(x + CARD_BOX_WIDTH - 2, y + 2, 2, height - 4), color);
+		}
+
+		// The band: straight, then one pixel shorter per row for its last 25 rows (like the original's slant); without the box,
+		// it goes all the way to the left, for cards that use the whole width
+		const int bandLeft = withBox ? (x + CARD_BOX_WIDTH) : x;
+		const int bandTop = y + 4;
+		const int rows = height - 6;
+		const int slantRows = std::min(25, rows);
+		const int fullWidth = CARD_WIDTH - (bandLeft - x);
+		drawer.drawRect(Recti(bandLeft, bandTop, fullWidth, rows - slantRows), color);
+		for (int k = 0; k < slantRows; ++k)
+			drawer.drawRect(Recti(bandLeft, bandTop + rows - slantRows + k, fullWidth - 1 - k, 1), color);
+	}
+
+	// How far right texts can go in a card's band at a row (relative to the card's top), with a bit of margin
+	int getCardTextRight(int cardX, int height, int row)
+	{
+		const int slantStart = height - 2 - 25;
+		return cardX + CARD_WIDTH - 6 - std::max(0, row - slantStart);
+	}
+
 	// A little four-pointed sparkle
 	void drawSparkle(Drawer& drawer, int x, int y, int size, const Color& color)
 	{
@@ -1790,14 +1824,14 @@ void N3DSMenu::render()
 				const int px = baseX + roundToInt(interpolate(12.0f, 0.0f, entry.mAnimation.mHighlight));
 
 				// Card background, like in the Extras menu
-				DrawerTexture& frameTexture = global::mAchievementsFrame;
 				const bool isTall = (tabIndex == Tab::Id::JOURNAL && entry.mData == JOURNAL_POSTCARDS) ||		// A taller card, for the whole picture
 									(tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_MEDAL);		// Or for Robotnik and his medal
-				const int cardHeight = isTall ? 92 : 56;
-				drawer.drawRect(Recti(px - 185, py, frameTexture.getWidth(), isTall ? (frameTexture.getHeight() + cardHeight - 56) : frameTexture.getHeight()), frameTexture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+				const int cardHeight = isTall ? 94 : 58;
+				const bool fullWidthCard = (tabIndex == Tab::Id::JOURNAL && (entry.mData == JOURNAL_STAMPS || entry.mData == JOURNAL_POSTCARDS));		// Drawn across the picture box
+				drawCardFrame(drawer, px - 185, py, cardHeight - 2, tabAlpha, !fullWidthCard);
 
 				// Picture on the left, and texts
-				const Recti imageRect(px - 183, py + 2, 64, 48);
+				const Recti imageRect(px - 183, py + 4, 64, 48);
 				std::string title = entry.mText;
 				std::string description;
 				std::string status;
@@ -1815,7 +1849,7 @@ void N3DSMenu::render()
 					}
 					else
 					{
-						status = String(0, item.mVoucher ? "VOUCHER: %d PLAY COINS" : "%d PLAY COINS", item.mPrice).toStdString();
+						status = String(0, "%d PLAY COINS", item.mPrice).toStdString();
 						statusColor = (mPlayCoins >= item.mPrice) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(0.7f, 0.5f, 0.5f, tabAlpha);
 					}
 				}
@@ -2054,8 +2088,8 @@ void N3DSMenu::render()
 						else
 							drawer.drawRect(monitorRect, mStampEmpty, Color(1.0f, 1.0f, 1.0f, tabAlpha * 0.4f));
 					}
-					drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 26, 0, 10), (journal.mStamps >= n3ds::journal::STAMPS_PER_CARD) ? "Card complete!" : "One stamp per day", 3, color2);
-					drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 38, 0, 10), String(0, "Cards completed: %u", (unsigned)journal.mCardsCompleted), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
+					drawer.printText(global::mOxyfontTiny, Recti(getCardTextRight(px - 185, 56, 36), py + 26, 0, 10), (journal.mStamps >= n3ds::journal::STAMPS_PER_CARD) ? "Card complete!" : "One stamp per day", 3, color2);
+					drawer.printText(global::mOxyfontTiny, Recti(getCardTextRight(px - 185, 56, 48), py + 38, 0, 10), String(0, "Cards completed: %u", (unsigned)journal.mCardsCompleted), 3, Color(0.5f, 1.0f, 0.6f, tabAlpha));
 				}
 				else if (tabIndex == Tab::Id::JOURNAL && entry.mData == JOURNAL_POSTCARDS)
 				{
@@ -2132,7 +2166,7 @@ void N3DSMenu::render()
 							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 70, 0, 10), flip, 1, isSelected ? color : color2);
 						}
 						if (isSelected)
-							drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 70, 0, 10), "A: Look closer", 3, color);
+							drawer.printText(global::mOxyfontTiny, Recti(getCardTextRight(px - 185, 92, 80), py + 70, 0, 10), "A: Look closer", 3, color);
 					}
 					else if (hasPostcard)
 					{
@@ -2181,7 +2215,7 @@ void N3DSMenu::render()
 							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 70, 0, 10), flip, 1, isSelected ? color : color2);
 						}
 						if (isSelected)
-							drawer.printText(global::mOxyfontTiny, Recti(px + 172, py + 70, 0, 10), "A: Look closer", 3, color);
+							drawer.printText(global::mOxyfontTiny, Recti(getCardTextRight(px - 185, 92, 80), py + 70, 0, 10), "A: Look closer", 3, color);
 					}
 					else
 					{
@@ -2299,21 +2333,42 @@ void N3DSMenu::render()
 						face = 2;
 						shakeX = (time - mRobotnikTalkStart < 0.5f) ? (((int)(time * 30.0f) % 2) ? 1 : -1) : 0;
 					}
-					else if (time - mRobotnikTalkStart < 1.6f)
-						face = ((int)(time * 7.0f) % 2 == 0) ? 1 : 0;
+					else
+					{
+						// "Hohoho!": a proper laugh, his head flapping fast and the Egg Mobile bouncing - right away, then again every few seconds.
+						// Otherwise he just moves his mouth for a moment while saying something new.
+						const bool laughs = (mRobotnikLine.find("Hoho") != std::string::npos);
+						const float sinceLine = time - mRobotnikTalkStart;
+						const float laughPhase = laughs ? std::fmod(sinceLine, 5.0f) : 99.0f;
+						if (laughPhase < 1.4f)
+						{
+							face = ((int)(time * 14.0f) % 2 == 0) ? 1 : 0;
+							shakeX = 0;
+							mRobotnikLaughBounce = ((int)(time * 14.0f) % 2 == 0) ? -2 : 0;
+						}
+						else
+						{
+							mRobotnikLaughBounce = 0;
+							if (sinceLine < 1.6f)
+								face = ((int)(time * 7.0f) % 2 == 0) ? 1 : 0;
+						}
+					}
+					if (face >= 2)
+						mRobotnikLaughBounce = 0;
 					if (mHasRobotnik)
 					{
 						DrawerTexture& texture = mRobotnik[face];
-						const int bob = roundToInt(std::sin(time * 2.2f) * 3.0f);
-						drawer.drawRect(Recti(px - 176 + shakeX, py + 20 + bob, texture.getWidth(), texture.getHeight()), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						const int bob = roundToInt(std::sin(time * 2.2f) * 3.0f) + mRobotnikLaughBounce;
+						drawer.drawRect(Recti(px - 185 + (CARD_BOX_WIDTH - texture.getWidth()) / 2 + shakeX, py + (92 - texture.getHeight()) / 2 + bob, texture.getWidth(), texture.getHeight()),
+										texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 					}
 					else
 					{
-						drawer.drawRect(Recti(px - 170, py + 28, 32, 32), mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						drawer.drawRect(Recti(px - 167, py + 30, 32, 32), mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 					}
 
 					// Speech bubble, pointing at him
-					const Recti bubble(px - 112, py + 8, 178, 50);
+					const Recti bubble(px - 109, py + 10, 172, 48);
 					const Color bubbleColor(0.16f, 0.04f, 0.05f, tabAlpha);
 					const Color borderColor(0.9f, 0.25f, 0.2f, tabAlpha);
 					drawer.drawRect(Recti(bubble.x - 1, bubble.y - 1, bubble.width + 2, bubble.height + 2), borderColor);
@@ -2340,7 +2395,7 @@ void N3DSMenu::render()
 						DrawerTexture& medal = mMedals[metal];
 						const int sway = roundToInt(std::sin(time * 1.6f) * 1.0f);
 						const int medalX = px + 70 + sway;
-						const int medalY = py + 6;
+						const int medalY = py + 7;
 						const int aboveTop = level - n3ds::challenges::TOP_RANK_LEVEL;		// Levels past the top rank
 
 						// From the top rank on: a soft glow behind it, slowly breathing
@@ -2397,11 +2452,11 @@ void N3DSMenu::render()
 										Color(1.0f, 1.0f, 0.8f, tabAlpha * twinkle));
 						}
 					}
-					drawer.printText(global::mSonicFontB, Recti(px + 112, py + 12, 0, 10), String(0, "LEVEL %d", level), 1, color);
+					drawer.printText(global::mSonicFontB, Recti(px + 112, py + 13, 0, 10), String(0, "LEVEL %d", level), 1, color);
 
 					// Experience toward the next level (and its voucher)
 					const int xpInLevel = (int)(challenges.mXp % n3ds::challenges::XP_PER_LEVEL);
-					const Recti bar(px + 112, py + 30, 66, 5);
+					const Recti bar(px + 112, py + 31, 56, 5);
 					drawer.drawRect(Recti(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2), Color(0.1f, 0.05f, 0.05f, tabAlpha));
 					drawer.drawRect(Recti(bar.x, bar.y, bar.width * xpInLevel / n3ds::challenges::XP_PER_LEVEL, bar.height), Color(0.95f, 0.3f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontTiny, Recti(bar.x + bar.width, bar.y + 8, 0, 10), String(0, "%d / %d XP", xpInLevel, n3ds::challenges::XP_PER_LEVEL), 3, color2);
@@ -2409,11 +2464,11 @@ void N3DSMenu::render()
 					// Today, and when the next ones come
 					const n3ds::profile::LocalTime now = n3ds::profile::getLocalTime();
 					const int minutesLeft = 24 * 60 - (now.mHour * 60 + now.mMinute);
-					drawer.printText(global::mOxyfontTiny, Recti(px - 112, py + 66, 0, 10), String(0, "Beaten today: %d / %d", beatenToday, challenges.mCount), 1,
+					drawer.printText(global::mOxyfontTiny, Recti(px - 109, py + 64, 0, 10), String(0, "Beaten today: %d / %d", beatenToday, challenges.mCount), 1,
 									 allBeaten ? Color(0.5f, 1.0f, 0.6f, tabAlpha) : color2);
-					drawer.printText(global::mOxyfontTiny, Recti(px - 112, py + 77, 0, 10), String(0, "New ones in %d h %02d min", minutesLeft / 60, minutesLeft % 60), 1, color2);
-					drawer.printText(global::mOxyfontSmall, Recti(px + 178, py + 65, 0, 10), n3ds::challenges::getRank(level), 3, Color(1.0f, 0.85f, 0.2f, tabAlpha));
-					drawer.printText(global::mOxyfontTiny, Recti(px + 178, py + 77, 0, 10), "A voucher every level", 3, Color(0.6f, 0.9f, 1.0f, tabAlpha));
+					drawer.printText(global::mOxyfontTiny, Recti(px - 109, py + 75, 0, 10), String(0, "New ones in %d h %02d min", minutesLeft / 60, minutesLeft % 60), 1, color2);
+					drawer.printText(global::mOxyfontSmall, Recti(getCardTextRight(px - 185, 92, 74), py + 63, 0, 10), n3ds::challenges::getRank(level), 3, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+					drawer.printText(global::mOxyfontTiny, Recti(getCardTextRight(px - 185, 92, 84), py + 75, 0, 10), "A voucher every level", 3, Color(0.6f, 0.9f, 1.0f, tabAlpha));
 				}
 				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_LOCKED)
 				{
@@ -2428,7 +2483,7 @@ void N3DSMenu::render()
 					statusColor = Color(0.55f, 0.55f, 0.6f, tabAlpha);
 					description = (level >= needed) ? std::string("Unlocked with your medal! It joins tomorrow's challenges.")
 								: String(0, "Reach Robotnik medal level %d to face this one every day. %s", needed,
-										 (challenges.mCount == 3) ? "Fast and flawless, or a mountain of rings." : "Robotnik's nastiest ideas, saved for the best.").toStdString();
+										 (challenges.mCount == 3) ? "Fast and flawless, or a ring collection all the way to the end." : "Robotnik's nastiest ideas, saved for the best.").toStdString();
 				}
 				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData >= CHALLENGE_FIRST && entry.mData < CHALLENGE_FIRST + n3ds::challenges::MAX_PER_DAY)
 				{
@@ -2489,11 +2544,27 @@ void N3DSMenu::render()
 					}
 				}
 
+				// A voucher lowers the price: the price turns light blue, and the description says so if there's room for it
+				if (isItem && item.mVoucher && !item.mOwned && !customText)
+				{
+					statusColor = (mPlayCoins >= item.mPrice) ? Color(0.5f, 0.9f, 1.0f, tabAlpha) : statusColor;
+					const std::string withNote = description + String(0, " (%d Play Coins off with your voucher.)", n3ds::journal::VOUCHER_PLAY_COINS).toStdString();
+					std::vector<std::string_view> noteLines;
+					utils::splitTextIntoLines(noteLines, withNote, global::mOxyfontTiny, 250);
+					if (noteLines.size() <= 3)
+						description = withNote;
+				}
+
 				py += 7;
 				String name(title);
 				name.upperCase();
 				if (!customText)
-					drawer.printText(global::mOxyfontRegular, Recti(px - 110, py, 0, 10), name, 1, color);
+				{
+					// A long title next to a status: the smaller font, so they don't run into each other
+					const int statusWidth = status.empty() ? 0 : global::mOxyfontSmall.getWidth(status);
+					const bool tight = (px - 110 + global::mOxyfontRegular.getWidth(name.toStdString()) + 8 > px + 170 - statusWidth);
+					drawer.printText(tight ? global::mOxyfontSmall : global::mOxyfontRegular, Recti(px - 110, tight ? (py + 1) : py, 0, 10), name, 1, color);
+				}
 				if (!status.empty() && !customText)
 					drawer.printText(global::mOxyfontSmall, Recti(px + 170, py + 1, 0, 10), status, 3, statusColor);
 
@@ -2501,7 +2572,7 @@ void N3DSMenu::render()
 				if (!customText)
 				{
 					std::vector<std::string_view> textLines;
-					utils::splitTextIntoLines(textLines, description, global::mOxyfontTiny, 260);
+					utils::splitTextIntoLines(textLines, description, global::mOxyfontTiny, 250);
 					py += (textLines.size() == 1) ? 9 : 5;
 					for (size_t k = 0; k < textLines.size() && k < 3; ++k)
 					{
