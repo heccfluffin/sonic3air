@@ -2341,6 +2341,7 @@ void N3DSMenu::render()
 					int offsetY = roundToInt(std::sin(time * 2.2f) * 3.0f);		// Hovering
 					bool dust = false;
 					int dustFrame = 0;
+					float laughTime = -1.0f;		// Seconds into his laugh, if he's laughing
 					if (allBeaten)
 					{
 						sprite = ROBOTNIK_EGG_MOBILE_DEFEATED;
@@ -2368,10 +2369,12 @@ void N3DSMenu::render()
 					}
 					else if (mRobotnikLine.find("Hoho") != std::string::npos && std::fmod(sinceLine, 5.0f) < 1.4f)
 					{
-						// Laughing: his head's two frames quickly, the Egg Mobile hopping with it
-						const bool open = ((int)(time * 12.0f) % 2 == 0);
-						sprite = open ? ROBOTNIK_EGG_MOBILE_TALK2 : ROBOTNIK_EGG_MOBILE_TALK1;
-						offsetY += open ? -2 : 0;
+						// Laughing: three "Ho"s, a hop of the Egg Mobile with each one, his head's two frames quickly
+						laughTime = std::fmod(sinceLine, 5.0f);
+						const float hoPhase = std::fmod(laughTime, 0.4f);
+						sprite = ((int)(time * 12.0f) % 2 == 0) ? ROBOTNIK_EGG_MOBILE_TALK2 : ROBOTNIK_EGG_MOBILE_TALK1;
+						if (laughTime < 1.2f && hoPhase < 0.2f)
+							offsetY -= roundToInt(std::sin(hoPhase / 0.2f * 3.1416f) * 4.0f);
 					}
 					else if (sinceLine < 1.6f)
 					{
@@ -2385,6 +2388,20 @@ void N3DSMenu::render()
 						const int x = boxX + (CARD_BOX_WIDTH - texture.getWidth()) / 2 + offsetX;
 						const int y = (sprite == ROBOTNIK_MAD) ? (py + 92 - 6 - texture.getHeight()) : (py + (92 - texture.getHeight()) / 2);		// On foot: standing on the box's floor
 						drawer.drawRect(Recti(x, y + offsetY, texture.getWidth(), texture.getHeight()), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						if (laughTime >= 0.0f)
+						{
+							// "HO" popping out of him with each hop (the font has no "!"), rising and fading, alternating to the left and right
+							for (int k = 0; k < 3; ++k)
+							{
+								const float age = laughTime - (float)k * 0.4f;
+								if (age < 0.0f || age > 0.8f)
+									continue;
+								const int textX = boxX + CARD_BOX_WIDTH / 2 + ((k % 2 == 0) ? -14 : 14);
+								const int textY = py + 20 - roundToInt(age * 22.0f);
+								const float fade = (age < 0.5f) ? 1.0f : (1.0f - (age - 0.5f) / 0.3f);
+								drawer.printText(global::mSonicFontB, Recti(textX, textY, 0, 10), "HO", 5, Color(1.0f, 0.85f, 0.2f, tabAlpha * fade));
+							}
+						}
 						if (dust && mHasDust)
 						{
 							// The game's spin dash dust bursting out at his feet: its thick end at his feet, trailing outward on both sides
