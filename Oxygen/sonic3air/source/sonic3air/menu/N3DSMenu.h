@@ -12,6 +12,7 @@
 
 #include "sonic3air/menu/GameMenuBase.h"
 #include "oxygen/drawing/DrawerTexture.h"
+#include "oxygen/platform/3ds/N3DSChallenges.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
 
 class MenuBackground;
@@ -167,7 +168,7 @@ private:
 	DrawerTexture mRobotnik[4];
 	bool mRobotnikCreated = false;
 	bool mHasRobotnik = false;
-	DrawerTexture mMedals[4];			// The Robotnik medal: bronze, silver, gold, emerald (as it levels up)
+	DrawerTexture mMedals[(int)n3ds::challenges::Metal::_NUM];		// The Robotnik medal in each metal, as it levels up
 	bool mHasMedals = false;
 	DrawerTexture mEggmanMonitor;
 	DrawerTexture mBrokenMonitor;

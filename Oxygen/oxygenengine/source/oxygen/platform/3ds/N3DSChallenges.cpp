@@ -76,8 +76,9 @@ namespace n3ds
 				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\n",
 						 (unsigned)data.mDate, (unsigned)data.mXp, (unsigned)data.mBeaten, (unsigned)data.mPerfectDays, (unsigned)gZoneMask);
 				std::string result = text;
-				for (const Challenge& challenge : data.mChallenges)
+				for (int index = 0; index < data.mCount; ++index)
 				{
+					const Challenge& challenge = data.mChallenges[index];
 					snprintf(text, sizeof(text), "challenge=%d %d %d %u %u %d\n", (int)challenge.mType, (int)challenge.mZone, (int)challenge.mAct,
 							 (unsigned)challenge.mTarget, (unsigned)challenge.mProgress, challenge.mDone ? 1 : 0);
 					result += text;
@@ -120,11 +121,36 @@ namespace n3ds
 
 				Data& data = gData;
 				data.mDate = date;
-				for (int index = 0; index < NUM_PER_DAY; ++index)
+				data.mCount = getSlotsForLevel(getLevel(data.mXp));
+				for (int index = 0; index < data.mCount; ++index)
 				{
 					Challenge challenge;
 					const uint32_t kind = next(3);
-					if (index == 0)
+					if (index >= 3)
+					{
+						// Expert (40 XP) and Robotnik's Special (50 XP): both at once, or a lot of rings
+						const bool special = (index == 4);
+						if (kind == 0)
+						{
+							challenge.mType = Type::FAST_NO_HIT;
+							challenge.mZone = pickZone();
+							challenge.mAct = pickAct(challenge.mZone);
+							const uint32_t par = ZONES[challenge.mZone].mParTime[challenge.mAct];
+							challenge.mTarget = special ? (par * 3 / 4 / 10 * 10) : par;
+						}
+						else if (kind == 1)
+						{
+							challenge.mType = Type::FINISH_WITH_RINGS;
+							challenge.mZone = pickZone();
+							challenge.mTarget = special ? 150 : 100;
+						}
+						else
+						{
+							challenge.mType = Type::RINGS_AT_ONCE;
+							challenge.mTarget = special ? 300 : 250;
+						}
+					}
+					else if (index == 0)
 					{
 						// Easy
 						if (kind == 0)
@@ -190,7 +216,10 @@ namespace n3ds
 					data.mChallenges[index] = challenge;
 				}
 				gStepDistance = 0;
-				RMX_LOG_INFO("Daily challenge for " << date << ": " << describe(data.mChallenges[0]) << " / " << describe(data.mChallenges[1]) << " / " << describe(data.mChallenges[2]));
+				std::string list;
+				for (int index = 0; index < data.mCount; ++index)
+					list += ((index > 0) ? " / " : "") + describe(data.mChallenges[index]);
+				RMX_LOG_INFO("Daily challenge for " << date << ": " << list);
 			}
 
 			void load()
@@ -214,7 +243,7 @@ namespace n3ds
 						else if (sscanf(line, "beaten=%u", &value) == 1)		gData.mBeaten = value;
 						else if (sscanf(line, "perfect_days=%u", &value) == 1)	gData.mPerfectDays = value;
 						else if (sscanf(line, "zones=%u", &value) == 1)			gZoneMask = value;
-						else if (sscanf(line, "challenge=%d %d %d %u %u %d", &type, &zone, &act, &target, &progress, &done) == 6 && index < NUM_PER_DAY &&
+						else if (sscanf(line, "challenge=%d %d %d %u %u %d", &type, &zone, &act, &target, &progress, &done) == 6 && index < MAX_PER_DAY &&
 								 type >= 0 && type < (int)Type::_NUM && zone >= 0 && zone < NUM_ZONES && act >= 0 && act < ZONES[zone].mActs)
 						{
 							Challenge& challenge = gData.mChallenges[index++];
@@ -227,8 +256,12 @@ namespace n3ds
 						}
 					}
 					fclose(file);
-					if (index < NUM_PER_DAY)
+					gData.mCount = index;
+					if (index < 3)
+					{
 						gData.mDate = 0;		// Incomplete: new challenges
+						gData.mCount = 3;
+					}
 					gSavedText = toText(gData);
 				}
 			}
@@ -253,8 +286,8 @@ namespace n3ds
 				gData.mXp += (uint32_t)getXpFor(index);
 				++gData.mBeaten;
 				bool allDone = true;
-				for (const Challenge& other : gData.mChallenges)
-					allDone = allDone && other.mDone;
+				for (int other = 0; other < gData.mCount; ++other)
+					allDone = allDone && gData.mChallenges[other].mDone;
 				if (allDone)
 					++gData.mPerfectDays;
 
@@ -314,7 +347,7 @@ namespace n3ds
 				checkDay();
 			}
 
-			for (int index = 0; index < NUM_PER_DAY; ++index)
+			for (int index = 0; index < gData.mCount; ++index)
 			{
 				Challenge& challenge = gData.mChallenges[index];
 				if (challenge.mDone)
@@ -370,7 +403,7 @@ namespace n3ds
 			load();
 			checkDay();
 			const uint32_t beatenBefore = gData.mBeaten;
-			for (int index = 0; index < NUM_PER_DAY; ++index)
+			for (int index = 0; index < gData.mCount; ++index)
 			{
 				Challenge& challenge = gData.mChallenges[index];
 				if (challenge.mDone || zone != challenge.mZone)
@@ -400,6 +433,18 @@ namespace n3ds
 
 					case Type::NO_HIT_ACT:
 						if (!wasHit)
+							beat(index);
+						break;
+
+					case Type::FAST_NO_HIT:
+						if (act != challenge.mAct)
+							break;
+						if (!wasHit && (challenge.mProgress == 0 || seconds < challenge.mProgress))
+						{
+							challenge.mProgress = seconds;		// Best time without a hit
+							gDirty = true;
+						}
+						if (!wasHit && seconds < challenge.mTarget)
 							beat(index);
 						break;
 
@@ -439,12 +484,14 @@ namespace n3ds
 				case Type::FINISH_WITH_RINGS:	snprintf(text, sizeof(text), "Finish %s with %u rings", zone, (unsigned)challenge.mTarget);  break;
 				case Type::NO_HIT_ACT:			snprintf(text, sizeof(text), "Clear %s without a hit", zone);  break;
 				case Type::ACT_UNDER_TIME:
+				case Type::FAST_NO_HIT:
 				{
 					const bool oneAct = (challenge.mZone < NUM_ZONES && ZONES[challenge.mZone].mActs < 2);
 					char act[8] = { 0 };
 					if (!oneAct)
 						snprintf(act, sizeof(act), " %d", challenge.mAct + 1);
-					snprintf(text, sizeof(text), "%s%s in under %u:%02u", zone, act, (unsigned)(challenge.mTarget / 60), (unsigned)(challenge.mTarget % 60));
+					snprintf(text, sizeof(text), "%s%s in under %u:%02u%s", zone, act, (unsigned)(challenge.mTarget / 60), (unsigned)(challenge.mTarget % 60),
+							 (challenge.mType == Type::FAST_NO_HIT) ? " without a hit" : "");
 					break;
 				}
 				default:
@@ -466,6 +513,7 @@ namespace n3ds
 					snprintf(text, sizeof(text), "%u / %u steps", (unsigned)std::min(challenge.mProgress, challenge.mTarget), (unsigned)challenge.mTarget);
 					break;
 				case Type::ACT_UNDER_TIME:
+				case Type::FAST_NO_HIT:
 					if (challenge.mProgress > 0)
 						snprintf(text, sizeof(text), "Best: %u:%02u", (unsigned)(challenge.mProgress / 60), (unsigned)(challenge.mProgress % 60));
 					break;
@@ -489,8 +537,10 @@ namespace n3ds
 				return BEATEN[(date + (uint32_t)index * 2) % (sizeof(BEATEN) / sizeof(BEATEN[0]))];
 
 			const Data& data = gData;
-			if (index < 0 || index >= NUM_PER_DAY)
+			if (index < 0 || index >= data.mCount)
 				return "";
+			if (index == 4 && data.mChallenges[index].mType != Type::FAST_NO_HIT)
+				return "Robotnik's Special! My finest work. You don't stand a chance!";
 			switch (data.mChallenges[index].mType)
 			{
 				case Type::RINGS_IN_ZONE:		return "Those rings are MINE! Come and take them, if you can!";
@@ -500,6 +550,8 @@ namespace n3ds
 				case Type::ACT_UNDER_TIME:		return "Even my Egg Mobile is faster than you!";
 				case Type::FINISH_WITH_RINGS:	return "Keep your rings all the way to the end? Never!";
 				case Type::NO_HIT_ACT:			return "Not a single scratch? Hohoho! I'd like to see you try!";
+				case Type::FAST_NO_HIT:			return (index == 4) ? "My very own special! Fast AND flawless. Nobody can do that! Nobody!"
+																	: "Fast AND without a scratch? You'll trip over your own shoes!";
 				default:						return "";
 			}
 		}
@@ -514,17 +566,58 @@ namespace n3ds
 			return 10 * (index + 1);
 		}
 
+		const char* getSlotName(int index)
+		{
+			static const char* const NAMES[MAX_PER_DAY] = { "Easy", "Medium", "Hard", "Expert", "Robotnik's Special" };
+			return (index >= 0 && index < MAX_PER_DAY) ? NAMES[index] : "";
+		}
+
+		int getSlotsForLevel(int level)
+		{
+			return (level >= SPECIAL_LEVEL) ? 5 : (level >= EXPERT_LEVEL) ? 4 : 3;
+		}
+
 		int getLevel(uint32_t xp)
 		{
 			return (int)(xp / XP_PER_LEVEL) + 1;
 		}
 
-		const char* getRank(int level)
+		std::string getRank(int level)
 		{
-			static const char* const RANKS[] = { "Rookie", "Ring Collector", "Badnik Buster", "Egg Mobile Dodger", "Robotnik's Rival",
-												 "Egg Breaker", "Death Egg Defier", "Robotnik's Nightmare" };
-			const int count = (int)(sizeof(RANKS) / sizeof(RANKS[0]));
-			return RANKS[std::min(std::max(level, 1), count) - 1];
+			// A new name every two levels, then the top one
+			static const char* const RANKS[] =
+			{
+				"Rookie", "Ring Collector", "Badnik Buster", "Spring Jumper", "Egg Mobile Dodger", "Capsule Cracker", "Robotnik's Rival",
+				"Chaos Chaser", "Egg Breaker", "Emerald Guardian", "Death Egg Defier", "Super Speedster", "Hyper Hero"
+			};
+			static const char* const TOP_RANK = "Robotnik's Nightmare";
+			static_assert(sizeof(RANKS) / sizeof(RANKS[0]) * 2 == TOP_RANK_LEVEL, "A rank for every two levels below the top");
+			level = std::max(level, 1);
+			if (level < TOP_RANK_LEVEL)
+				return RANKS[(level - 1) / 2];
+			if (level == TOP_RANK_LEVEL)
+				return TOP_RANK;
+
+			// Past the top: the same name with a Roman numeral, II for the level after it, and so on (written out in full)
+			int number = level - TOP_RANK_LEVEL + 1;
+			static const struct { int mValue; const char* mText; } NUMERALS[] =
+				{ { 1000, "M" }, { 900, "CM" }, { 500, "D" }, { 400, "CD" }, { 100, "C" }, { 90, "XC" }, { 50, "L" }, { 40, "XL" }, { 10, "X" }, { 9, "IX" }, { 5, "V" }, { 4, "IV" }, { 1, "I" } };
+			std::string numeral;
+			for (const auto& entry : NUMERALS)
+			{
+				while (number >= entry.mValue && numeral.length() < 24)
+				{
+					numeral += entry.mText;
+					number -= entry.mValue;
+				}
+			}
+			return std::string(TOP_RANK) + " " + numeral;
+		}
+
+		Metal getMetal(int level)
+		{
+			return (level <= 4) ? Metal::BRONZE : (level <= 9) ? Metal::SILVER : (level <= 14) ? Metal::GOLD :
+				   (level <= 19) ? Metal::DIAMOND : (level < TOP_RANK_LEVEL) ? Metal::PLATINUM : Metal::EMERALD;
 		}
 	}
 }

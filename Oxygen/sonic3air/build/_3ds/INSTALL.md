@@ -213,9 +213,12 @@ steps (running around in the game), Play Coins spent, achievements, screenshots 
 The **Challenge** tab has **Doctor Robotnik's Daily Challenge**: three new challenges every day (easy, medium and hard,
 like collecting rings in a zone, finishing an act in time or without a hit), in zones you've already reached. They count
 in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile) taunts you about each one, and grumbles
-once it's beaten. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30), and every 100 XP it levels up,
-gets a new rank and metal (bronze, silver, gold, emerald), and gives you a voucher. The notification light glows red
-when you beat one. Saved in `savedata/3ds_challenges.txt`.
+once it's beaten. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30), and every 100 XP it levels up and gives you
+a voucher. Its metal goes bronze (levels 1-4), silver (5-9), gold (10-14), diamond (15-19), platinum (20-25) and emerald
+(26 on), with a new rank every two levels up to "Robotnik's Nightmare" - and past that it never stops: the rank gets
+numbered (II, III, ...), sparkles circle the medal (one more each level) and stars appear on its ribbon (one every 5
+levels, changing color every three). At level 10 an **Expert** challenge (40 XP) joins the daily ones, and at level 20
+**Robotnik's Special** (50 XP). The notification light glows red when you beat one. Saved in `savedata/3ds_challenges.txt`.
 
 **Screenshots:** press L and R together to save the top screen as a PNG in `sdmc:/3ds/sonic3air/screenshots/`.
 

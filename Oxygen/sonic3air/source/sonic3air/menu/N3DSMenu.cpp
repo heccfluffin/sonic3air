@@ -61,7 +61,8 @@ namespace
 	static constexpr uint32 JOURNAL_BONUS = 0x60a;			// Bonus box, with the gift to choose as options
 	static constexpr uint32 JOURNAL_VOUCHERS = 0x60b;
 	static constexpr uint32 CHALLENGE_MEDAL = 0x700;		// Doctor Robotnik's Daily Challenge: him, and the Robotnik medal
-	static constexpr uint32 CHALLENGE_FIRST = 0x701;		// Today's three challenges, 0x701 to 0x703
+	static constexpr uint32 CHALLENGE_FIRST = 0x701;		// Today's challenges, 0x701 to 0x705
+	static constexpr uint32 CHALLENGE_LOCKED = 0x70f;		// The next challenge slot, unlocked by a higher medal level
 
 	std::string formatNumber(uint32 value)
 	{
@@ -827,11 +828,13 @@ void N3DSMenu::createIcons()
 		{
 			struct Metal { uint32 mLight, mBase, mDark; };
 			const auto abgr = [](int r, int g, int b)  { return 0xff000000 | ((uint32)b << 16) | ((uint32)g << 8) | (uint32)r; };
-			const Metal METALS[4] =
+			const Metal METALS[(int)n3ds::challenges::Metal::_NUM] =
 			{
 				{ abgr(245, 185, 120), abgr(205, 127, 50),  abgr(120, 64, 20) },	// Bronze
 				{ abgr(250, 250, 255), abgr(190, 196, 210), abgr(100, 106, 120) },	// Silver
 				{ abgr(255, 244, 150), abgr(240, 188, 40),  abgr(150, 92, 8) },		// Gold
+				{ abgr(235, 255, 255), abgr(140, 218, 255), abgr(36, 104, 168) },	// Diamond
+				{ abgr(255, 246, 255), abgr(214, 204, 236), abgr(108, 94, 150) },	// Platinum
 				{ abgr(200, 255, 232), abgr(80, 216, 164),  abgr(24, 112, 84) },	// Emerald
 			};
 			const uint32 ribbonRed = abgr(214, 40, 40);
@@ -841,7 +844,7 @@ void N3DSMenu::createIcons()
 			const int height = 50;
 			const float cx = 17.5f;
 			const float cy = 32.5f;
-			for (int metal = 0; metal < 4; ++metal)
+			for (int metal = 0; metal < (int)n3ds::challenges::Metal::_NUM; ++metal)
 			{
 				Bitmap& bitmap = mMedals[metal].accessBitmap();
 				bitmap.create(width, height, 0);
@@ -886,8 +889,8 @@ void N3DSMenu::createIcons()
 				for (int k = 0; k < 3; ++k)
 					*bitmap.getPixelPointer(10 + k, 22 + 2 - k) = abgr(255, 255, 255);
 
-				// His face in the middle, without the monitor screen's green behind it
-				for (int y = 0; y < 16; ++y)
+				// His face in the middle, without the monitor screen's green behind it (and its dark edges, the first and last row)
+				for (int y = 1; y < 15; ++y)
 				{
 					for (int x = 0; x < 16; ++x)
 					{
@@ -1174,10 +1177,12 @@ void N3DSMenu::rebuildTabs()
 		GameMenuEntries& entries = mTabs[Tab::Id::CHALLENGE].mMenuEntries;
 		const int selected = entries.mSelectedEntryIndex;
 		entries.resize(1);
-		n3ds::challenges::get(PlayerProgress::instance().mUnlocks.mFinishedZoneAct);
+		const n3ds::challenges::Data& challenges = n3ds::challenges::get(PlayerProgress::instance().mUnlocks.mFinishedZoneAct);
 		entries.addEntry("Robotnik Medal", CHALLENGE_MEDAL);
-		for (int k = 0; k < n3ds::challenges::NUM_PER_DAY; ++k)
-			entries.addEntry((k == 0) ? "Easy" : (k == 1) ? "Medium" : "Hard", CHALLENGE_FIRST + k);
+		for (int k = 0; k < challenges.mCount; ++k)
+			entries.addEntry(n3ds::challenges::getSlotName(k), CHALLENGE_FIRST + k);
+		if (challenges.mCount < n3ds::challenges::MAX_PER_DAY)
+			entries.addEntry(n3ds::challenges::getSlotName(challenges.mCount), CHALLENGE_LOCKED);		// The next one to unlock, as a teaser
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -1506,7 +1511,15 @@ void N3DSMenu::onAccept()
 	if (mActiveTab == Tab::Id::CHALLENGE)
 	{
 		const n3ds::challenges::Data& challenges = n3ds::challenges::get();
-		if (data >= CHALLENGE_FIRST && data < CHALLENGE_FIRST + n3ds::challenges::NUM_PER_DAY && challenges.mChallenges[data - CHALLENGE_FIRST].mDone)
+		if (data == CHALLENGE_LOCKED)
+		{
+			const int level = n3ds::challenges::getLevel(challenges.mXp);
+			const int needed = (challenges.mCount == 3) ? n3ds::challenges::EXPERT_LEVEL : n3ds::challenges::SPECIAL_LEVEL;
+			playMenuSound(0xad);
+			showMessage((level >= needed) ? std::string("Unlocked! It joins tomorrow's challenges") : String(0, "Reach medal level %d to unlock it", needed).toStdString(), level < needed);
+			return;
+		}
+		if (data >= CHALLENGE_FIRST && data < CHALLENGE_FIRST + (uint32)challenges.mCount && challenges.mChallenges[data - CHALLENGE_FIRST].mDone)
 		{
 			playMenuSound(0x6b);
 			showMessage("Already beaten! Robotnik is still fuming", false);
@@ -2248,22 +2261,23 @@ void N3DSMenu::render()
 					createRobotnik();
 					const n3ds::challenges::Data& challenges = n3ds::challenges::get();
 					int beatenToday = 0;
-					for (const n3ds::challenges::Challenge& challenge : challenges.mChallenges)
-						beatenToday += challenge.mDone ? 1 : 0;
+					for (int k = 0; k < challenges.mCount; ++k)
+						beatenToday += challenges.mChallenges[k].mDone ? 1 : 0;
+					const bool allBeaten = (beatenToday == challenges.mCount);
 
 					// Which challenge is selected, if any: he talks about that one
 					int selectedChallenge = -1;
 					if (mActiveMenu == &tab.mMenuEntries)
 					{
 						const uint32 data = tab.mMenuEntries[tab.mMenuEntries.mSelectedEntryIndex].mData;
-						if (data >= CHALLENGE_FIRST && data < CHALLENGE_FIRST + n3ds::challenges::NUM_PER_DAY)
+						if (data >= CHALLENGE_FIRST && data < CHALLENGE_FIRST + (uint32)challenges.mCount)
 							selectedChallenge = (int)(data - CHALLENGE_FIRST);
 					}
 					std::string line;
 					if (selectedChallenge >= 0)
 						line = n3ds::challenges::getTaunt(selectedChallenge, challenges.mChallenges[selectedChallenge].mDone, challenges.mDate);
-					else if (beatenToday == n3ds::challenges::NUM_PER_DAY)
-						line = "All three?! Grr... Enjoy your medal. Tomorrow, you're MINE!";
+					else if (allBeaten)
+						line = "All of them?! Grr... Enjoy your medal. Tomorrow, you're MINE!";
 					else if (beatenToday > 0)
 						line = "Lucky, hedgehog! The rest will crush you. Hohoho!";
 					else
@@ -2278,7 +2292,7 @@ void N3DSMenu::render()
 					// His face: defeated once all are beaten, hurt when looking at a beaten one, otherwise talking for a moment
 					int face = 0;
 					int shakeX = 0;
-					if (beatenToday == n3ds::challenges::NUM_PER_DAY)
+					if (allBeaten)
 						face = 3;
 					else if (selectedChallenge >= 0 && challenges.mChallenges[selectedChallenge].mDone)
 					{
@@ -2318,21 +2332,76 @@ void N3DSMenu::render()
 					for (size_t k = 0; k < textLines.size() && k < 4; ++k)
 						drawer.printText(global::mOxyfontTiny, Recti(bubble.x + 5, textY + (int)k * 10, 0, 10), textLines[k], 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 
-					// The Robotnik medal, its metal by level: bronze, silver, gold, then emerald
+					// The Robotnik medal, its metal by level: bronze, silver, gold, diamond, platinum, then emerald
 					const int level = n3ds::challenges::getLevel(challenges.mXp);
-					const int metal = (level <= 2) ? 0 : (level <= 4) ? 1 : (level <= 6) ? 2 : 3;
+					const int metal = (int)n3ds::challenges::getMetal(level);
 					if (mHasMedals)
 					{
 						DrawerTexture& medal = mMedals[metal];
 						const int sway = roundToInt(std::sin(time * 1.6f) * 1.0f);
-						drawer.drawRect(Recti(px + 70 + sway, py + 6, medal.getWidth(), medal.getHeight()), medal, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						const int medalX = px + 70 + sway;
+						const int medalY = py + 6;
+						const int aboveTop = level - n3ds::challenges::TOP_RANK_LEVEL;		// Levels past the top rank
+
+						// From the top rank on: a soft glow behind it, slowly breathing
+						if (aboveTop >= 0)
+						{
+							const float pulse = 0.5f + 0.5f * std::sin(time * 2.0f);
+							for (int ring = 0; ring < 2; ++ring)
+							{
+								const int radius = 22 - ring * 4;
+								for (int row = -radius; row <= radius; ++row)
+								{
+									const int half = (int)std::sqrt((float)(radius * radius - row * row));
+									drawer.drawRect(Recti(medalX + 18 - half, medalY + 33 + row, half * 2, 1), Color(0.6f, 1.0f, 0.8f, tabAlpha * (0.06f + 0.06f * pulse)));
+								}
+							}
+						}
+
+						drawer.drawRect(Recti(medalX, medalY, medal.getWidth(), medal.getHeight()), medal, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+
+						// Stars on the ribbon, one for every 5 levels past the top: up to three, then they start over in the next color
+						// (gold, ruby, sapphire, then a shimmering rainbow) - so there's always another one to earn
+						if (aboveTop >= 5)
+						{
+							const int starsEarned = aboveTop / 5;
+							const int shown = (starsEarned - 1) % 3 + 1;
+							const int colorRound = (starsEarned - 1) / 3;
+							static const int STAR_POSITIONS[3][2] = { { 9, 5 }, { 27, 5 }, { 18, 13 } };
+							for (int k = 0; k < shown; ++k)
+							{
+								Color starColor = (colorRound == 0) ? Color(1.0f, 0.9f, 0.3f, tabAlpha) : (colorRound == 1) ? Color(1.0f, 0.3f, 0.45f, tabAlpha) :
+												  (colorRound == 2) ? Color(0.4f, 0.6f, 1.0f, tabAlpha) : Color(1.0f, 1.0f, 1.0f, tabAlpha);
+								if (colorRound >= 3)
+								{
+									// Rainbow: the hue goes around, each star a bit ahead of the one before
+									const float hue = std::fmod(time * 0.4f + (float)k * 0.33f, 1.0f) * 6.0f;
+									const float x = 1.0f - std::fabs(std::fmod(hue, 2.0f) - 1.0f);
+									const int sector = (int)hue;
+									const float r = (sector == 0 || sector == 5) ? 1.0f : (sector == 1 || sector == 4) ? x : 0.0f;
+									const float g = (sector == 1 || sector == 2) ? 1.0f : (sector == 0 || sector == 3) ? x : 0.0f;
+									const float b = (sector == 3 || sector == 4) ? 1.0f : (sector == 2 || sector == 5) ? x : 0.0f;
+									starColor = Color(0.4f + 0.6f * r, 0.4f + 0.6f * g, 0.4f + 0.6f * b, tabAlpha);
+								}
+								drawSparkle(drawer, medalX + STAR_POSITIONS[k][0], medalY + STAR_POSITIONS[k][1], 2, starColor);
+							}
+						}
+
+						// Past the top rank: sparkles circling the medal, one more for every level (up to a full ring)
+						const int sparkles = std::min(aboveTop, 12);
+						for (int k = 0; k < sparkles; ++k)
+						{
+							const float angle = time * 1.2f + (float)k / (float)sparkles * 6.2832f;
+							const float twinkle = 0.6f + 0.4f * std::sin(time * 5.0f + (float)k * 1.7f);
+							drawSparkle(drawer, px + 88 + sway + roundToInt(std::cos(angle) * 21.0f), py + 38 + roundToInt(std::sin(angle) * 19.0f), (k % 2) ? 2 : 3,
+										Color(1.0f, 1.0f, 0.8f, tabAlpha * twinkle));
+						}
 					}
-					drawer.printText(global::mSonicFontB, Recti(px + 112, py + 10, 0, 10), String(0, "LEVEL %d", level), 1, color);
-					drawer.printText(global::mOxyfontTiny, Recti(px + 112, py + 23, 0, 10), n3ds::challenges::getRank(level), 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+					drawer.printText(global::mSonicFontB, Recti(px + 112, py + 12, 0, 10), String(0, "LEVEL %d", level), 1, color);
 
 					// Experience toward the next level (and its voucher)
 					const int xpInLevel = (int)(challenges.mXp % n3ds::challenges::XP_PER_LEVEL);
-					const Recti bar(px + 112, py + 38, 66, 5);
+					const Recti bar(px + 112, py + 30, 66, 5);
 					drawer.drawRect(Recti(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2), Color(0.1f, 0.05f, 0.05f, tabAlpha));
 					drawer.drawRect(Recti(bar.x, bar.y, bar.width * xpInLevel / n3ds::challenges::XP_PER_LEVEL, bar.height), Color(0.95f, 0.3f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontTiny, Recti(bar.x + bar.width, bar.y + 8, 0, 10), String(0, "%d / %d XP", xpInLevel, n3ds::challenges::XP_PER_LEVEL), 3, color2);
@@ -2340,12 +2409,28 @@ void N3DSMenu::render()
 					// Today, and when the next ones come
 					const n3ds::profile::LocalTime now = n3ds::profile::getLocalTime();
 					const int minutesLeft = 24 * 60 - (now.mHour * 60 + now.mMinute);
-					drawer.printText(global::mOxyfontTiny, Recti(px - 112, py + 66, 0, 10), String(0, "Beaten today: %d / %d", beatenToday, n3ds::challenges::NUM_PER_DAY), 1,
-									 (beatenToday == n3ds::challenges::NUM_PER_DAY) ? Color(0.5f, 1.0f, 0.6f, tabAlpha) : color2);
+					drawer.printText(global::mOxyfontTiny, Recti(px - 112, py + 66, 0, 10), String(0, "Beaten today: %d / %d", beatenToday, challenges.mCount), 1,
+									 allBeaten ? Color(0.5f, 1.0f, 0.6f, tabAlpha) : color2);
 					drawer.printText(global::mOxyfontTiny, Recti(px - 112, py + 77, 0, 10), String(0, "New ones in %d h %02d min", minutesLeft / 60, minutesLeft % 60), 1, color2);
+					drawer.printText(global::mOxyfontSmall, Recti(px + 178, py + 65, 0, 10), n3ds::challenges::getRank(level), 3, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontTiny, Recti(px + 178, py + 77, 0, 10), "A voucher every level", 3, Color(0.6f, 0.9f, 1.0f, tabAlpha));
 				}
-				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData >= CHALLENGE_FIRST && entry.mData < CHALLENGE_FIRST + n3ds::challenges::NUM_PER_DAY)
+				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_LOCKED)
+				{
+					// The next challenge slot, still locked: a dim monitor and a padlock-ish note
+					const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+					const int level = n3ds::challenges::getLevel(challenges.mXp);
+					const int needed = (challenges.mCount == 3) ? n3ds::challenges::EXPERT_LEVEL : n3ds::challenges::SPECIAL_LEVEL;
+					drawer.drawRect(imageRect, Color(0.06f, 0.06f, 0.08f, tabAlpha));
+					drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 5, 32, 32), mEggmanMonitor, Color(0.4f, 0.4f, 0.45f, tabAlpha * 0.6f));
+					drawer.printText(global::mOxyfontSmall, Recti(imageRect.x + 32, imageRect.y + 38, 0, 10), "LOCKED", 5, Color(0.7f, 0.7f, 0.75f, tabAlpha));
+					status = String(0, "+%d XP", n3ds::challenges::getXpFor(challenges.mCount)).toStdString();
+					statusColor = Color(0.55f, 0.55f, 0.6f, tabAlpha);
+					description = (level >= needed) ? std::string("Unlocked with your medal! It joins tomorrow's challenges.")
+								: String(0, "Reach Robotnik medal level %d to face this one every day. %s", needed,
+										 (challenges.mCount == 3) ? "Fast and flawless, or a mountain of rings." : "Robotnik's nastiest ideas, saved for the best.").toStdString();
+				}
+				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData >= CHALLENGE_FIRST && entry.mData < CHALLENGE_FIRST + n3ds::challenges::MAX_PER_DAY)
 				{
 					// One of today's challenges: a monitor with Robotnik's face (broken once beaten), stars for how hard it is
 					const int index = (int)(entry.mData - CHALLENGE_FIRST);
@@ -2353,9 +2438,10 @@ void N3DSMenu::render()
 					const n3ds::challenges::Challenge& challenge = challenges.mChallenges[index];
 					drawer.drawRect(imageRect, Color(0.12f, 0.04f, 0.04f, tabAlpha));
 					drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 5, 32, 32), challenge.mDone ? mBrokenMonitor : mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha));
-					const Color starColor = (index == 0) ? Color(0.4f, 1.0f, 0.4f, tabAlpha) : (index == 1) ? Color(1.0f, 0.85f, 0.2f, tabAlpha) : Color(1.0f, 0.35f, 0.3f, tabAlpha);
+					static const float STAR_COLORS[n3ds::challenges::MAX_PER_DAY][3] = { { 0.4f, 1.0f, 0.4f }, { 1.0f, 0.85f, 0.2f }, { 1.0f, 0.35f, 0.3f }, { 0.8f, 0.45f, 1.0f }, { 1.0f, 0.55f, 0.85f } };
+					const Color starColor(STAR_COLORS[index][0], STAR_COLORS[index][1], STAR_COLORS[index][2], tabAlpha);
 					for (int k = 0; k <= index; ++k)
-						drawSparkle(drawer, imageRect.x + 32 + (k * 2 - index) * 6, imageRect.y + 42, 3, starColor);
+						drawSparkle(drawer, imageRect.x + 32 + (k * 2 - index) * 5, imageRect.y + 42, (index >= 3) ? 2 : 3, starColor);
 
 					const std::string progress = n3ds::challenges::describeProgress(challenge);
 					if (challenge.mDone)

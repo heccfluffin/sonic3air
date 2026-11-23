@@ -603,7 +603,30 @@ namespace
 				onlyAngelIsland = onlyAngelIsland && (challenge.mZone == 0);
 		}
 		check(onlyAngelIsland, "with only Angel Island reached, all challenges are there");
-		check(std::string(getRank(1)) == "Rookie" && std::string(getRank(99)) == "Robotnik's Nightmare", "medal ranks");
+		check(getRank(1) == "Rookie" && getRank(2) == "Rookie" && getRank(3) == "Ring Collector" && getRank(25) == "Hyper Hero" && getRank(26) == "Robotnik's Nightmare" &&
+			  getRank(27) == "Robotnik's Nightmare II" && getRank(30) == "Robotnik's Nightmare V" && getRank(74) == "Robotnik's Nightmare XLIX",
+			  "medal ranks, a new one every two levels, then numerals past the top (" + getRank(74) + ")");
+		check(getMetal(4) == Metal::BRONZE && getMetal(5) == Metal::SILVER && getMetal(10) == Metal::GOLD && getMetal(15) == Metal::DIAMOND &&
+			  getMetal(20) == Metal::PLATINUM && getMetal(25) == Metal::PLATINUM && getMetal(26) == Metal::EMERALD && getMetal(500) == Metal::EMERALD,
+			  "medal metals: bronze 1-4, silver 5-9, gold 10-14, diamond 15-19, platinum 20-25, emerald from 26");
+		check(getSlotsForLevel(9) == 3 && getSlotsForLevel(10) == 4 && getSlotsForLevel(20) == 5, "an Expert challenge from level 10, Robotnik's Special from level 20");
+	}
+
+	void challengesSlots()
+	{
+		using namespace n3ds::challenges;
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+
+		// Yesterday's challenges at medal level 20: today has all five
+		fake::setTime(2026, 11, 23, 18, 0);
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261122\nxp=1950\nbeaten=60\nperfect_days=12\nzones=4095\n"
+			"challenge=0 1 0 50 50 1\nchallenge=4 0 0 150 0 0\nchallenge=6 1 0 0 0 0\nchallenge=3 0 0 250 0 0\n";
+		const Data& data = get(4095);
+		std::string list;
+		for (int k = 0; k < data.mCount; ++k)
+			list += ((k > 0) ? " / " : "") + describe(data.mChallenges[k]);
+		check(data.mDate == 20261123 && data.mCount == 5, "at medal level 20, five challenges a day: " + list);
+		check(getXpFor(3) == 40 && getXpFor(4) == 50 && std::string(getSlotName(4)) == "Robotnik's Special", "expert 40 XP, Robotnik's Special 50 XP");
 	}
 
 	void postcardsAll()
@@ -649,7 +672,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

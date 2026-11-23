@@ -19,7 +19,9 @@ namespace n3ds
 {
 	namespace challenges
 	{
-		static const int NUM_PER_DAY = 3;			// Easy, medium, hard
+		static const int MAX_PER_DAY = 5;			// Easy, medium, hard; expert from medal level 10, Robotnik's Special from level 20
+		static const int EXPERT_LEVEL = 10;
+		static const int SPECIAL_LEVEL = 20;
 		static const int XP_PER_LEVEL = 100;		// Each medal level gives a voucher
 
 		enum class Type : uint8_t
@@ -31,6 +33,7 @@ namespace n3ds
 			ACT_UNDER_TIME,			// Finish the zone's act in less than "mTarget" seconds (medium / hard)
 			FINISH_WITH_RINGS,		// Finish an act of the zone with at least "mTarget" rings (medium)
 			NO_HIT_ACT,				// Finish an act of the zone without getting hit (hard)
+			FAST_NO_HIT,			// Finish the zone's act in less than "mTarget" seconds and without getting hit (expert, special)
 			_NUM
 		};
 
@@ -47,10 +50,11 @@ namespace n3ds
 		struct Data
 		{
 			uint32_t mDate = 0;					// YYYYMMDD of the challenges
-			Challenge mChallenges[NUM_PER_DAY];
+			Challenge mChallenges[MAX_PER_DAY];
+			int mCount = 3;						// Today's challenges: 3, more with higher medal levels
 			uint32_t mXp = 0;					// In total, the level follows from it
 			uint32_t mBeaten = 0;				// Challenges beaten in total
-			uint32_t mPerfectDays = 0;			// Days with all three beaten
+			uint32_t mPerfectDays = 0;			// Days with all of them beaten
 		};
 
 		// The challenges of today: new ones get chosen the first time this is asked on a day, from the zones in "finishedZoneActs"
@@ -82,9 +86,16 @@ namespace n3ds
 		std::string describeProgress(const Challenge& challenge);	// Like "32 / 50", "Best: 3:12", or empty
 		const char* getTaunt(int index, bool beaten, uint32_t date);	// Robotnik's words for it
 		const char* getZoneName(uint8_t zone);
-		int getXpFor(int index);		// 10, 20 or 30
+		int getXpFor(int index);		// 10, 20, 30, 40 or 50
+		const char* getSlotName(int index);		// "Easy" to "Robotnik's Special"
+		int getSlotsForLevel(int level);
 		int getLevel(uint32_t xp);		// 1 and up
-		const char* getRank(int level);
+		std::string getRank(int level);		// A name for every two levels up to the top, then "Robotnik's Nightmare II", "III" and so on, without end
+
+		// The medal's metal: bronze, silver, gold, diamond, platinum, emerald
+		enum class Metal : uint8_t { BRONZE = 0, SILVER, GOLD, DIAMOND, PLATINUM, EMERALD, _NUM };
+		Metal getMetal(int level);
+		static const int TOP_RANK_LEVEL = 26;		// Emerald, and "Robotnik's Nightmare"; every level after it adds a numeral (and more on the medal)
 	}
 }
 
