@@ -37,9 +37,9 @@ namespace n3ds
 			BADNIKS,				// Destroy "mTarget" badniks today (easy, medium)
 			EXTRA_LIFE,				// Earn an extra life in the zone (medium)
 			BONUS_STAGE,			// Get into a bonus stage: Gumball Machine, Glowing Spheres or Slot Machine (medium)
-			SCORE_IN_ACT,			// Score "mTarget" points within one act (medium)
+			SCORE_IN_ACT,			// Score "mTarget" points within one act, with the act's end bonuses (medium 10,000, hard 20,000)
 			FINISH_AS,				// Finish an act of the zone as "mTarget": 2 = Tails, 3 = Knuckles (medium)
-			ALL_SHIELDS,			// Have the fire, lightning and bubble shield, all in one act (hard)
+			ALL_SHIELDS,			// Have the fire, lightning and bubble shield, all in the zone's act "mAct" (hard; only acts that have them all)
 			NO_DROWN,				// Finish an act of the zone without the drowning countdown ever starting (hard, Hydrocity)
 			_NUM
 		};

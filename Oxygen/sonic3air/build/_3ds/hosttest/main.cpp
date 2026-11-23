@@ -631,10 +631,10 @@ namespace
 		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
 		fake::setTime(2026, 11, 23, 18, 0);
 		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261123\nxp=0\nbeaten=0\nperfect_days=0\nzones=15\n"
-			"challenge=8 0 0 10 0 0\nchallenge=9 1 0 0 0 0\nchallenge=13 0 0 0 0 0\nchallenge=11 0 0 20000 0 0\nchallenge=12 0 0 3 0 0\n";
+			"challenge=8 0 0 10 0 0\nchallenge=9 1 0 0 0 0\nchallenge=13 3 0 0 0 0\nchallenge=11 0 0 20000 0 0\nchallenge=12 0 0 3 0 0\n";
 		const Data& data = get(15);
 		check(data.mCount == 5 && describe(data.mChallenges[0]) == "Destroy 10 badniks" && describe(data.mChallenges[1]) == "Earn an extra life in Hydrocity" &&
-			  describe(data.mChallenges[2]) == "Get all 3 elemental shields in one act" && describe(data.mChallenges[3]) == "Score 20,000 points in one act" &&
+			  describe(data.mChallenges[2]) == "All 3 elemental shields in Carnival Night 1" && describe(data.mChallenges[3]) == "Score 20,000 points in one act" &&
 			  describe(data.mChallenges[4]) == "Finish Angel Island as Knuckles", "new challenge types are described (" + describe(data.mChallenges[3]) + ")");
 
 		Frame frame;
@@ -661,16 +661,30 @@ namespace
 		onFrame(frame);
 		frame.mShields = 0x20;
 		onFrame(frame);
-		check(!data.mChallenges[2].mDone && describeProgress(data.mChallenges[2]) == "Best: 2 / 3 shields", "fire and lightning: 2 of 3 shields");
-		frame.mAct = 1;		// A new act starts the shields over
 		frame.mShields = 0x40;
 		onFrame(frame);
-		check(!data.mChallenges[2].mDone, "the bubble shield in the next act doesn't complete the set");
+		check(!data.mChallenges[2].mDone, "all three shields in Hydrocity don't count for Carnival Night 1");
+		frame.mZone = 3;
 		frame.mShields = 0x10;
 		onFrame(frame);
 		frame.mShields = 0x20;
 		onFrame(frame);
-		check(data.mChallenges[2].mDone, "all three in one act: beaten");
+		check(!data.mChallenges[2].mDone && describeProgress(data.mChallenges[2]) == "Best: 2 / 3 shields", "fire and lightning in Carnival Night 1: 2 of 3 shields");
+		frame.mAct = 1;		// A new act starts the shields over
+		frame.mShields = 0x40;
+		onFrame(frame);
+		frame.mAct = 0;
+		frame.mShields = 0x40;
+		onFrame(frame);
+		check(!data.mChallenges[2].mDone, "the bubble shield after leaving the act doesn't complete the set");
+		frame.mShields = 0x10;
+		onFrame(frame);
+		frame.mShields = 0x20;
+		onFrame(frame);
+		check(data.mChallenges[2].mDone, "all three in one go through Carnival Night 1: beaten");
+		frame.mZone = 1;		// Back to Hydrocity: a new act, counting points from here
+		frame.mShields = 0;
+		onFrame(frame);
 
 		frame.mScore = 5000 + 19990;
 		onFrame(frame);

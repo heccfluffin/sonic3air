@@ -195,7 +195,7 @@ namespace n3ds
 							switch (mediumKind)
 							{
 								case 3:  challenge.mType = Type::BADNIKS;  challenge.mTarget = 25;  break;
-								case 4:  challenge.mType = Type::SCORE_IN_ACT;  challenge.mTarget = 20000;  break;
+								case 4:  challenge.mType = Type::SCORE_IN_ACT;  challenge.mTarget = 10000;  break;		// About a good act: 3 minutes, 50 rings, some badniks
 								case 5:  challenge.mType = Type::EXTRA_LIFE;  challenge.mZone = pickZone();  break;
 								case 6:  challenge.mType = Type::FINISH_AS;  challenge.mZone = pickZone();  challenge.mTarget = (next(2) == 0) ? 2 : 3;  break;
 								default: challenge.mType = Type::BONUS_STAGE;  break;
@@ -223,10 +223,35 @@ namespace n3ds
 					else
 					{
 						// Hard
-						const uint32_t hardKind = next(5);
-						if (hardKind == 3)
+						const uint32_t hardKind = next(6);
+						if (hardKind == 5)
 						{
-							challenge.mType = Type::ALL_SHIELDS;
+							challenge.mType = Type::SCORE_IN_ACT;		// Like under 2 minutes with 100 rings (time bonus 10,000 plus ring bonus 10,000)
+							challenge.mTarget = 20000;
+						}
+						else if (hardKind == 3)
+						{
+							// All three elemental shields in one act: only acts with at least two monitors of each (counted in the level
+							// object lists), so it never hangs on a single monitor that might be on another character's path
+							static const uint8_t SHIELD_ACTS[][2] = { { 0, 1 }, { 3, 0 }, { 3, 1 }, { 6, 0 }, { 7, 1 }, { 8, 1 } };	// AIZ 2, CNZ 1 + 2, LBZ 1, MHZ 2, SOZ 2
+							std::vector<int> candidates;
+							for (int k = 0; k < (int)(sizeof(SHIELD_ACTS) / sizeof(SHIELD_ACTS[0])); ++k)
+							{
+								if (isZoneAvailable(SHIELD_ACTS[k][0]))
+									candidates.push_back(k);
+							}
+							if (candidates.empty())
+							{
+								challenge.mType = Type::NO_HIT_ACT;
+								challenge.mZone = pickZone();
+							}
+							else
+							{
+								const int pick = candidates[next((uint32_t)candidates.size())];
+								challenge.mType = Type::ALL_SHIELDS;
+								challenge.mZone = SHIELD_ACTS[pick][0];
+								challenge.mAct = SHIELD_ACTS[pick][1];
+							}
 						}
 						else if (hardKind == 4)
 						{
@@ -441,6 +466,8 @@ namespace n3ds
 
 					case Type::ALL_SHIELDS:
 					{
+						if (frame.mZone != challenge.mZone || frame.mAct != challenge.mAct)
+							break;
 						const uint32_t count = ((gActShields & 0x10) ? 1 : 0) + ((gActShields & 0x20) ? 1 : 0) + ((gActShields & 0x40) ? 1 : 0);
 						if (count > challenge.mProgress)
 						{
@@ -606,7 +633,7 @@ namespace n3ds
 						snprintf(text, sizeof(text), "Score %u points in one act", (unsigned)challenge.mTarget);
 					break;
 				case Type::FINISH_AS:			snprintf(text, sizeof(text), "Finish %s as %s", zone, (challenge.mTarget == 2) ? "Tails" : "Knuckles");  break;
-				case Type::ALL_SHIELDS:			snprintf(text, sizeof(text), "Get all 3 elemental shields in one act");  break;
+				case Type::ALL_SHIELDS:			snprintf(text, sizeof(text), "All 3 elemental shields in %s %d", zone, challenge.mAct + 1);  break;
 				case Type::NO_DROWN:			snprintf(text, sizeof(text), "Clear %s, never low on air", zone);  break;
 				case Type::ACT_UNDER_TIME:
 				case Type::FAST_NO_HIT:
