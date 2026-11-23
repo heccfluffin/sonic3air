@@ -79,8 +79,8 @@ namespace n3ds
 			std::string toText(const Data& data)
 			{
 				char text[160];
-				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\n",
-						 (unsigned)data.mDate, (unsigned)data.mXp, (unsigned)data.mBeaten, (unsigned)data.mPerfectDays, (unsigned)gZoneMask);
+				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\npinned=%d\n",
+						 (unsigned)data.mDate, (unsigned)data.mXp, (unsigned)data.mBeaten, (unsigned)data.mPerfectDays, (unsigned)gZoneMask, data.mPinned);
 				std::string result = text;
 				for (int index = 0; index < data.mCount; ++index)
 				{
@@ -127,6 +127,7 @@ namespace n3ds
 
 				Data& data = gData;
 				data.mDate = date;
+				data.mPinned = -1;
 				data.mCount = getSlotsForLevel(getLevel(data.mXp));
 				for (int index = 0; index < data.mCount; ++index)
 				{
@@ -308,6 +309,7 @@ namespace n3ds
 						else if (sscanf(line, "beaten=%u", &value) == 1)		gData.mBeaten = value;
 						else if (sscanf(line, "perfect_days=%u", &value) == 1)	gData.mPerfectDays = value;
 						else if (sscanf(line, "zones=%u", &value) == 1)			gZoneMask = value;
+						else if (sscanf(line, "pinned=%d", &type) == 1)			gData.mPinned = type;
 						else if (sscanf(line, "challenge=%d %d %d %u %u %d", &type, &zone, &act, &target, &progress, &done) == 6 && index < MAX_PER_DAY &&
 								 type >= 0 && type < (int)Type::_NUM && zone >= 0 && zone < NUM_ZONES && act >= 0 && act < ZONES[zone].mActs)
 						{
@@ -322,6 +324,8 @@ namespace n3ds
 					}
 					fclose(file);
 					gData.mCount = index;
+					if (gData.mPinned >= index || (gData.mPinned >= 0 && gData.mChallenges[gData.mPinned].mDone))
+						gData.mPinned = -1;
 					if (index < 3)
 					{
 						gData.mDate = 0;		// Incomplete: new challenges
@@ -347,6 +351,8 @@ namespace n3ds
 				if (challenge.mDone)
 					return;
 				challenge.mDone = true;
+				if (gData.mPinned == index)
+					gData.mPinned = -1;
 				const int levelBefore = getLevel(gData.mXp);
 				gData.mXp += (uint32_t)getXpFor(index);
 				++gData.mBeaten;
@@ -399,6 +405,15 @@ namespace n3ds
 				if (!success)
 					RMX_LOG_INFO("Daily challenge: could not save " << FILE_PATH);
 			});
+		}
+
+		void setPinned(int index)
+		{
+			load();
+			if (index >= 0 && (index >= gData.mCount || gData.mChallenges[index].mDone))
+				index = -1;
+			gData.mPinned = index;
+			save();
 		}
 
 		bool onFrame(const Frame& frame)

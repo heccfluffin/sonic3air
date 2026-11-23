@@ -59,6 +59,7 @@ namespace n3ds
 			uint32_t mDate = 0;					// YYYYMMDD of the challenges
 			Challenge mChallenges[MAX_PER_DAY];
 			int mCount = 3;						// Today's challenges: 3, more with higher medal levels
+			int mPinned = -1;					// The one pinned to the main menu, -1 for none (unpinned once beaten, and with each new day)
 			uint32_t mXp = 0;					// In total, the level follows from it
 			uint32_t mBeaten = 0;				// Challenges beaten in total
 			uint32_t mPerfectDays = 0;			// Days with all of them beaten
@@ -70,6 +71,9 @@ namespace n3ds
 		const Data& get();		// With the zones last given
 
 		void save();		// Writes the file if something changed; also called at exit
+
+		// Pins one of today's challenges to the main menu (-1: none); only one that isn't beaten yet
+		void setPinned(int index);
 
 		// What the game tells every frame while a level runs (in a normal game or Act Select)
 		struct Frame

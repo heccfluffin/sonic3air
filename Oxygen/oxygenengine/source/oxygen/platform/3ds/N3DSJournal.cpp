@@ -303,7 +303,7 @@ namespace n3ds
 			return gData;
 		}
 
-		void update()
+		void update(bool inLevel)
 		{
 			load();
 			const uint64_t now = svcGetSystemTick();
@@ -331,12 +331,12 @@ namespace n3ds
 				checkDay();
 			}
 
-			// Save now and then, for the play time
+			// Save now and then, for the play time: every 2 minutes, and only while in a level (a save that's due waits for that)
 			if (gNextSave == 0)
-				gNextSave = now + 60 * (uint64_t)SYSCLOCK_ARM11;
-			else if (now >= gNextSave)
+				gNextSave = now + 120 * (uint64_t)SYSCLOCK_ARM11;
+			else if (now >= gNextSave && inLevel)
 			{
-				gNextSave = now + 60 * (uint64_t)SYSCLOCK_ARM11;
+				gNextSave = now + 120 * (uint64_t)SYSCLOCK_ARM11;
 				save();
 			}
 		}

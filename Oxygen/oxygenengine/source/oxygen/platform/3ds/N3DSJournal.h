@@ -79,8 +79,10 @@ namespace n3ds
 		const Data& get();		// Loaded on first use
 
 		// Main thread, every frame: counts the play time, and gives the day's stamp the first time the game runs on a day.
-		// Saves now and then (in the background).
-		void update();
+		// Saves now and then (in the background), but only while a level is being played ("inLevel"): while the SD card writes
+		// (about 2 seconds on a slow card), everything else reading from it waits, and menus like Mods read from it when opened.
+		// Quitting saves anyway.
+		void update(bool inLevel = true);
 
 		// Writes the file if something changed; also called at exit
 		void save();

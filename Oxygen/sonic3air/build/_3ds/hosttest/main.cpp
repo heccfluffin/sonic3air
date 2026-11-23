@@ -584,12 +584,17 @@ namespace
 		check(data.mChallenges[0].mDone && data.mXp == 50 && getLevel(data.mXp) == 2, "50 rings: beaten, 10 XP, medal level 2 (at 50 XP)");
 		check(takeBeatenNotice() == 0 && takeLevelUpNotice() && n3ds::journal::get().mVouchers == 1, "... with a Robotnik voucher for the new level");
 
+		setPinned(0);
+		check(data.mPinned == -1, "a beaten challenge can't be pinned");
+		setPinned(1);
+		check(data.mPinned == 1, "pinning Angel Island 1 in under 2:30");
 		actDone(0, 0, 10, 160, false);
 		check(!data.mChallenges[1].mDone && describeProgress(data.mChallenges[1]) == "Best: 2:40", "Angel Island 1 in 2:40 is too slow");
 		actDone(0, 1, 10, 100, false);
 		check(!data.mChallenges[1].mDone, "... and act 2 doesn't count");
 		actDone(0, 0, 10, 140, false);
 		check(data.mChallenges[1].mDone && data.mXp == 70, "2:20: beaten, 20 XP");
+		check(data.mPinned == -1, "... and beating it unpins it");
 
 		actDone(1, 1, 0, 100, true);
 		check(!data.mChallenges[2].mDone, "a hit in Hydrocity: not beaten");

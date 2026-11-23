@@ -18,6 +18,7 @@
 #include "sonic3air/version.inc"
 
 #if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSChallenges.h"
 	#include "oxygen/platform/3ds/N3DSShop.h"
 #endif
 #include "oxygen/application/Application.h"
@@ -315,6 +316,39 @@ void MainMenu::render()
 			drawer.printText(global::mOxyfontRegular, Recti(px, py, 200, 10), text, printOptions);
 		}
 	}
+
+#if defined(PLATFORM_3DS)
+	// The daily challenge pinned in the 3DS menu: a little card down in the water on the left, under the island
+	{
+		const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+		if (challenges.mPinned >= 0 && challenges.mPinned < challenges.mCount && !challenges.mChallenges[challenges.mPinned].mDone)
+		{
+			const n3ds::challenges::Challenge& challenge = challenges.mChallenges[challenges.mPinned];
+			const float alpha = mVisibility;
+			const Recti card(6 - roundToInt((1.0f - mVisibility) * 200.0f), 181, 174, 46);		// The game's picture ends a few pixels above the screen's bottom
+			drawer.drawRect(Recti(card.x - 1, card.y - 1, card.width + 2, card.height + 2), Color(0.9f, 0.25f, 0.2f, alpha));
+			drawer.drawRect(card, Color(0.16f, 0.04f, 0.05f, alpha * 0.9f));
+
+			// A pushpin in the corner, and which one it is
+			drawer.drawRect(Recti(card.x + card.width - 9, card.y - 3, 1, 4), Color(0.75f, 0.75f, 0.8f, alpha));
+			drawer.drawRect(Recti(card.x + card.width - 11, card.y - 6, 5, 4), Color(0.9f, 0.15f, 0.15f, alpha));
+			String slot(n3ds::challenges::getSlotName(challenges.mPinned));
+			slot.upperCase();
+			const std::string title = (challenges.mPinned == 4) ? (slot.toStdString() + String(0, " - %d XP", n3ds::challenges::getXpFor(challenges.mPinned)).toStdString())
+															   : ("ROBOTNIK'S " + slot.toStdString() + String(0, " - %d XP", n3ds::challenges::getXpFor(challenges.mPinned)).toStdString());
+			drawer.printText(global::mOxyfontTiny, Recti(card.x + 5, card.y + 3, 0, 10), title, 1, Color(1.0f, 0.85f, 0.2f, alpha));
+
+			std::vector<std::string_view> lines;
+			const std::string description = n3ds::challenges::describe(challenge);
+			utils::splitTextIntoLines(lines, description, global::mOxyfontTiny, card.width - 10);
+			for (size_t k = 0; k < lines.size() && k < 2; ++k)
+				drawer.printText(global::mOxyfontTiny, Recti(card.x + 5, card.y + 14 + (int)k * 10, 0, 10), lines[k], 1, Color(1.0f, 1.0f, 1.0f, alpha));
+			const std::string progress = n3ds::challenges::describeProgress(challenge);
+			if (!progress.empty())
+				drawer.printText(global::mOxyfontTiny, Recti(card.x + card.width - 5, card.y + 34, 0, 10), progress, 3, Color(0.6f, 0.9f, 1.0f, alpha));
+		}
+	}
+#endif
 
 	// Version info
 	{

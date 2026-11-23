@@ -225,6 +225,7 @@ namespace
 	};
 	const int DUST_ROM_SPRITE = 12;		// The first of the four dust frames
 	const float ROBOTNIK_SWITCH_TIME = 0.5f;		// Seconds for jumping out of the Egg Mobile, or back in
+	const float ROBOTNIK_LETTERS_PER_SECOND = 30.0f;	// How fast his words appear
 	const int ROBOTNIK_ROM_SPRITE = 6;		// The first of his sprites, see "N3DSMenu::mRobotnik"
 
 	// The bosses' arenas, drawn from the level in the ROM (positions from the boss scripts and the level object lists)
@@ -569,6 +570,16 @@ namespace
 	{
 		const int slantStart = height - 2 - 25;
 		return cardX + CARD_WIDTH - 6 - std::max(0, row - slantStart);
+	}
+
+	// A little red pushpin (for the pinned daily challenge), its needle pointing down from (x, y + 8)
+	void drawPushpin(Drawer& drawer, int x, int y, float alpha)
+	{
+		drawer.drawRect(Recti(x + 2, y + 6, 1, 4), Color(0.75f, 0.75f, 0.8f, alpha));		// Needle
+		drawer.drawRect(Recti(x, y + 4, 5, 2), Color(0.6f, 0.05f, 0.05f, alpha));			// Collar
+		drawer.drawRect(Recti(x + 1, y, 3, 5), Color(0.9f, 0.15f, 0.15f, alpha));			// Head
+		drawer.drawRect(Recti(x, y + 1, 5, 3), Color(0.9f, 0.15f, 0.15f, alpha));
+		drawer.drawRect(Recti(x + 1, y + 1, 1, 1), Color(1.0f, 0.7f, 0.7f, alpha));		// Shine
 	}
 
 	// A little four-pointed sparkle
@@ -1575,10 +1586,14 @@ void N3DSMenu::onAccept()
 			playMenuSound(0x5b);
 			showMessage(String(0, "%u challenges beaten, %u perfect days", (unsigned)challenges.mBeaten, (unsigned)challenges.mPerfectDays).toStdString(), false);
 		}
-		else
+		else if (data >= CHALLENGE_FIRST && data < CHALLENGE_FIRST + (uint32)challenges.mCount)
 		{
-			playMenuSound(0x5b);
-			showMessage("Play a normal game or Act Select to try it", false);
+			// Pin it to the main menu, or unpin it
+			const int index = (int)(data - CHALLENGE_FIRST);
+			const bool pin = (challenges.mPinned != index);
+			n3ds::challenges::setPinned(pin ? index : -1);
+			playMenuSound(pin ? 0x63 : 0x5b);
+			showMessage(pin ? "Pinned to the main menu - play a normal game or Act Select" : "Unpinned", false);
 		}
 		return;
 	}
@@ -2339,6 +2354,11 @@ void N3DSMenu::render()
 					// hopping); out of it to stomp mad at a beaten challenge (mustache flaring, a hop and a thud with dust); and sulking in it
 					// with his defeated face once all are beaten
 					const float sinceLine = time - mRobotnikTalkStart;
+
+					// His words appear letter by letter, like he's saying them; "Hohoho" in them is when he laughs
+					const float typingTime = (float)mRobotnikLine.length() / ROBOTNIK_LETTERS_PER_SECOND;
+					const size_t hohoho = mRobotnikLine.find("Hoho");
+					const float sinceLaugh = (hohoho == std::string::npos) ? -1.0f : (sinceLine - (float)hohoho / ROBOTNIK_LETTERS_PER_SECOND);
 					int sprite = ROBOTNIK_EGG_MOBILE_TALK1;
 					int offsetX = 0;
 					int offsetY = roundToInt(std::sin(time * 2.2f) * 3.0f);		// Hovering
@@ -2382,18 +2402,19 @@ void N3DSMenu::render()
 							}
 						}
 					}
-					else if (mRobotnikLine.find("Hoho") != std::string::npos && std::fmod(sinceLine, 5.0f) < 1.4f)
+					else if (sinceLaugh >= 0.0f && std::fmod(sinceLaugh, 5.0f) < 1.4f)
 					{
-						// Laughing: three "Ho"s, a hop of the Egg Mobile with each one, his head's two frames quickly
-						laughTime = std::fmod(sinceLine, 5.0f);
+						// Laughing, as soon as his words get to "Hohoho" (and again every few seconds): three "Ho"s, a hop of the Egg Mobile
+						// with each one, his head's two frames quickly
+						laughTime = std::fmod(sinceLaugh, 5.0f);
 						const float hoPhase = std::fmod(laughTime, 0.4f);
 						sprite = ((int)(time * 12.0f) % 2 == 0) ? ROBOTNIK_EGG_MOBILE_TALK2 : ROBOTNIK_EGG_MOBILE_TALK1;
 						if (laughTime < 1.2f && hoPhase < 0.2f)
 							offsetY -= roundToInt(std::sin(hoPhase / 0.2f * 3.1416f) * 4.0f);
 					}
-					else if (sinceLine < 1.6f)
+					else if (sinceLine < typingTime)
 					{
-						// Saying something new: his mouth moving for a moment
+						// Saying something new: his mouth moving while the words appear
 						sprite = ((int)(time * 7.0f) % 2 == 0) ? ROBOTNIK_EGG_MOBILE_TALK2 : ROBOTNIK_EGG_MOBILE_TALK1;
 					}
 					if (mHasRobotnik && switching && !allBeaten)
@@ -2471,10 +2492,15 @@ void N3DSMenu::render()
 						drawer.drawRect(Recti(bubble.x - length, bubble.y + 28 + k, length + 1, rows), bubbleColor);
 					}
 					std::vector<std::string_view> textLines;
-					utils::splitTextIntoLines(textLines, mRobotnikLine, global::mOxyfontTiny, bubble.width - 10);
+					utils::splitTextIntoLines(textLines, mRobotnikLine, global::mOxyfontTiny, bubble.width - 10);		// From all of it, so lines don't jump around
 					const int textY = bubble.y + std::max(4, (bubble.height - (int)std::min<size_t>(textLines.size(), 4) * 10) / 2);
-					for (size_t k = 0; k < textLines.size() && k < 4; ++k)
-						drawer.printText(global::mOxyfontTiny, Recti(bubble.x + 5, textY + (int)k * 10, 0, 10), textLines[k], 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+					int lettersLeft = (int)(sinceLine * ROBOTNIK_LETTERS_PER_SECOND);
+					for (size_t k = 0; k < textLines.size() && k < 4 && lettersLeft > 0; ++k)
+					{
+						const std::string_view shown = textLines[k].substr(0, std::min<size_t>(textLines[k].length(), (size_t)lettersLeft));
+						drawer.printText(global::mOxyfontTiny, Recti(bubble.x + 5, textY + (int)k * 10, 0, 10), shown, 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						lettersLeft -= (int)textLines[k].length() + 1;		// Plus the space where the line was split
+					}
 
 					// The Robotnik medal, its metal by level: bronze, silver, gold, diamond, platinum, then emerald
 					const int level = n3ds::challenges::getLevel(challenges.mXp);
@@ -2583,6 +2609,8 @@ void N3DSMenu::render()
 					const n3ds::challenges::Challenge& challenge = challenges.mChallenges[index];
 					drawer.drawRect(imageRect, Color(0.12f, 0.04f, 0.04f, tabAlpha));
 					drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 5, 32, 32), challenge.mDone ? mBrokenMonitor : mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+					if (challenges.mPinned == index)
+						drawPushpin(drawer, imageRect.x + 50, imageRect.y + 4, tabAlpha);
 					static const float STAR_COLORS[n3ds::challenges::MAX_PER_DAY][3] = { { 0.4f, 1.0f, 0.4f }, { 1.0f, 0.85f, 0.2f }, { 1.0f, 0.35f, 0.3f }, { 0.8f, 0.45f, 1.0f }, { 1.0f, 0.55f, 0.85f } };
 					const Color starColor(STAR_COLORS[index][0], STAR_COLORS[index][1], STAR_COLORS[index][2], tabAlpha);
 					for (int k = 0; k <= index; ++k)
@@ -2600,7 +2628,7 @@ void N3DSMenu::render()
 						status = String(0, "+%d XP", n3ds::challenges::getXpFor(index)).toStdString();
 						statusColor = starColor;
 						description = n3ds::challenges::describe(challenge) + "." + (progress.empty() ? std::string() : ("  " + progress + " so far.")) +
-									  "  Counts in a normal game or Act Select.";
+									  ((challenges.mPinned == index) ? "  Pinned to the main menu." : "  A: Pin it to the main menu.");
 					}
 				}
 				else if (tabIndex == Tab::Id::SHIELD)

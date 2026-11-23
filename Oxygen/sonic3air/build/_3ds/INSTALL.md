@@ -220,7 +220,8 @@ that 10 more (up to 150), and every level gives you a voucher. Its metal goes br
 (26 on), with a new rank every two levels up to "Robotnik's Nightmare" - and past that it never stops: the rank gets
 numbered (II, III, ...), sparkles circle the medal (one more each level) and stars appear on its ribbon (one every 5
 levels, changing color every three). At level 10 an **Expert** challenge (40 XP) joins the daily ones, and at level 20
-**Robotnik's Special** (50 XP). The notification light glows red when you beat one. Saved in `savedata/3ds_challenges.txt`.
+**Robotnik's Special** (50 XP). Press A on a challenge to pin it: it then shows on the main menu (bottom left) with
+your progress, until it's beaten. The notification light glows red when you beat one. Saved in `savedata/3ds_challenges.txt`.
 
 **Screenshots:** press L and R together to save the top screen as a PNG in `sdmc:/3ds/sonic3air/screenshots/`.
 

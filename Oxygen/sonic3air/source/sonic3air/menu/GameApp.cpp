@@ -417,9 +417,12 @@ void GameApp::updateBottomScreen()
 	// 3DS bottom screen: controls overview with touch buttons for a save state per save file
 	n3ds::filewriter::update();		// Files written in the background (save states, 3DS menu choices): report finished ones
 	n3ds::screenshot::update();		// L + R
-	n3ds::journal::update();		// Play time, and the day's stamp
 	Simulation& simulation = Application::instance().getSimulation();
 	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+
+	// Play time and the day's stamp; saved only while a level is being played, not in menus (which may read from the SD card)
+	const bool inLevel = (mCurrentState == State::INGAME) && (nullptr == mPauseMenu->getParent()) && simulation.isRunning() && emulatorInterface.readMemory8(0xfffff600) == 0x0c;
+	n3ds::journal::update(inLevel);
 
 	// Save file of the running game, from "global.active_saveslot": zero for "No Save", otherwise a pointer to the slot's data
 	int slot = -1;
