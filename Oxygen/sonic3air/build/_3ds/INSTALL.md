@@ -211,7 +211,9 @@ shield), and you get it at the start of your next act in a normal game. **Stats*
 steps (running around in the game), Play Coins spent, achievements, screenshots and postcards on one page. It's all saved in `savedata/3ds_journal.txt`.
 
 The **Challenge** tab has **Doctor Robotnik's Daily Challenge**: three new challenges every day (easy, medium and hard,
-like collecting rings in a zone, finishing an act in time or without a hit), in zones you've already reached. They count
+like collecting rings in a zone, destroying badniks, finishing an act in time, without a hit or as Tails or Knuckles,
+earning an extra life, finding a bonus stage, scoring points, getting all three elemental shields in one act, or getting
+through Hydrocity without running low on air), in zones you've already reached. They count
 in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile) taunts you about each one, and grumbles
 once it's beaten. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30), and every 100 XP it levels up and gives you
 a voucher. Its metal goes bronze (levels 1-4), silver (5-9), gold (10-14), diamond (15-19), platinum (20-25) and emerald

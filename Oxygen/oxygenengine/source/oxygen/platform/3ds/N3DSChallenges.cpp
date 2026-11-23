@@ -64,6 +64,12 @@ namespace n3ds
 			uint64_t gNextDayCheck = 0;
 			uint64_t gNextSave = 0;
 
+			// What happened in the act being played (for challenges within one act)
+			uint16_t gTrackedAct = 0xffff;
+			uint32_t gActStartScore = 0;
+			uint8_t gActShields = 0;
+			int gLastLives = -1;
+
 			uint32_t today()
 			{
 				const n3ds::profile::LocalTime now = n3ds::profile::getLocalTime();
@@ -157,13 +163,19 @@ namespace n3ds
 					else if (index == 0)
 					{
 						// Easy
-						if (kind == 0)
+						const uint32_t easyKind = next(4);
+						if (easyKind == 3)
+						{
+							challenge.mType = Type::BADNIKS;
+							challenge.mTarget = 10;
+						}
+						else if (easyKind == 0)
 						{
 							challenge.mType = Type::RINGS_IN_ZONE;
 							challenge.mZone = pickZone();
 							challenge.mTarget = (next(2) == 0) ? 30 : 50;
 						}
-						else if (kind == 1)
+						else if (easyKind == 1)
 						{
 							challenge.mType = Type::FINISH_ZONE;
 							challenge.mZone = pickZone();
@@ -177,12 +189,24 @@ namespace n3ds
 					else if (index == 1)
 					{
 						// Medium
-						if (kind == 0)
+						const uint32_t mediumKind = next(8);
+						if (mediumKind >= 3)
+						{
+							switch (mediumKind)
+							{
+								case 3:  challenge.mType = Type::BADNIKS;  challenge.mTarget = 25;  break;
+								case 4:  challenge.mType = Type::SCORE_IN_ACT;  challenge.mTarget = 20000;  break;
+								case 5:  challenge.mType = Type::EXTRA_LIFE;  challenge.mZone = pickZone();  break;
+								case 6:  challenge.mType = Type::FINISH_AS;  challenge.mZone = pickZone();  challenge.mTarget = (next(2) == 0) ? 2 : 3;  break;
+								default: challenge.mType = Type::BONUS_STAGE;  break;
+							}
+						}
+						else if (mediumKind == 0)
 						{
 							challenge.mType = Type::RINGS_AT_ONCE;
 							challenge.mTarget = 100;
 						}
-						else if (kind == 1)
+						else if (mediumKind == 1)
 						{
 							challenge.mType = Type::ACT_UNDER_TIME;
 							challenge.mZone = pickZone();
@@ -199,12 +223,23 @@ namespace n3ds
 					else
 					{
 						// Hard
-						if (kind == 0)
+						const uint32_t hardKind = next(5);
+						if (hardKind == 3)
+						{
+							challenge.mType = Type::ALL_SHIELDS;
+						}
+						else if (hardKind == 4)
+						{
+							// Hydrocity without running low on air, once it's been reached; otherwise a run without a hit
+							challenge.mType = isZoneAvailable(1) ? Type::NO_DROWN : Type::NO_HIT_ACT;
+							challenge.mZone = isZoneAvailable(1) ? 1 : pickZone();
+						}
+						else if (hardKind == 0)
 						{
 							challenge.mType = Type::NO_HIT_ACT;
 							challenge.mZone = pickZone();
 						}
-						else if (kind == 1)
+						else if (hardKind == 1)
 						{
 							challenge.mType = Type::RINGS_IN_ZONE;		// 100 rings, but in one particular zone
 							challenge.mZone = pickZone();
@@ -352,6 +387,18 @@ namespace n3ds
 				checkDay();
 			}
 
+			// A new act (or a new game, with a lower score): start counting for it
+			const uint16_t act = (uint16_t)((frame.mZone << 8) | frame.mAct);
+			if (act != gTrackedAct || frame.mScore < gActStartScore)
+			{
+				gTrackedAct = act;
+				gActStartScore = frame.mScore;
+				gActShields = 0;
+			}
+			gActShields |= (frame.mShields & 0x70);
+			const bool extraLife = (gLastLives >= 0 && frame.mLives > gLastLives);
+			gLastLives = frame.mLives;
+
 			for (int index = 0; index < gData.mCount; ++index)
 			{
 				Challenge& challenge = gData.mChallenges[index];
@@ -359,6 +406,52 @@ namespace n3ds
 					continue;
 				switch (challenge.mType)
 				{
+					case Type::BADNIKS:
+						if (frame.mBadniksDestroyed > 0)
+						{
+							challenge.mProgress += frame.mBadniksDestroyed;
+							gDirty = true;
+							if (challenge.mProgress >= challenge.mTarget)
+								beat(index);
+						}
+						break;
+
+					case Type::EXTRA_LIFE:
+						if (extraLife && frame.mZone == challenge.mZone)
+							beat(index);
+						break;
+
+					case Type::BONUS_STAGE:
+						if (frame.mZone >= 0x13 && frame.mZone <= 0x15)
+							beat(index);
+						break;
+
+					case Type::SCORE_IN_ACT:
+					{
+						const uint32_t scored = frame.mScore - gActStartScore;
+						if (scored > challenge.mProgress)
+						{
+							challenge.mProgress = scored;
+							gDirty = true;
+							if (scored >= challenge.mTarget)
+								beat(index);
+						}
+						break;
+					}
+
+					case Type::ALL_SHIELDS:
+					{
+						const uint32_t count = ((gActShields & 0x10) ? 1 : 0) + ((gActShields & 0x20) ? 1 : 0) + ((gActShields & 0x40) ? 1 : 0);
+						if (count > challenge.mProgress)
+						{
+							challenge.mProgress = count;
+							gDirty = true;
+							if (count >= 3)
+								beat(index);
+						}
+						break;
+					}
+
 					case Type::RINGS_IN_ZONE:
 					case Type::RINGS_AT_ONCE:
 						if (challenge.mType == Type::RINGS_IN_ZONE && frame.mZone != challenge.mZone)
@@ -403,8 +496,13 @@ namespace n3ds
 			return (int)gData.mBeaten != beatenBefore;
 		}
 
-		bool onActCompleted(uint8_t zone, uint8_t act, uint16_t rings, uint32_t seconds, bool wasHit)
+		bool onActCompleted(const ActResult& result)
 		{
+			const uint8_t zone = result.mZone;
+			const uint8_t act = result.mAct;
+			const uint16_t rings = result.mRings;
+			const uint32_t seconds = result.mSeconds;
+			const bool wasHit = result.mWasHit;
 			load();
 			checkDay();
 			const uint32_t beatenBefore = gData.mBeaten;
@@ -438,6 +536,16 @@ namespace n3ds
 
 					case Type::NO_HIT_ACT:
 						if (!wasHit)
+							beat(index);
+						break;
+
+					case Type::FINISH_AS:
+						if ((challenge.mTarget == 2 && result.mCharacters == 2) || (challenge.mTarget == 3 && (result.mCharacters == 3 || result.mCharacters == 4)))
+							beat(index);
+						break;
+
+					case Type::NO_DROWN:
+						if (!result.mLowOnAir)
 							beat(index);
 						break;
 
@@ -488,6 +596,18 @@ namespace n3ds
 				case Type::RINGS_AT_ONCE:		snprintf(text, sizeof(text), "Hold %u rings at once", (unsigned)challenge.mTarget);  break;
 				case Type::FINISH_WITH_RINGS:	snprintf(text, sizeof(text), "Finish %s with %u rings", zone, (unsigned)challenge.mTarget);  break;
 				case Type::NO_HIT_ACT:			snprintf(text, sizeof(text), "Clear %s without a hit", zone);  break;
+				case Type::BADNIKS:				snprintf(text, sizeof(text), "Destroy %u badniks", (unsigned)challenge.mTarget);  break;
+				case Type::EXTRA_LIFE:			snprintf(text, sizeof(text), "Earn an extra life in %s", zone);  break;
+				case Type::BONUS_STAGE:			snprintf(text, sizeof(text), "Find a bonus stage");  break;
+				case Type::SCORE_IN_ACT:
+					if (challenge.mTarget >= 1000)
+						snprintf(text, sizeof(text), "Score %u,%03u points in one act", (unsigned)(challenge.mTarget / 1000), (unsigned)(challenge.mTarget % 1000));
+					else
+						snprintf(text, sizeof(text), "Score %u points in one act", (unsigned)challenge.mTarget);
+					break;
+				case Type::FINISH_AS:			snprintf(text, sizeof(text), "Finish %s as %s", zone, (challenge.mTarget == 2) ? "Tails" : "Knuckles");  break;
+				case Type::ALL_SHIELDS:			snprintf(text, sizeof(text), "Get all 3 elemental shields in one act");  break;
+				case Type::NO_DROWN:			snprintf(text, sizeof(text), "Clear %s, never low on air", zone);  break;
 				case Type::ACT_UNDER_TIME:
 				case Type::FAST_NO_HIT:
 				{
@@ -517,6 +637,17 @@ namespace n3ds
 				case Type::SONIC_STEPS:
 					snprintf(text, sizeof(text), "%u / %u steps", (unsigned)std::min(challenge.mProgress, challenge.mTarget), (unsigned)challenge.mTarget);
 					break;
+				case Type::BADNIKS:
+					snprintf(text, sizeof(text), "%u / %u badniks", (unsigned)std::min(challenge.mProgress, challenge.mTarget), (unsigned)challenge.mTarget);
+					break;
+				case Type::SCORE_IN_ACT:
+					if (challenge.mProgress > 0)
+						snprintf(text, sizeof(text), "Best: %u points", (unsigned)challenge.mProgress);
+					break;
+				case Type::ALL_SHIELDS:
+					if (challenge.mProgress > 0)
+						snprintf(text, sizeof(text), "Best: %u / 3 shields", (unsigned)challenge.mProgress);
+					break;
 				case Type::ACT_UNDER_TIME:
 				case Type::FAST_NO_HIT:
 					if (challenge.mProgress > 0)
@@ -539,7 +670,11 @@ namespace n3ds
 				"Enjoy it while it lasts. Hohoho... hmph.",
 			};
 			if (beaten)
+			{
+				if (index >= 0 && index < gData.mCount && gData.mChallenges[index].mType == Type::BADNIKS)
+					return "My poor badniks! Do you know how long those take to build?!";
 				return BEATEN[(date + (uint32_t)index * 2) % (sizeof(BEATEN) / sizeof(BEATEN[0]))];
+			}
 
 			const Data& data = gData;
 			if (index < 0 || index >= data.mCount)
@@ -555,6 +690,13 @@ namespace n3ds
 				case Type::ACT_UNDER_TIME:		return "Even my Egg Mobile is faster than you!";
 				case Type::FINISH_WITH_RINGS:	return "Keep your rings all the way to the end? Never!";
 				case Type::NO_HIT_ACT:			return "Not a single scratch? Hohoho! I'd like to see you try!";
+				case Type::BADNIKS:				return "My badniks will flatten you long before that! Hohoho!";
+				case Type::EXTRA_LIFE:			return "An extra life? You'll need a lot more than one against me!";
+				case Type::BONUS_STAGE:			return "My bonus stages are rigged, you know. Not that you'll find one!";
+				case Type::SCORE_IN_ACT:		return "Points! Only I am allowed to score points around here!";
+				case Type::FINISH_AS:			return "Sending in your friends? They're no better than you, hedgehog!";
+				case Type::ALL_SHIELDS:			return "Fire, lightning AND bubbles? Greedy little pest!";
+				case Type::NO_DROWN:			return "I timed every air bubble in Hydrocity myself. Glub glub! Hohoho!";
 				case Type::FAST_NO_HIT:			return (index == 4) ? "My very own special! Fast AND flawless. Nobody can do that! Nobody!"
 																	: "Fast AND without a scratch? You'll trip over your own shoes!";
 				default:						return "";

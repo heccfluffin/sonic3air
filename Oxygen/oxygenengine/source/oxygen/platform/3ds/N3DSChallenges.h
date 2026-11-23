@@ -34,6 +34,13 @@ namespace n3ds
 			FINISH_WITH_RINGS,		// Finish an act of the zone with at least "mTarget" rings (medium, expert, special)
 			NO_HIT_ACT,				// Finish an act of the zone without getting hit (hard)
 			FAST_NO_HIT,			// Finish the zone's act in less than "mTarget" seconds and without getting hit (expert, special)
+			BADNIKS,				// Destroy "mTarget" badniks today (easy, medium)
+			EXTRA_LIFE,				// Earn an extra life in the zone (medium)
+			BONUS_STAGE,			// Get into a bonus stage: Gumball Machine, Glowing Spheres or Slot Machine (medium)
+			SCORE_IN_ACT,			// Score "mTarget" points within one act (medium)
+			FINISH_AS,				// Finish an act of the zone as "mTarget": 2 = Tails, 3 = Knuckles (medium)
+			ALL_SHIELDS,			// Have the fire, lightning and bubble shield, all in one act (hard)
+			NO_DROWN,				// Finish an act of the zone without the drowning countdown ever starting (hard, Hydrocity)
 			_NUM
 		};
 
@@ -67,15 +74,29 @@ namespace n3ds
 		// What the game tells every frame while a level runs (in a normal game or Act Select)
 		struct Frame
 		{
-			uint8_t mZone = 0;
+			uint8_t mZone = 0;					// Also the bonus stages: 0x13 Gumball Machine, 0x14 Glowing Spheres, 0x15 Slot Machine
 			uint8_t mAct = 0;
 			uint16_t mRings = 0;
 			uint32_t mGroundSubpixels = 0;		// Run on the ground this frame, in 1/256 pixels
+			uint8_t mLives = 0;
+			uint32_t mScore = 0;				// In points
+			uint8_t mShields = 0;				// The character's elemental shields right now: 0x10 fire, 0x20 lightning, 0x40 bubble
+			uint8_t mBadniksDestroyed = 0;		// This frame
 		};
 		bool onFrame(const Frame& frame);		// True if a challenge got beaten just now
 
-		// An act was finished: its time in seconds, the rings then, and whether the character got hit in it
-		bool onActCompleted(uint8_t zone, uint8_t act, uint16_t rings, uint32_t seconds, bool wasHit);		// Same
+		// An act was finished: its time, the rings then, and what happened in it
+		struct ActResult
+		{
+			uint8_t mZone = 0;
+			uint8_t mAct = 0;
+			uint16_t mRings = 0;
+			uint32_t mSeconds = 0;
+			bool mWasHit = false;			// Got hurt or died in it
+			bool mLowOnAir = false;			// The drowning countdown started in it
+			uint8_t mCharacters = 0;		// As in the game: 0 Sonic & Tails, 1 Sonic, 2 Tails, 3 Knuckles, 4 Knuckles & Tails
+		};
+		bool onActCompleted(const ActResult& result);		// Same
 
 		// A challenge was beaten since this was last asked (for the message in the 3DS menu); -1 if not
 		int takeBeatenNotice();

@@ -163,6 +163,9 @@ private:
 	bool isChallengeModeActive() const;		// Normal game or Act Select
 	uint16 mChallengeZoneAct = 0xffff;		// The act being tracked
 	bool mChallengeHit = false;				// The character got hurt (or died) in it
+	bool mChallengeLowOnAir = false;		// The drowning countdown started in it
+	uint16 mLastBonusCounter = 0;			// The game's chain counter for destroyed enemies, to count badniks
+	uint32 mLastScore = 0;
 #endif
 	PlayerRecorder mPlayerRecorder;
 	GameClient mGameClient;

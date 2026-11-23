@@ -1005,6 +1005,7 @@ void Game::onLevelStart()
 
 	// A fresh try at the act for the daily challenges; the zones reached so far choose the next challenges
 	mChallengeHit = false;
+	mChallengeLowOnAir = false;
 	n3ds::challenges::get(mPlayerProgress.mUnlocks.mFinishedZoneAct);
 #endif
 }
@@ -1025,12 +1026,19 @@ void Game::onZoneActCompleted(uint16 zoneAndAct)
 	if (isChallengeModeActive())
 	{
 		EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
-		const uint32 seconds = emulatorInterface.readMemory8(0xfffffe23) * 60 + emulatorInterface.readMemory8(0xfffffe24);		// timer.minutes, timer.seconds
-		const uint16 rings = emulatorInterface.readMemory16(0xfffffe20);		// ring_counter
-		if (n3ds::challenges::onActCompleted((uint8)(zoneAndAct >> 8), (uint8)(zoneAndAct & 0xff), rings, seconds, mChallengeHit))
+		n3ds::challenges::ActResult result;
+		result.mZone = (uint8)(zoneAndAct >> 8);
+		result.mAct = (uint8)(zoneAndAct & 0xff);
+		result.mSeconds = emulatorInterface.readMemory8(0xfffffe23) * 60 + emulatorInterface.readMemory8(0xfffffe24);		// timer.minutes, timer.seconds
+		result.mRings = emulatorInterface.readMemory16(0xfffffe20);		// ring_counter
+		result.mWasHit = mChallengeHit;
+		result.mLowOnAir = mChallengeLowOnAir;
+		result.mCharacters = (uint8)emulatorInterface.readMemory16(0xffffff08);		// global.characters
+		if (n3ds::challenges::onActCompleted(result))
 			AudioOut::instance().playAudioDirect(0x68, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
 	}
 	mChallengeHit = false;
+	mChallengeLowOnAir = false;
 #endif
 }
 
@@ -1162,9 +1170,11 @@ bool Game::isChallengeModeActive() const
 
 void Game::updateLevelTracking()
 {
-	// Only while a level runs (game mode 0x0c, not the attract demo)
+	// Only while a level runs (game mode 0x0c, not the attract demo); the bonus stages count from their very start
 	EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
-	if (emulatorInterface.readMemory8(0xfffff600) != 0x0c || (int8)emulatorInterface.readMemory8(0xfffff711) == 0)		// global.level_started
+	const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
+	const bool bonusStage = ((zoneAct >> 8) >= 0x13 && (zoneAct >> 8) <= 0x15);
+	if (emulatorInterface.readMemory8(0xfffff600) != 0x0c || ((int8)emulatorInterface.readMemory8(0xfffff711) == 0 && !bonusStage))		// global.level_started
 		return;
 
 	// Running on the ground (not rolling or in the air)
@@ -1176,16 +1186,27 @@ void Game::updateLevelTracking()
 			n3ds::journal::addGameDistance(groundSubpixels);
 	}
 
-	// Hurt or died in this act (a new act starts clean)
+	// Hurt or died in this act, or low on air (a new act starts clean)
 	const uint8 baseState = emulatorInterface.readMemory8(0xffffb000 + 0x05);		// char.base_state: 0x04 hurt, 0x06 died
-	const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
 	if (zoneAct != mChallengeZoneAct)
 	{
 		mChallengeZoneAct = zoneAct;
 		mChallengeHit = false;
+		mChallengeLowOnAir = false;
 	}
 	if (baseState == 0x04 || baseState == 0x06)
 		mChallengeHit = true;
+	if ((emulatorInterface.readMemory8(0xffffb000 + 0x2a) & 0x40) != 0 && emulatorInterface.readMemory8(0xffffb000 + 0x2c) < 12)		// Underwater, and char.drown_countdown below 12: the countdown music
+		mChallengeLowOnAir = true;
+
+	// Badniks destroyed: each one adds 2 to the game's chain counter, together with its points (bosses don't use it)
+	const uint16 bonusCounter = emulatorInterface.readMemory16(0xfffff7d0);		// score.bonus_counter
+	const uint32 score = emulatorInterface.readMemory32(0xfffffe26) * 10;		// player.score
+	uint8 badniks = 0;
+	if (bonusCounter > mLastBonusCounter && score > mLastScore)
+		badniks = (uint8)std::min((bonusCounter - mLastBonusCounter) / 2, 10);
+	mLastBonusCounter = bonusCounter;
+	mLastScore = score;
 
 	if (!isChallengeModeActive())
 		return;
@@ -1194,6 +1215,10 @@ void Game::updateLevelTracking()
 	frame.mAct = (uint8)(zoneAct & 0xff);
 	frame.mRings = emulatorInterface.readMemory16(0xfffffe20);		// ring_counter
 	frame.mGroundSubpixels = groundSubpixels;
+	frame.mLives = emulatorInterface.readMemory8(0xfffffe12);		// lives_counter
+	frame.mScore = score;
+	frame.mShields = emulatorInterface.readMemory8(0xffffb000 + 0x2b) & 0x70;		// char.bonus: fire, lightning, bubble
+	frame.mBadniksDestroyed = badniks;
 	if (n3ds::challenges::onFrame(frame))
 		AudioOut::instance().playAudioDirect(0x68, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
 }

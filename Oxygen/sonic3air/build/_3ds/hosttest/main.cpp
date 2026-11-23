@@ -543,6 +543,19 @@ namespace
 		check(!n3ds::journal::giveWelcomePostcard(), "no second welcome postcard");
 	}
 
+	bool actDone(uint8_t zone, uint8_t act, uint16_t rings, uint32_t seconds, bool wasHit, bool lowOnAir = false, uint8_t characters = 1)
+	{
+		n3ds::challenges::ActResult result;
+		result.mZone = zone;
+		result.mAct = act;
+		result.mRings = rings;
+		result.mSeconds = seconds;
+		result.mWasHit = wasHit;
+		result.mLowOnAir = lowOnAir;
+		result.mCharacters = characters;
+		return n3ds::challenges::onActCompleted(result);
+	}
+
 	void challenges()
 	{
 		using namespace n3ds::challenges;
@@ -571,16 +584,16 @@ namespace
 		check(data.mChallenges[0].mDone && data.mXp == 100 && getLevel(data.mXp) == 2, "50 rings: beaten, 10 XP, medal level 2");
 		check(takeBeatenNotice() == 0 && takeLevelUpNotice() && n3ds::journal::get().mVouchers == 1, "... with a Robotnik voucher for the new level");
 
-		onActCompleted(0, 0, 10, 160, false);
+		actDone(0, 0, 10, 160, false);
 		check(!data.mChallenges[1].mDone && describeProgress(data.mChallenges[1]) == "Best: 2:40", "Angel Island 1 in 2:40 is too slow");
-		onActCompleted(0, 1, 10, 100, false);
+		actDone(0, 1, 10, 100, false);
 		check(!data.mChallenges[1].mDone, "... and act 2 doesn't count");
-		onActCompleted(0, 0, 10, 140, false);
+		actDone(0, 0, 10, 140, false);
 		check(data.mChallenges[1].mDone && data.mXp == 120, "2:20: beaten, 20 XP");
 
-		onActCompleted(1, 1, 0, 100, true);
+		actDone(1, 1, 0, 100, true);
 		check(!data.mChallenges[2].mDone, "a hit in Hydrocity: not beaten");
-		onActCompleted(1, 0, 0, 100, false);
+		actDone(1, 0, 0, 100, false);
 		check(data.mChallenges[2].mDone && data.mXp == 150 && data.mPerfectDays == 3 && data.mBeaten == 12, "without a hit: beaten, 30 XP, a perfect day");
 
 		n3ds::filewriter::waitUntilDone();
@@ -610,6 +623,87 @@ namespace
 			  getMetal(20) == Metal::PLATINUM && getMetal(25) == Metal::PLATINUM && getMetal(26) == Metal::EMERALD && getMetal(500) == Metal::EMERALD,
 			  "medal metals: bronze 1-4, silver 5-9, gold 10-14, diamond 15-19, platinum 20-25, emerald from 26");
 		check(getSlotsForLevel(9) == 3 && getSlotsForLevel(10) == 4 && getSlotsForLevel(20) == 5, "an Expert challenge from level 10, Robotnik's Special from level 20");
+	}
+
+	void challengeTypes()
+	{
+		using namespace n3ds::challenges;
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+		fake::setTime(2026, 11, 23, 18, 0);
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261123\nxp=0\nbeaten=0\nperfect_days=0\nzones=15\n"
+			"challenge=8 0 0 10 0 0\nchallenge=9 1 0 0 0 0\nchallenge=13 0 0 0 0 0\nchallenge=11 0 0 20000 0 0\nchallenge=12 0 0 3 0 0\n";
+		const Data& data = get(15);
+		check(data.mCount == 5 && describe(data.mChallenges[0]) == "Destroy 10 badniks" && describe(data.mChallenges[1]) == "Earn an extra life in Hydrocity" &&
+			  describe(data.mChallenges[2]) == "Get all 3 elemental shields in one act" && describe(data.mChallenges[3]) == "Score 20,000 points in one act" &&
+			  describe(data.mChallenges[4]) == "Finish Angel Island as Knuckles", "new challenge types are described (" + describe(data.mChallenges[3]) + ")");
+
+		Frame frame;
+		frame.mZone = 1;
+		frame.mLives = 3;
+		frame.mScore = 5000;
+		for (int k = 0; k < 9; ++k)
+		{
+			frame.mBadniksDestroyed = 1;
+			onFrame(frame);
+		}
+		frame.mBadniksDestroyed = 0;
+		check(!data.mChallenges[0].mDone && describeProgress(data.mChallenges[0]) == "9 / 10 badniks", "9 badniks: not yet");
+		frame.mBadniksDestroyed = 1;
+		onFrame(frame);
+		frame.mBadniksDestroyed = 0;
+		check(data.mChallenges[0].mDone && std::string(getTaunt(0, true, data.mDate)).find("badniks") != std::string::npos, "the 10th badnik: beaten, and Robotnik misses his badniks");
+
+		frame.mLives = 4;
+		onFrame(frame);
+		check(data.mChallenges[1].mDone, "an extra life in Hydrocity");
+
+		frame.mShields = 0x10;
+		onFrame(frame);
+		frame.mShields = 0x20;
+		onFrame(frame);
+		check(!data.mChallenges[2].mDone && describeProgress(data.mChallenges[2]) == "Best: 2 / 3 shields", "fire and lightning: 2 of 3 shields");
+		frame.mAct = 1;		// A new act starts the shields over
+		frame.mShields = 0x40;
+		onFrame(frame);
+		check(!data.mChallenges[2].mDone, "the bubble shield in the next act doesn't complete the set");
+		frame.mShields = 0x10;
+		onFrame(frame);
+		frame.mShields = 0x20;
+		onFrame(frame);
+		check(data.mChallenges[2].mDone, "all three in one act: beaten");
+
+		frame.mScore = 5000 + 19990;
+		onFrame(frame);
+		check(!data.mChallenges[3].mDone, "19,990 points in the act: not yet");
+		frame.mScore = 5000 + 20000;
+		onFrame(frame);
+		check(data.mChallenges[3].mDone, "20,000 points in the act: beaten");
+
+		actDone(0, 0, 0, 100, false, false, 2);
+		check(!data.mChallenges[4].mDone, "Angel Island as Tails doesn't count for Knuckles");
+		actDone(0, 0, 0, 100, false, false, 4);
+		check(data.mChallenges[4].mDone && data.mPerfectDays == 1, "as Knuckles (and Tails): beaten, a perfect day");
+	}
+
+	void challengeTypes2()
+	{
+		using namespace n3ds::challenges;
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+		fake::setTime(2026, 11, 23, 18, 0);
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261123\nxp=0\nbeaten=0\nperfect_days=0\nzones=15\n"
+			"challenge=10 0 0 0 0 0\nchallenge=14 1 0 0 0 0\nchallenge=12 1 0 2 0 0\n";
+		const Data& data = get(15);
+		check(describe(data.mChallenges[1]) == "Clear Hydrocity, never low on air", "Hydrocity's challenge is described");
+		Frame frame;
+		frame.mZone = 0x14;
+		onFrame(frame);
+		check(data.mChallenges[0].mDone, "the Glowing Spheres bonus stage: beaten");
+		actDone(1, 0, 0, 100, false, true);
+		check(!data.mChallenges[1].mDone, "low on air in Hydrocity: not beaten");
+		actDone(1, 1, 0, 100, true, false);
+		check(data.mChallenges[1].mDone, "Hydrocity without running low on air (a hit is fine): beaten");
+		actDone(1, 0, 0, 100, false, false, 2);
+		check(data.mChallenges[2].mDone, "Hydrocity as Tails: beaten");
 	}
 
 	void challengesSlots()
@@ -672,7 +766,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())
