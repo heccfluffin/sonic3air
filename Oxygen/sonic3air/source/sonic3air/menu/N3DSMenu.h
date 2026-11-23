@@ -166,8 +166,10 @@ private:
 	// Doctor Robotnik in his Egg Mobile, drawn from the player's ROM when the challenge tab is first shown: head talking (2 frames),
 	// hurt and defeated; and the game's monitors for the challenges (with his face, and broken once beaten)
 	enum RobotnikSprite { ROBOTNIK_EGG_MOBILE_TALK1 = 0, ROBOTNIK_EGG_MOBILE_TALK2, ROBOTNIK_EGG_MOBILE_HURT, ROBOTNIK_EGG_MOBILE_DEFEATED,
-						  ROBOTNIK_STANDING, ROBOTNIK_LAUGHING, ROBOTNIK_MAD, NUM_ROBOTNIK_SPRITES };
+						  ROBOTNIK_MAD, NUM_ROBOTNIK_SPRITES };
 	DrawerTexture mRobotnik[NUM_ROBOTNIK_SPRITES];
+	DrawerTexture mDust[8];				// The game's spin dash dust, 4 frames, then mirrored
+	bool mHasDust = false;
 	bool mRobotnikCreated = false;
 	bool mHasRobotnik = false;
 	DrawerTexture mMedals[(int)n3ds::challenges::Metal::_NUM];		// The Robotnik medal in each metal, as it levels up

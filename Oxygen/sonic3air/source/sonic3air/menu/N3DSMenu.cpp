@@ -212,12 +212,16 @@ namespace
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 1, 0, -28, 0x280 } } },
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 2, 0, -28, 0x280 } } },
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x6b, 0 } }, 0x069e80, { { 0x06820c, 0x052e, 10, 0, 0, 0x280 }, { 0x06820c, 0x052e, 3, 0, -28, 0x280 } } },
-		// Doctor Robotnik on foot, as he watches the Death Egg boss (boss_dez2.lemon) - the same style as in his Egg Mobile:
-		// standing, his head in its other frame (for laughing), and mad with his mustache flaring
-		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 0, 0, 0, 0x200 } } },
-		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 1, 0, 0, 0x200 } } },
+		// Doctor Robotnik on foot, mad with his mustache flaring (as he watches the Death Egg boss, boss_dez2.lemon): out of his Egg Mobile to stomp
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 2, 0, 0, 0x200 } } },
+		// The game's spin dash dust (dustcloud.lemon, animation 1), for his stomping; its art is copied per frame like a character's.
+		// (The braking dust frames share their art with the frame before, so they come out empty on their own.)
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0b, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0b, 0, 0, 0x100 } } },
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0c, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0c, 0, 0, 0x100 } } },
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0d, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0d, 0, 0, 0x100 } } },
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0e, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0e, 0, 0, 0x100 } } },
 	};
+	const int DUST_ROM_SPRITE = 11;		// The first of the four dust frames
 	const int ROBOTNIK_ROM_SPRITE = 6;		// The first of his sprites, see "N3DSMenu::mRobotnik"
 
 	// The bosses' arenas, drawn from the level in the ROM (positions from the boss scripts and the level object lists)
@@ -2328,22 +2332,24 @@ void N3DSMenu::render()
 						mRobotnikTalkStart = time;
 					}
 
-					// Robotnik himself: standing with his hands on his hips; laughing at "Hohoho" (head thrown back, a little hop), stomping
-					// mad at a beaten challenge (mustache flaring, a hop and a thud with dust), and sulking in his Egg Mobile once all are beaten
+					// Robotnik himself: hovering in his Egg Mobile, talking, and laughing at "Hohoho" (his head's laughing frames, the Egg Mobile
+					// hopping); out of it to stomp mad at a beaten challenge (mustache flaring, a hop and a thud with dust); and sulking in it
+					// with his defeated face once all are beaten
 					const float sinceLine = time - mRobotnikTalkStart;
-					int sprite = ROBOTNIK_STANDING;
+					int sprite = ROBOTNIK_EGG_MOBILE_TALK1;
 					int offsetX = 0;
-					int offsetY = 0;
+					int offsetY = roundToInt(std::sin(time * 2.2f) * 3.0f);		// Hovering
 					bool dust = false;
+					int dustFrame = 0;
 					if (allBeaten)
 					{
 						sprite = ROBOTNIK_EGG_MOBILE_DEFEATED;
-						offsetY = roundToInt(std::sin(time * 2.2f) * 3.0f);
 					}
 					else if (selectedChallenge >= 0 && challenges.mChallenges[selectedChallenge].mDone)
 					{
 						// Stomping: up for a moment, then down with a thud and a shake, every 0.6 seconds for the first few stomps
 						sprite = ROBOTNIK_MAD;
+						offsetY = 0;
 						if (sinceLine < 2.4f)
 						{
 							const float phase = std::fmod(sinceLine, 0.6f);
@@ -2352,35 +2358,44 @@ void N3DSMenu::render()
 							else if (phase < 0.22f)
 								offsetY = -roundToInt(std::cos((phase - 0.15f) / 0.07f * 1.5708f) * 4.0f);
 							else if (phase < 0.32f)
-							{
 								offsetX = ((int)(time * 40.0f) % 2) ? 1 : -1;
+							if (phase >= 0.22f && phase < 0.46f)
+							{
 								dust = true;
+								dustFrame = std::min((int)((phase - 0.22f) / 0.06f), 3);
 							}
 						}
 					}
 					else if (mRobotnikLine.find("Hoho") != std::string::npos && std::fmod(sinceLine, 5.0f) < 1.4f)
 					{
-						// Laughing: head back and forth, hopping with it
-						const bool back = ((int)(time * 8.0f) % 2 == 0);
-						sprite = back ? ROBOTNIK_LAUGHING : ROBOTNIK_STANDING;
-						offsetY = back ? -2 : 0;
+						// Laughing: his head's two frames quickly, the Egg Mobile hopping with it
+						const bool open = ((int)(time * 12.0f) % 2 == 0);
+						sprite = open ? ROBOTNIK_EGG_MOBILE_TALK2 : ROBOTNIK_EGG_MOBILE_TALK1;
+						offsetY += open ? -2 : 0;
+					}
+					else if (sinceLine < 1.6f)
+					{
+						// Saying something new: his mouth moving for a moment
+						sprite = ((int)(time * 7.0f) % 2 == 0) ? ROBOTNIK_EGG_MOBILE_TALK2 : ROBOTNIK_EGG_MOBILE_TALK1;
 					}
 					if (mHasRobotnik)
 					{
 						DrawerTexture& texture = mRobotnik[sprite];
 						const int boxX = px - 185;
 						const int x = boxX + (CARD_BOX_WIDTH - texture.getWidth()) / 2 + offsetX;
-						const int y = (sprite == ROBOTNIK_EGG_MOBILE_DEFEATED) ? (py + (92 - texture.getHeight()) / 2) : (py + 92 - 6 - texture.getHeight());		// Standing on the box's floor
+						const int y = (sprite == ROBOTNIK_MAD) ? (py + 92 - 6 - texture.getHeight()) : (py + (92 - texture.getHeight()) / 2);		// On foot: standing on the box's floor
 						drawer.drawRect(Recti(x, y + offsetY, texture.getWidth(), texture.getHeight()), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
-						if (dust)
+						if (dust && mHasDust)
 						{
-							// Little clouds of dust at his feet
+							// The game's spin dash dust bursting out at his feet: its thick end at his feet, trailing outward on both sides
+							// (the frame as it is goes to the right, mirrored to the left)
+							const int feetX = boxX + CARD_BOX_WIDTH / 2;
 							for (int k = 0; k < 2; ++k)
 							{
-								const int side = (k == 0) ? -1 : 1;
-								const int dx = boxX + CARD_BOX_WIDTH / 2 + side * (texture.getWidth() / 2 + 2);
-								drawer.drawRect(Recti(dx - 2, py + 92 - 9, 5, 3), Color(0.8f, 0.75f, 0.65f, tabAlpha * 0.8f));
-								drawer.drawRect(Recti(dx - 1 + side * 3, py + 92 - 11, 3, 2), Color(0.8f, 0.75f, 0.65f, tabAlpha * 0.6f));
+								const bool left = (k == 0);
+								DrawerTexture& puff = mDust[dustFrame + (left ? 4 : 0)];
+								const int x = left ? (feetX - 3 - puff.getWidth()) : (feetX + 3);
+								drawer.drawRect(Recti(x, py + 92 - 3 - puff.getHeight(), puff.getWidth(), puff.getHeight()), puff, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 							}
 						}
 					}
@@ -2835,6 +2850,14 @@ void N3DSMenu::createRobotnik()
 	{
 		mHasRobotnik = n3ds::romsprites::draw(ROM_SPRITES[ROBOTNIK_ROM_SPRITE + k], true, mRobotnik[k].accessBitmap());		// Facing right, to his speech bubble
 		mRobotnik[k].bitmapUpdated();
+	}
+	mHasDust = true;
+	for (int k = 0; k < 4 && mHasDust; ++k)
+	{
+		mHasDust = n3ds::romsprites::draw(ROM_SPRITES[DUST_ROM_SPRITE + k], false, mDust[k].accessBitmap()) &&
+				   n3ds::romsprites::draw(ROM_SPRITES[DUST_ROM_SPRITE + k], true, mDust[k + 4].accessBitmap());
+		mDust[k].bitmapUpdated();
+		mDust[k + 4].bitmapUpdated();
 	}
 	RMX_LOG_INFO("3DS menu: Robotnik " << (mHasRobotnik ? "drawn" : "could not be drawn") << " from the ROM (" << (int)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11) << " ms)");
 }

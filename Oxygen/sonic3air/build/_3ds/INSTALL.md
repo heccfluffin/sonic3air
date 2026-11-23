@@ -214,8 +214,8 @@ The **Challenge** tab has **Doctor Robotnik's Daily Challenge**: three new chall
 like collecting rings in a zone, destroying badniks, finishing an act in time, without a hit or as Tails or Knuckles,
 earning an extra life, finding a bonus stage, scoring points, getting all three elemental shields in one act, or getting
 through Hydrocity without running low on air), in zones you've already reached. They count
-in a normal game and Act Select. Robotnik (drawn from your ROM) taunts you about each one and laughs at you, stomps
-mad once it's beaten, and sulks in his Egg Mobile when you've beaten them all. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after
+in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile) taunts you about each one and laughs
+at you, jumps out to stomp mad (with dust flying) once it's beaten, and sulks when you've beaten them all. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after
 that 10 more (up to 150), and every level gives you a voucher. Its metal goes bronze (levels 1-4), silver (5-9), gold (10-14), diamond (15-19), platinum (20-25) and emerald
 (26 on), with a new rank every two levels up to "Robotnik's Nightmare" - and past that it never stops: the rank gets
 numbered (II, III, ...), sparkles circle the medal (one more each level) and stars appear on its ribbon (one every 5
