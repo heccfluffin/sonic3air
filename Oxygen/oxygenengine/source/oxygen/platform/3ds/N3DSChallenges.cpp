@@ -142,12 +142,16 @@ namespace n3ds
 						{
 							challenge.mType = Type::FINISH_WITH_RINGS;
 							challenge.mZone = pickZone();
-							challenge.mTarget = special ? 150 : 100;
+							challenge.mTarget = special ? 100 : 75;		// Never more than 100 rings: one hit loses them all
 						}
 						else
 						{
-							challenge.mType = Type::RINGS_AT_ONCE;
-							challenge.mTarget = special ? 300 : 250;
+							// A really fast run: two thirds of the relaxed time, or three fifths for the special
+							challenge.mType = Type::ACT_UNDER_TIME;
+							challenge.mZone = pickZone();
+							challenge.mAct = pickAct(challenge.mZone);
+							const uint32_t par = ZONES[challenge.mZone].mParTime[challenge.mAct];
+							challenge.mTarget = (special ? (par * 3 / 5) : (par * 2 / 3)) / 10 * 10;
 						}
 					}
 					else if (index == 0)
@@ -202,8 +206,9 @@ namespace n3ds
 						}
 						else if (kind == 1)
 						{
-							challenge.mType = Type::RINGS_AT_ONCE;
-							challenge.mTarget = 200;
+							challenge.mType = Type::RINGS_IN_ZONE;		// 100 rings, but in one particular zone
+							challenge.mZone = pickZone();
+							challenge.mTarget = 100;
 						}
 						else
 						{

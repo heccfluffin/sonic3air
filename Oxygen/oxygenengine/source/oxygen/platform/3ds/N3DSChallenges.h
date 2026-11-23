@@ -26,12 +26,12 @@ namespace n3ds
 
 		enum class Type : uint8_t
 		{
-			RINGS_IN_ZONE = 0,		// Have "mTarget" rings at once in the zone (easy)
+			RINGS_IN_ZONE = 0,		// Have "mTarget" rings at once in the zone (easy, hard)
 			FINISH_ZONE,			// Finish any act of the zone (easy)
 			SONIC_STEPS,			// Run "mTarget" of Sonic's steps today (easy)
-			RINGS_AT_ONCE,			// Have "mTarget" rings at once, anywhere (medium / hard)
-			ACT_UNDER_TIME,			// Finish the zone's act in less than "mTarget" seconds (medium / hard)
-			FINISH_WITH_RINGS,		// Finish an act of the zone with at least "mTarget" rings (medium)
+			RINGS_AT_ONCE,			// Have "mTarget" rings at once, anywhere (medium); never more than 100
+			ACT_UNDER_TIME,			// Finish the zone's act in less than "mTarget" seconds (medium, hard, expert, special)
+			FINISH_WITH_RINGS,		// Finish an act of the zone with at least "mTarget" rings (medium, expert, special)
 			NO_HIT_ACT,				// Finish an act of the zone without getting hit (hard)
 			FAST_NO_HIT,			// Finish the zone's act in less than "mTarget" seconds and without getting hit (expert, special)
 			_NUM
