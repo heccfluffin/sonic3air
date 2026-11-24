@@ -166,6 +166,13 @@ void SpriteManager::drawCustomSpriteWithTransform(uint64 key, const Vec2i& posit
 	if (sprite.getType() == RenderItem::Type::PALETTE_SPRITE)
 	{
 		static_cast<renderitems::PaletteSpriteInfo&>(sprite).mAtex = atex;
+	#if defined(PLATFORM_3DS)
+		if (nullptr != mPaletteOverride[0])
+		{
+			static_cast<renderitems::PaletteSpriteInfo&>(sprite).mPrimaryPalette = mPaletteOverride[0];
+			static_cast<renderitems::PaletteSpriteInfo&>(sprite).mSecondaryPalette = mPaletteOverride[1];
+		}
+	#endif
 	}
 
 	sprite.mPosition = position;

@@ -41,8 +41,27 @@ namespace n3ds
 			FINISH_AS,				// Finish an act of the zone as "mTarget": 2 = Tails, 3 = Knuckles (medium)
 			ALL_SHIELDS,			// Have the fire, lightning and bubble shield, all in the zone's act "mAct" (hard; only acts that have them all)
 			NO_DROWN,				// Finish an act of the zone without the drowning countdown ever starting (hard, Hydrocity)
+			SHADOW_RUN,				// Finish the zone's act "mAct" without the shadow ever touching you (hard); "mTarget" 1: closer behind, and his
+									// touch is the end (Robotnik's Special)
+			MONITORS,				// Break "mTarget" monitors today (easy, medium)
+			MOVES,					// Use a move "mTarget" times today: the count, plus the move (as in "Move") times MOVE_FACTOR (easy, medium)
+			GO_SUPER,				// Turn Super (medium; only once all seven emeralds were seen in a game)
+			BALLOONS,				// Pop "mTarget" balloons in Carnival Night (medium)
+			NO_GHOSTS,				// Finish Sandopolis 2 without a ghost coming out of the dark (hard)
 			_NUM
 		};
+
+		// The moves for "MOVES" challenges; only moves that can be used get chosen (see "setAvailableMovesProvider")
+		enum class Move : uint8_t
+		{
+			SPINDASH = 0,		// Anyone
+			DROP_DASH,			// Sonic, once unlocked and switched on
+			PEEL_OUT,			// Sonic's Super Peel-Out, the same
+			INSTA_SHIELD,		// Sonic, if switched on
+			GLIDE,				// Knuckles
+			_NUM
+		};
+		static const uint32_t MOVE_FACTOR = 10000;
 
 		struct Challenge
 		{
@@ -72,6 +91,9 @@ namespace n3ds
 
 		void save();		// Writes the file if something changed; also called at exit
 
+		// Asked when new challenges get chosen: a bit (1 << Move) for each move that can be used right now (unlocked, switched on)
+		void setAvailableMovesProvider(uint32_t (*provider)());
+
 		// Pins one of today's challenges to the main menu (-1: none); only one that isn't beaten yet
 		void setPinned(int index);
 
@@ -86,6 +108,11 @@ namespace n3ds
 			uint32_t mScore = 0;				// In points
 			uint8_t mShields = 0;				// The character's elemental shields right now: 0x10 fire, 0x20 lightning, 0x40 bubble
 			uint8_t mBadniksDestroyed = 0;		// This frame
+			uint8_t mMonitorsBroken = 0;		// This frame
+			uint8_t mBalloonsPopped = 0;		// This frame
+			uint8_t mMovesUsed[(int)Move::_NUM] = { 0 };	// This frame
+			bool mSuper = false;				// The character is Super (or Hyper) right now
+			uint8_t mEmeralds = 0;				// The most Chaos or Super Emeralds of the game played
 		};
 		bool onFrame(const Frame& frame);		// True if a challenge got beaten just now
 
@@ -99,8 +126,14 @@ namespace n3ds
 			bool mWasHit = false;			// Got hurt or died in it
 			bool mLowOnAir = false;			// The drowning countdown started in it
 			uint8_t mCharacters = 0;		// As in the game: 0 Sonic & Tails, 1 Sonic, 2 Tails, 3 Knuckles, 4 Knuckles & Tails
+			bool mShadowTouched = false;	// The shadow touched the character in it
+			bool mGhostsWoken = false;		// Sandopolis 2: a ghost came out
 		};
 		bool onActCompleted(const ActResult& result);		// Same
+
+		// Whether the shadow runs in this act: a "SHADOW_RUN" challenge for it isn't beaten yet ("deadly" for the Robotnik's
+		// Special version)
+		bool isShadowAct(uint8_t zone, uint8_t act, bool& deadly);
 
 		// A challenge was beaten since this was last asked (for the message in the 3DS menu); -1 if not
 		int takeBeatenNotice();

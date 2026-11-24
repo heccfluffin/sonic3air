@@ -212,8 +212,14 @@ steps (running around in the game), Play Coins spent, achievements, screenshots 
 
 The **Challenge** tab has **Doctor Robotnik's Daily Challenge**: three new challenges every day (easy, medium and hard,
 like collecting rings in a zone, destroying badniks, finishing an act in time, without a hit or as Tails or Knuckles,
-earning an extra life, finding a bonus stage, scoring points, getting all three elemental shields in one act, or getting
-through Hydrocity without running low on air), in zones you've already reached. They count
+earning an extra life, finding a bonus stage, scoring points, getting all three elemental shields in one act, getting
+through Hydrocity without running low on air, breaking monitors, using moves (spindashes, and the drop dash, Super
+Peel-Out, insta-shield or Knuckles' glide only if you have them switched on), going Super (once you've had all the
+emeralds), popping Carnival Night's balloons, or clearing Sandopolis 2 without a ghost), in zones you've already reached.
+The hard one can also be **Outrun your shadow**: in that act a gray copy of you with a red trail runs your exact way 3
+seconds behind (he only sets off once you do, and waits during cutscenes and boss fights). His touch is a hit - and loses
+that try - but Sonic's insta-shield or shield moves, Knuckles' glide, invincibility or Super knock him back further
+behind. As Robotnik's Special he's only 2 seconds behind and his touch is the end. They count
 in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile) taunts you about each one and laughs
 at you, jumps out to stomp mad (with dust flying) once it's beaten, and sulks when you've beaten them all. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after
 that 10 more (up to 150), and every level gives you a voucher. Its metal goes bronze (levels 1-4), silver (5-9), gold (10-14), diamond (15-19), platinum (20-25) and emerald

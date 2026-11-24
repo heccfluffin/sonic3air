@@ -35,6 +35,25 @@
 	#include "oxygen/platform/3ds/N3DSChallenges.h"
 	#include "oxygen/platform/3ds/N3DSJournal.h"
 	#include "oxygen/platform/3ds/N3DSShop.h"
+	#include "sonic3air/data/N3DSShadow.h"
+
+	namespace
+	{
+		// For Doctor Robotnik's daily move challenges: only moves the player has (unlocked and switched on)
+		uint32_t getAvailableChallengeMoves()
+		{
+			using Move = n3ds::challenges::Move;
+			const Game& game = Game::instance();
+			uint32 moves = (1u << (int)Move::SPINDASH) | (1u << (int)Move::GLIDE);
+			if (game.getSetting(SharedDatabase::Setting::SETTING_DROPDASH, true) != 0)
+				moves |= (1u << (int)Move::DROP_DASH);
+			if (game.getSetting(SharedDatabase::Setting::SETTING_SUPER_PEELOUT, true) != 0)
+				moves |= (1u << (int)Move::PEEL_OUT);
+			if (game.getSetting(SharedDatabase::Setting::SETTING_INSTA_SHIELD, true) != 0)
+				moves |= (1u << (int)Move::INSTA_SHIELD);
+			return moves;
+		}
+	}
 #endif
 
 #include <lemon/program/function/FunctionWrapper.h>
@@ -92,6 +111,10 @@ void Game::startup(EmulatorInterface& emulatorInterface)
 	checkActiveModsUsedFeatures();
 
 	DiscordIntegration::startup();
+
+#if defined(PLATFORM_3DS)
+	n3ds::challenges::setAvailableMovesProvider(&getAvailableChallengeMoves);
+#endif
 }
 
 void Game::shutdown()
@@ -535,6 +558,16 @@ void Game::onPostUpdateFrame()
 	// Update ghost sync
 	GameClient::instance().getGhostSync().onPostUpdateFrame();
 
+#if defined(PLATFORM_3DS)
+	// The shadow of a daily challenge, in its act (until he touched the character: that try is lost)
+	{
+		const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
+		bool deadly = false;
+		const bool shadowActive = isChallengeModeActive() && !mChallengeShadowTouched && n3ds::challenges::isShadowAct((uint8)(zoneAct >> 8), (uint8)(zoneAct & 0xff), deadly);
+		n3ds::shadow::onPostFrame(shadowActive, deadly);
+	}
+#endif
+
 	// Check for unlocked hidden secrets
 	//  - SECRET_LEVELSELECT	unlocked when u8[0x02219e] changes from 0xb2 to 0x14
 	//  - SECRET_TITLE_SK		unlocked when u8[0x065fde] changes from 0x08 to 0x93
@@ -580,6 +613,11 @@ void Game::onUpdateControls()
 	updateBonusGift();
 
 	updateLevelTracking();
+
+	// The shadow's touch happens here, between frames
+	n3ds::shadow::onControls();
+	if (n3ds::shadow::takeTouchedNotice())
+		mChallengeShadowTouched = true;
 
 	// 3DS: on the SEGA logo, intro and title screen (game mode 0x04), A works like Start, as Start is small and out of the way.
 	// Only while the title is actually running (not behind the A.I.R. menus), so A keeps its usual meaning everywhere else.
@@ -1006,6 +1044,9 @@ void Game::onLevelStart()
 	// A fresh try at the act for the daily challenges; the zones reached so far choose the next challenges
 	mChallengeHit = false;
 	mChallengeLowOnAir = false;
+	mChallengeShadowTouched = false;
+	mChallengeGhostsWoken = false;
+	n3ds::shadow::reset();
 	n3ds::challenges::get(mPlayerProgress.mUnlocks.mFinishedZoneAct);
 #endif
 }
@@ -1034,11 +1075,15 @@ void Game::onZoneActCompleted(uint16 zoneAndAct)
 		result.mWasHit = mChallengeHit;
 		result.mLowOnAir = mChallengeLowOnAir;
 		result.mCharacters = (uint8)emulatorInterface.readMemory16(0xffffff08);		// global.characters
+		result.mShadowTouched = mChallengeShadowTouched;
+		result.mGhostsWoken = mChallengeGhostsWoken;
 		if (n3ds::challenges::onActCompleted(result))
 			AudioOut::instance().playAudioDirect(0x68, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
 	}
 	mChallengeHit = false;
 	mChallengeLowOnAir = false;
+	mChallengeShadowTouched = false;
+	mChallengeGhostsWoken = false;
 #endif
 }
 
@@ -1057,6 +1102,10 @@ bool Game::onCharacterDied(uint8 playerIndex)
 #if defined(PLATFORM_3DS)
 	if (playerIndex == 0 && isStartingShieldAllowed())
 		mStartingShieldState = StartingShieldState::WAIT_FOR_RESTART;
+
+	// A new life is a new try against the shadow
+	if (playerIndex == 0)
+		mChallengeShadowTouched = false;
 #endif
 
 	// Death in time attack means level restart
@@ -1193,6 +1242,8 @@ void Game::updateLevelTracking()
 		mChallengeZoneAct = zoneAct;
 		mChallengeHit = false;
 		mChallengeLowOnAir = false;
+		mChallengeShadowTouched = false;
+		mChallengeGhostsWoken = false;
 	}
 	if (baseState == 0x04 || baseState == 0x06)
 		mChallengeHit = true;
@@ -1208,6 +1259,66 @@ void Game::updateLevelTracking()
 	mLastBonusCounter = bonusCounter;
 	mLastScore = score;
 
+	// Sandopolis 2: the game counts the ghosts it lets out as the lights go down
+	if (zoneAct == 0x0801 && emulatorInterface.readMemory8(0xfffffaad) != 0)
+		mChallengeGhostsWoken = true;
+
+	// Moves, from how the character's state changes
+	uint8 movesUsed[(int)n3ds::challenges::Move::_NUM] = { 0 };
+	{
+		using Move = n3ds::challenges::Move;
+		const uint8 character = emulatorInterface.readMemory8(0xffffb000 + 0x38);		// char.character: 0 Sonic, 1 Tails, 2 Knuckles
+		const uint8 spindash = emulatorInterface.readMemory8(0xffffb000 + 0x3d);		// char.spindash: 0x01 charging, 0x80 Super Peel-Out
+		const uint8 doubleJump = emulatorInterface.readMemory8(0xffffb000 + 0x2f);	// char.double_jump_state: 1 while the move goes on
+		const uint8 dropDash = (character == 0) ? emulatorInterface.readMemory8(0xffffb000 + 0x25) : 0;	// sonic.dropdash_counter: 0x15 charged
+		const bool onGround = (emulatorInterface.readMemory8(0xffffb000 + 0x2a) & 0x02) == 0;
+		const int groundSpeed = std::abs((int)(int16)emulatorInterface.readMemory16(0xffffb000 + 0x1c));
+		if (mLastMoveCharacter == character)
+		{
+			if (mLastSpindash == 0x01 && spindash == 0)
+				movesUsed[(int)Move::SPINDASH] = 1;
+			if (mLastSpindash == 0x80 && spindash == 0 && character == 0 && groundSpeed >= 0x600)
+				movesUsed[(int)Move::PEEL_OUT] = 1;
+			if (mLastDropDash == 0x15 && dropDash == 0 && onGround && groundSpeed >= 0x600)
+				movesUsed[(int)Move::DROP_DASH] = 1;
+			if (mLastDoubleJump == 0 && doubleJump == 1)
+			{
+				// Without a shield, Sonic's double jump is the insta-shield
+				if (character == 0 && (emulatorInterface.readMemory8(0xffffb000 + 0x2b) & 0x71) == 0 && emulatorInterface.readMemory8(0xfffffe19) == 0)
+					movesUsed[(int)Move::INSTA_SHIELD] = 1;
+				else if (character == 2)
+					movesUsed[(int)Move::GLIDE] = 1;
+			}
+		}
+		mLastMoveCharacter = character;
+		mLastSpindash = spindash;
+		mLastDropDash = dropDash;
+		mLastDoubleJump = doubleJump;
+	}
+
+	// Monitors and balloons, from the object slots: a monitor's item icon appearing, a balloon getting popped
+	uint8 monitorsBroken = 0;
+	uint8 balloonsPopped = 0;
+	{
+		const bool carnivalNight = ((zoneAct >> 8) == 0x03);
+		for (int slot = 0; slot < NUM_TRACKED_OBJECT_SLOTS; ++slot)
+		{
+			const uint32 address = 0xffffb000 + slot * 0x4a;
+			const uint32 updateAddress = emulatorInterface.readMemory32(address);
+			uint8 flags = 0;
+			if (updateAddress == 0x01d7ba)				// ItemEffect.BaseUpdate
+				flags |= 0x01;
+			else if (carnivalNight && updateAddress == 0x031754 && emulatorInterface.readMemory8(address + 0x34) != 0)		// A CNZ balloon, popped
+				flags |= 0x02;
+			const uint8 newFlags = flags & ~mObjectSlotFlags[slot];
+			if (newFlags & 0x01)
+				++monitorsBroken;
+			if (newFlags & 0x02)
+				++balloonsPopped;
+			mObjectSlotFlags[slot] = flags;
+		}
+	}
+
 	if (!isChallengeModeActive())
 		return;
 	n3ds::challenges::Frame frame;
@@ -1219,6 +1330,12 @@ void Game::updateLevelTracking()
 	frame.mScore = score;
 	frame.mShields = emulatorInterface.readMemory8(0xffffb000 + 0x2b) & 0x70;		// char.bonus: fire, lightning, bubble
 	frame.mBadniksDestroyed = badniks;
+	frame.mMonitorsBroken = monitorsBroken;
+	frame.mBalloonsPopped = balloonsPopped;
+	for (int k = 0; k < (int)n3ds::challenges::Move::_NUM; ++k)
+		frame.mMovesUsed[k] = movesUsed[k];
+	frame.mSuper = (emulatorInterface.readMemory8(0xfffffe19) != 0 || emulatorInterface.readMemory8(0xfffff667) != 0);		// super.active, super.active.tails
+	frame.mEmeralds = std::max(emulatorInterface.readMemory8(0xffffffb0), emulatorInterface.readMemory8(0xffffffb1));	// global.chaos_emeralds, global.super_emeralds
 	if (n3ds::challenges::onFrame(frame))
 		AudioOut::instance().playAudioDirect(0x68, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
 }

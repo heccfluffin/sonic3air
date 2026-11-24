@@ -2477,29 +2477,57 @@ void N3DSMenu::render()
 						drawer.drawRect(Recti(px - 167, py + 30, 32, 32), mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 					}
 
-					// Speech bubble, pointing at him
-					const Recti bubble(px - 109, py + 10, 172, 48);
-					const Color bubbleColor(0.16f, 0.04f, 0.05f, tabAlpha);
-					const Color borderColor(0.9f, 0.25f, 0.2f, tabAlpha);
-					drawer.drawRect(Recti(bubble.x - 1, bubble.y - 1, bubble.width + 2, bubble.height + 2), borderColor);
-					drawer.drawRect(bubble, bubbleColor);
-					for (int k = 0; k < 4; ++k)
+					// Speech bubble, pointing at him: a comic one - cream, rounded, with a shadow and a tail curving down to him; it pops
+					// up with each new line and shakes while he laughs
 					{
-						// The pointer toward him, with its border
-						const int length = 2 + k * 2;
-						const int rows = std::max(6 - k * 2, 1);
-						drawer.drawRect(Recti(bubble.x - 1 - length, bubble.y + 27 + k, length + 1, rows + 2), borderColor);
-						drawer.drawRect(Recti(bubble.x - length, bubble.y + 28 + k, length + 1, rows), bubbleColor);
-					}
-					std::vector<std::string_view> textLines;
-					utils::splitTextIntoLines(textLines, mRobotnikLine, global::mOxyfontTiny, bubble.width - 10);		// From all of it, so lines don't jump around
-					const int textY = bubble.y + std::max(4, (bubble.height - (int)std::min<size_t>(textLines.size(), 4) * 10) / 2);
-					int lettersLeft = (int)(sinceLine * ROBOTNIK_LETTERS_PER_SECOND);
-					for (size_t k = 0; k < textLines.size() && k < 4 && lettersLeft > 0; ++k)
-					{
-						const std::string_view shown = textLines[k].substr(0, std::min<size_t>(textLines[k].length(), (size_t)lettersLeft));
-						drawer.printText(global::mOxyfontTiny, Recti(bubble.x + 5, textY + (int)k * 10, 0, 10), shown, 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
-						lettersLeft -= (int)textLines[k].length() + 1;		// Plus the space where the line was split
+						const Recti full(px - 109, py + 10, 172, 48);
+						const float pop = std::min(sinceLine / 0.12f, 1.0f);
+						const int shrinkX = roundToInt((1.0f - pop) * 10.0f);
+						const int shrinkY = roundToInt((1.0f - pop) * 4.0f);
+						const int shakeX = (laughTime >= 0.0f && laughTime < 1.2f) ? (((int)(time * 30.0f) % 2) ? 1 : -1) : 0;
+						const Recti bubble(full.x + shrinkX + shakeX, full.y + shrinkY, full.width - shrinkX * 2, full.height - shrinkY * 2);
+						const Color fillColor(0.98f, 0.93f, 0.81f, tabAlpha);
+						const Color outlineColor(0.55f, 0.07f, 0.07f, tabAlpha);
+						const Color shadowColor(0.0f, 0.0f, 0.0f, 0.35f * tabAlpha);
+						const auto drawRounded = [&](const Recti& rect, const Color& color)
+						{
+							drawer.drawRect(Recti(rect.x + 2, rect.y, rect.width - 4, rect.height), color);
+							drawer.drawRect(Recti(rect.x + 1, rect.y + 1, rect.width - 2, rect.height - 2), color);
+							drawer.drawRect(Recti(rect.x, rect.y + 2, rect.width, rect.height - 4), color);
+						};
+						const auto drawTail = [&](int offsetX, int offsetY, int grow, const Color& color)
+						{
+							// Columns from the bubble's left edge to the tip, getting thinner and going down a bit
+							for (int i = 0; i <= 9; ++i)
+							{
+								const int half = (9 - i) * 4 / 9 + grow;
+								if (half < 0)
+									continue;
+								const int centerY = bubble.y + bubble.height / 2 + 4 + i / 2;
+								drawer.drawRect(Recti(bubble.x - i + offsetX, centerY - half + offsetY, 1, half * 2 + 1), color);
+							}
+						};
+						drawRounded(Recti(bubble.x + 1, bubble.y + 2, bubble.width + 2, bubble.height + 1), shadowColor);
+						drawTail(1, 2, 1, shadowColor);
+						drawRounded(Recti(bubble.x - 1, bubble.y - 1, bubble.width + 2, bubble.height + 2), outlineColor);
+						drawTail(-1, 0, 1, outlineColor);
+						drawRounded(bubble, fillColor);
+						drawTail(0, 0, 0, fillColor);
+						drawer.drawRect(Recti(bubble.x + 2, bubble.y + 1, bubble.width - 4, 1), Color(1.0f, 1.0f, 1.0f, 0.7f * tabAlpha));		// A little shine on top
+
+						if (pop >= 1.0f)
+						{
+							std::vector<std::string_view> textLines;
+							utils::splitTextIntoLines(textLines, mRobotnikLine, global::mOxyfontTinySimple, full.width - 10);		// From all of it, so lines don't jump around
+							const int textY = full.y + std::max(4, (full.height - (int)std::min<size_t>(textLines.size(), 4) * 10) / 2);
+							int lettersLeft = (int)(sinceLine * ROBOTNIK_LETTERS_PER_SECOND);
+							for (size_t k = 0; k < textLines.size() && k < 4 && lettersLeft > 0; ++k)
+							{
+								const std::string_view shown = textLines[k].substr(0, std::min<size_t>(textLines[k].length(), (size_t)lettersLeft));
+								drawer.printText(global::mOxyfontTinySimple, Recti(full.x + 5 + shakeX, textY + (int)k * 10, 0, 10), shown, 1, Color(0.42f, 0.05f, 0.06f, tabAlpha));		// Plain letters: the outlined ones look smudged on a light bubble
+								lettersLeft -= (int)textLines[k].length() + 1;		// Plus the space where the line was split
+							}
+						}
 					}
 
 					// The Robotnik medal, its metal by level: bronze, silver, gold, diamond, platinum, then emerald

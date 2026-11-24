@@ -65,6 +65,12 @@ public:
 	void drawCustomSpriteWithTransform(uint64 key, const Vec2i& position, uint16 atex, uint8 flags, uint16 renderQueue, const Color& tintColor, const Transform2D& transformation);
 	void addSpriteMask(const Vec2i& position, const Vec2i& size, uint16 renderQueue, bool priorityFlag, Space space);
 
+#if defined(PLATFORM_3DS)
+	// 3DS: palette sprites drawn with "drawCustomSprite" use these palettes instead of the main ones, until set back to nullptr
+	// (like a gray copy of a character); the palettes have to stay valid until the frame is rendered
+	inline void setCustomSpritePaletteOverride(const PaletteBase* primary, const PaletteBase* secondary)  { mPaletteOverride[0] = primary; mPaletteOverride[1] = secondary; }
+#endif
+
 	void addRectangle(const Recti& rect, const Color& color, uint16 renderQueue, Space space, bool useGlobalComponentTint);
 	void addText(std::string_view fontKeyString, uint64 fontKeyHash, const Vec2i& position, std::string_view textString, uint64 textHash, const Color& color, int alignment, int spacing, uint16 renderQueue, Space space, bool useGlobalComponentTint);
 	void addViewport(const Recti& rect, uint16 renderQueue);
@@ -116,6 +122,9 @@ private:
 	uint8 mResetRenderItemsBitmask = 0;
 	uint16 mSpriteAttributeTableBase = 0xf800;	// Only used in legacy VDP sprite mode
 	bool mLegacyVdpSpriteMode = false;
+#if defined(PLATFORM_3DS)
+	const PaletteBase* mPaletteOverride[2] = { nullptr, nullptr };
+#endif
 
 	PoolOfRenderItems mPoolOfRenderItems;
 

@@ -166,6 +166,14 @@ private:
 	bool mChallengeLowOnAir = false;		// The drowning countdown started in it
 	uint16 mLastBonusCounter = 0;			// The game's chain counter for destroyed enemies, to count badniks
 	uint32 mLastScore = 0;
+	bool mChallengeShadowTouched = false;	// The shadow touched the character in this life
+	bool mChallengeGhostsWoken = false;		// Sandopolis 2: a ghost came out
+	uint8 mLastMoveCharacter = 0xff;		// For counting moves: what the character's state was last frame
+	uint8 mLastSpindash = 0;
+	uint8 mLastDropDash = 0;
+	uint8 mLastDoubleJump = 0;
+	static const int NUM_TRACKED_OBJECT_SLOTS = 110;		// 0xffffb000 to 0xffffcfcb
+	uint8 mObjectSlotFlags[NUM_TRACKED_OBJECT_SLOTS] = { 0 };	// 0x01 a monitor's item icon, 0x02 a popped CNZ balloon
 #endif
 	PlayerRecorder mPlayerRecorder;
 	GameClient mGameClient;

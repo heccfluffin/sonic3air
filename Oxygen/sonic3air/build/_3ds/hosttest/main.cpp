@@ -728,6 +728,129 @@ namespace
 		check(data.mChallenges[2].mDone, "Hydrocity as Tails: beaten");
 	}
 
+	void challengeTypes3()
+	{
+		using namespace n3ds::challenges;
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+		fake::setTime(2026, 11, 24, 18, 0);
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261124\nxp=0\nbeaten=0\nperfect_days=0\nzones=4095\n"
+			"challenge=15 7 0 0 0 0\nchallenge=16 0 0 5 0 0\nchallenge=17 0 0 30005 0 0\nchallenge=19 3 0 10 0 0\nchallenge=20 8 1 0 0 0\n";
+		const Data& data = get(4095);
+		check(data.mCount == 5, "five challenges read back");
+		check(describe(data.mChallenges[0]) == "Outrun your shadow in Mushroom Hill 1", "the shadow is described: " + describe(data.mChallenges[0]));
+		check(describe(data.mChallenges[2]) == "Use the insta-shield 5 times", "a move is described: " + describe(data.mChallenges[2]));
+		check(describe(data.mChallenges[3]) == "Pop 10 balloons in Carnival Night" && describe(data.mChallenges[4]) == "Clear Sandopolis 2 without a ghost", "balloons and ghosts are described");
+
+		bool deadly = true;
+		check(isShadowAct(7, 0, deadly) && !deadly && !isShadowAct(7, 1, deadly) && !isShadowAct(0, 1, deadly), "the shadow runs in Mushroom Hill 1 only, not deadly");
+
+		n3ds::challenges::ActResult result;
+		result.mZone = 7;
+		result.mAct = 0;
+		result.mShadowTouched = true;
+		onActCompleted(result);
+		check(!data.mChallenges[0].mDone, "touched by the shadow: not beaten");
+		result.mShadowTouched = false;
+		onActCompleted(result);
+		check(data.mChallenges[0].mDone && !isShadowAct(7, 0, deadly), "outran the shadow: beaten, and he's gone");
+
+		Frame frame;
+		frame.mZone = 0;
+		frame.mMonitorsBroken = 2;
+		onFrame(frame);
+		frame.mMonitorsBroken = 0;
+		frame.mMovesUsed[(int)Move::INSTA_SHIELD] = 1;
+		frame.mMovesUsed[(int)Move::SPINDASH] = 1;
+		for (int k = 0; k < 4; ++k)
+			onFrame(frame);
+		check(data.mChallenges[1].mProgress == 2 && !data.mChallenges[1].mDone, "two monitors counted");
+		check(data.mChallenges[2].mProgress == 4 && !data.mChallenges[2].mDone && describeProgress(data.mChallenges[2]) == "4 / 5", "four insta-shields counted (spindashes don't)");
+		onFrame(frame);
+		check(data.mChallenges[2].mDone, "five insta-shields: beaten");
+		frame = Frame();
+		frame.mMonitorsBroken = 3;
+		onFrame(frame);
+		check(data.mChallenges[1].mDone, "five monitors: beaten");
+
+		frame = Frame();
+		frame.mZone = 1;
+		frame.mBalloonsPopped = 4;
+		onFrame(frame);
+		check(data.mChallenges[3].mProgress == 0, "balloons only count in Carnival Night");
+		frame.mZone = 3;
+		for (int k = 0; k < 3; ++k)
+			onFrame(frame);
+		check(data.mChallenges[3].mDone, "12 balloons popped in Carnival Night: beaten");
+
+		result = n3ds::challenges::ActResult();
+		result.mZone = 8;
+		result.mAct = 1;
+		result.mGhostsWoken = true;
+		onActCompleted(result);
+		check(!data.mChallenges[4].mDone, "a ghost came out: not beaten");
+		result.mGhostsWoken = false;
+		onActCompleted(result);
+		check(data.mChallenges[4].mDone, "Sandopolis 2 without a ghost: beaten");
+	}
+
+	uint32_t onlySpindash()  { return 1u << (int)n3ds::challenges::Move::SPINDASH; }
+
+	void challengeGeneration()
+	{
+		// Many days: no move that can't be used, no "Go Super" without the emeralds, no act challenge in Angel Island 1,
+		// and a deadly shadow only as Robotnik's Special
+		using namespace n3ds::challenges;
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+		fake::setTime(2026, 1, 1, 12, 0);
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20250101\nxp=2300\nbeaten=60\nperfect_days=12\nzones=16777215\n";
+		setAvailableMovesProvider(&onlySpindash);
+		int counts[(int)Type::_NUM] = { 0 };
+		bool badMove = false, goSuper = false, angelIsland1 = false, deadlyOutsideSpecial = false, normalShadowInSpecial = false;
+		for (int day = 0; day < 400; ++day)
+		{
+			const int month = 1 + (day / 28) % 12;
+			const int year = 2026 + day / (28 * 12);
+			fake::setTime(year, month, 1 + day % 28, 12, 0);
+			const Data& data = get(0xffffff);
+			for (int k = 0; k < data.mCount; ++k)
+			{
+				const Challenge& challenge = data.mChallenges[k];
+				++counts[(int)challenge.mType];
+				if (challenge.mType == Type::MOVES && challenge.mTarget / MOVE_FACTOR != 0)
+					badMove = true;
+				if (challenge.mType == Type::GO_SUPER)
+					goSuper = true;
+				const bool actSpecific = (challenge.mType == Type::ACT_UNDER_TIME || challenge.mType == Type::FAST_NO_HIT || challenge.mType == Type::SHADOW_RUN);
+				if (actSpecific && challenge.mZone == 0 && challenge.mAct == 0)
+					angelIsland1 = true;
+				if (challenge.mType == Type::SHADOW_RUN && challenge.mTarget == 1 && k != 4)
+					deadlyOutsideSpecial = true;
+				if (challenge.mType == Type::SHADOW_RUN && challenge.mTarget != 1 && k == 4)
+					normalShadowInSpecial = true;
+			}
+		}
+		check(!badMove, "only the spindash for move challenges, when nothing else can be used");
+		check(!goSuper, "no Go Super without the emeralds");
+		check(!angelIsland1, "no act challenge in Angel Island 1");
+		check(!deadlyOutsideSpecial && !normalShadowInSpecial, "the deadly shadow only as Robotnik's Special");
+		check(counts[(int)Type::SHADOW_RUN] > 0 && counts[(int)Type::MONITORS] > 0 && counts[(int)Type::MOVES] > 0 && counts[(int)Type::BALLOONS] > 0 && counts[(int)Type::NO_GHOSTS] > 0,
+			  "the new challenges come up: shadow " + std::to_string(counts[(int)Type::SHADOW_RUN]) + ", monitors " + std::to_string(counts[(int)Type::MONITORS]) +
+			  ", moves " + std::to_string(counts[(int)Type::MOVES]) + ", balloons " + std::to_string(counts[(int)Type::BALLOONS]) + ", ghosts " + std::to_string(counts[(int)Type::NO_GHOSTS]));
+
+		// With all the emeralds seen once, "Go Super" can come up
+		Frame frame;
+		frame.mEmeralds = 7;
+		onFrame(frame);
+		for (int day = 0; day < 200 && !goSuper; ++day)
+		{
+			fake::setTime(2028, 1 + (day / 28) % 12, 1 + day % 28, 12, 0);
+			const Data& data = get(0xffffff);
+			for (int k = 0; k < data.mCount; ++k)
+				goSuper = goSuper || (data.mChallenges[k].mType == Type::GO_SUPER);
+		}
+		check(goSuper, "Go Super comes up once the emeralds were seen");
+	}
+
 	void challengesSlots()
 	{
 		using namespace n3ds::challenges;
@@ -788,7 +911,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

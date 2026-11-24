@@ -70,6 +70,18 @@ namespace n3ds
 			uint8_t gActShields = 0;
 			int gLastLives = -1;
 
+			uint32_t gEmeraldsSeen = 0;		// The most emeralds seen in a game (for "Go Super")
+			uint32_t (*gMovesProvider)() = nullptr;
+
+			// The acts for "Outrun your shadow": long stretches to keep running, without much waiting for platforms or
+			// elevators (AIZ 2, MGZ 1, FBZ 1, MHZ 1 + 2); not AIZ 1, it never ends with a results screen (it burns into act 2)
+			const uint8_t SHADOW_ACTS[][2] = { { 0, 1 }, { 2, 0 }, { 4, 0 }, { 7, 0 }, { 7, 1 } };
+
+			const char* const MOVE_NAMES[(int)Move::_NUM] = { "spindashes", "drop dashes", "Super Peel-Outs", "insta-shields", "glides" };
+
+			inline Move getMove(const Challenge& challenge)		{ return (Move)std::min<uint32_t>(challenge.mTarget / MOVE_FACTOR, (uint32_t)Move::_NUM - 1); }
+			inline uint32_t getMoveCount(const Challenge& challenge)	{ return challenge.mTarget % MOVE_FACTOR; }
+
 			uint32_t today()
 			{
 				const n3ds::profile::LocalTime now = n3ds::profile::getLocalTime();
@@ -79,8 +91,8 @@ namespace n3ds
 			std::string toText(const Data& data)
 			{
 				char text[160];
-				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\npinned=%d\n",
-						 (unsigned)data.mDate, (unsigned)data.mXp, (unsigned)data.mBeaten, (unsigned)data.mPerfectDays, (unsigned)gZoneMask, data.mPinned);
+				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\nemeralds=%u\npinned=%d\n",
+						 (unsigned)data.mDate, (unsigned)data.mXp, (unsigned)data.mBeaten, (unsigned)data.mPerfectDays, (unsigned)gZoneMask, (unsigned)gEmeraldsSeen, data.mPinned);
 				std::string result = text;
 				for (int index = 0; index < data.mCount; ++index)
 				{
@@ -117,12 +129,44 @@ namespace n3ds
 				const auto pickAct = [&](uint8_t zone) -> uint8_t
 				{
 					// An act already finished, if there's one (so it can be played in Act Select)
+					// Angel Island 1 never counts as finished (no results screen, it burns into act 2), so it's always act 2 there
 					const uint32_t finished = (gZoneMask >> (zone * 2)) & 3;
+					if (zone == 0)
+						return 1;
 					if (ZONES[zone].mActs < 2 || finished == 1)
 						return 0;
 					if (finished == 2)
 						return 1;
 					return (uint8_t)next(2);
+				};
+
+				// A move that can be used: the spindash always, the others only if available
+				const uint32_t availableMoves = ((nullptr != gMovesProvider) ? gMovesProvider() : 0) | (1u << (int)Move::SPINDASH);
+				const auto pickMove = [&](bool medium) -> uint32_t
+				{
+					std::vector<int> moves;
+					for (int move = 0; move < (int)Move::_NUM; ++move)
+					{
+						if (availableMoves & (1u << move))
+							moves.push_back(move);
+					}
+					static const uint32_t EASY_COUNTS[(int)Move::_NUM]   = { 10, 5, 5, 10, 5 };
+					static const uint32_t MEDIUM_COUNTS[(int)Move::_NUM] = { 25, 10, 10, 20, 15 };
+					const int move = moves[next((uint32_t)moves.size())];
+					return (uint32_t)move * MOVE_FACTOR + (medium ? MEDIUM_COUNTS[move] : EASY_COUNTS[move]);
+				};
+				const auto pickShadowAct = [&](Challenge& challenge)
+				{
+					std::vector<int> candidates;
+					for (int k = 0; k < (int)(sizeof(SHADOW_ACTS) / sizeof(SHADOW_ACTS[0])); ++k)
+					{
+						if (isZoneAvailable(SHADOW_ACTS[k][0]))
+							candidates.push_back(k);
+					}
+					const int pick = candidates[next((uint32_t)candidates.size())];		// Never empty: Angel Island is always there
+					challenge.mType = Type::SHADOW_RUN;
+					challenge.mZone = SHADOW_ACTS[pick][0];
+					challenge.mAct = SHADOW_ACTS[pick][1];
 				};
 
 				Data& data = gData;
@@ -132,12 +176,17 @@ namespace n3ds
 				for (int index = 0; index < data.mCount; ++index)
 				{
 					Challenge challenge;
-					const uint32_t kind = next(3);
+					const uint32_t kind = next((index == 4) ? 4 : 3);
 					if (index >= 3)
 					{
-						// Expert (40 XP) and Robotnik's Special (50 XP): both at once, or a lot of rings
+						// Expert (40 XP) and Robotnik's Special (50 XP): both at once, or a lot of rings; or a shadow that's the end
 						const bool special = (index == 4);
-						if (kind == 0)
+						if (kind == 3)
+						{
+							pickShadowAct(challenge);
+							challenge.mTarget = 1;
+						}
+						else if (kind == 0)
 						{
 							challenge.mType = Type::FAST_NO_HIT;
 							challenge.mZone = pickZone();
@@ -164,8 +213,18 @@ namespace n3ds
 					else if (index == 0)
 					{
 						// Easy
-						const uint32_t easyKind = next(4);
-						if (easyKind == 3)
+						const uint32_t easyKind = next(6);
+						if (easyKind == 4)
+						{
+							challenge.mType = Type::MONITORS;
+							challenge.mTarget = 5;
+						}
+						else if (easyKind == 5)
+						{
+							challenge.mType = Type::MOVES;
+							challenge.mTarget = pickMove(false);
+						}
+						else if (easyKind == 3)
 						{
 							challenge.mType = Type::BADNIKS;
 							challenge.mTarget = 10;
@@ -190,8 +249,28 @@ namespace n3ds
 					else if (index == 1)
 					{
 						// Medium
-						const uint32_t mediumKind = next(8);
-						if (mediumKind >= 3)
+						const uint32_t mediumKind = next(11);
+						if (mediumKind == 8)
+						{
+							challenge.mType = Type::MONITORS;
+							challenge.mTarget = 15;
+						}
+						else if (mediumKind == 9 && gEmeraldsSeen >= 7)
+						{
+							challenge.mType = Type::GO_SUPER;		// Only with all the emeralds, and then 50 rings and a jump
+						}
+						else if (mediumKind == 10 && isZoneAvailable(3))
+						{
+							challenge.mType = Type::BALLOONS;
+							challenge.mZone = 3;
+							challenge.mTarget = 10;
+						}
+						else if (mediumKind >= 9)
+						{
+							challenge.mType = Type::MOVES;
+							challenge.mTarget = pickMove(true);
+						}
+						else if (mediumKind >= 3)
 						{
 							switch (mediumKind)
 							{
@@ -224,8 +303,19 @@ namespace n3ds
 					else
 					{
 						// Hard
-						const uint32_t hardKind = next(6);
-						if (hardKind == 5)
+						const uint32_t hardKind = next(8);
+						if (hardKind == 6 || (hardKind == 7 && !isZoneAvailable(8)))
+						{
+							pickShadowAct(challenge);
+						}
+						else if (hardKind == 7)
+						{
+							// Sandopolis 2 with the lights kept on: hit the light switches before it gets dark enough for the ghosts
+							challenge.mType = Type::NO_GHOSTS;
+							challenge.mZone = 8;
+							challenge.mAct = 1;
+						}
+						else if (hardKind == 5)
 						{
 							challenge.mType = Type::SCORE_IN_ACT;		// Like under 2 minutes with 100 rings (time bonus 10,000 plus ring bonus 10,000)
 							challenge.mTarget = 20000;
@@ -309,6 +399,7 @@ namespace n3ds
 						else if (sscanf(line, "beaten=%u", &value) == 1)		gData.mBeaten = value;
 						else if (sscanf(line, "perfect_days=%u", &value) == 1)	gData.mPerfectDays = value;
 						else if (sscanf(line, "zones=%u", &value) == 1)			gZoneMask = value;
+						else if (sscanf(line, "emeralds=%u", &value) == 1)		gEmeraldsSeen = value;
 						else if (sscanf(line, "pinned=%d", &type) == 1)			gData.mPinned = type;
 						else if (sscanf(line, "challenge=%d %d %d %u %u %d", &type, &zone, &act, &target, &progress, &done) == 6 && index < MAX_PER_DAY &&
 								 type >= 0 && type < (int)Type::_NUM && zone >= 0 && zone < NUM_ZONES && act >= 0 && act < ZONES[zone].mActs)
@@ -407,6 +498,29 @@ namespace n3ds
 			});
 		}
 
+		void setAvailableMovesProvider(uint32_t (*provider)())
+		{
+			gMovesProvider = provider;
+		}
+
+		bool isShadowAct(uint8_t zone, uint8_t act, bool& deadly)
+		{
+			// If both the hard and the special one are here, the special one counts (outrunning it beats both)
+			load();
+			bool found = false;
+			deadly = false;
+			for (int index = 0; index < gData.mCount; ++index)
+			{
+				const Challenge& challenge = gData.mChallenges[index];
+				if (challenge.mType == Type::SHADOW_RUN && !challenge.mDone && challenge.mZone == zone && challenge.mAct == act)
+				{
+					found = true;
+					deadly = deadly || (challenge.mTarget == 1);
+				}
+			}
+			return found;
+		}
+
 		void setPinned(int index)
 		{
 			load();
@@ -436,6 +550,11 @@ namespace n3ds
 				gActShields = 0;
 			}
 			gActShields |= (frame.mShields & 0x70);
+			if (frame.mEmeralds > gEmeraldsSeen && frame.mEmeralds <= 7)
+			{
+				gEmeraldsSeen = frame.mEmeralds;
+				gDirty = true;
+			}
 			const bool extraLife = (gLastLives >= 0 && frame.mLives > gLastLives);
 			gLastLives = frame.mLives;
 
@@ -458,6 +577,36 @@ namespace n3ds
 
 					case Type::EXTRA_LIFE:
 						if (extraLife && frame.mZone == challenge.mZone)
+							beat(index);
+						break;
+
+					case Type::MONITORS:
+					case Type::BALLOONS:
+					case Type::MOVES:
+					{
+						uint32_t count = 0;
+						uint32_t target = challenge.mTarget;
+						if (challenge.mType == Type::MONITORS)
+							count = frame.mMonitorsBroken;
+						else if (challenge.mType == Type::BALLOONS)
+							count = (frame.mZone == challenge.mZone) ? frame.mBalloonsPopped : 0;
+						else
+						{
+							count = frame.mMovesUsed[(int)getMove(challenge)];
+							target = getMoveCount(challenge);
+						}
+						if (count > 0)
+						{
+							challenge.mProgress += count;
+							gDirty = true;
+							if (challenge.mProgress >= target)
+								beat(index);
+						}
+						break;
+					}
+
+					case Type::GO_SUPER:
+						if (frame.mSuper)
 							beat(index);
 						break;
 
@@ -591,6 +740,16 @@ namespace n3ds
 							beat(index);
 						break;
 
+					case Type::SHADOW_RUN:
+						if (act == challenge.mAct && !result.mShadowTouched)
+							beat(index);
+						break;
+
+					case Type::NO_GHOSTS:
+						if (act == challenge.mAct && !result.mGhostsWoken)
+							beat(index);
+						break;
+
 					case Type::FAST_NO_HIT:
 						if (act != challenge.mAct)
 							break;
@@ -650,6 +809,23 @@ namespace n3ds
 				case Type::FINISH_AS:			snprintf(text, sizeof(text), "Finish %s as %s", zone, (challenge.mTarget == 2) ? "Tails" : "Knuckles");  break;
 				case Type::ALL_SHIELDS:			snprintf(text, sizeof(text), "All 3 elemental shields in %s %d", zone, challenge.mAct + 1);  break;
 				case Type::NO_DROWN:			snprintf(text, sizeof(text), "Clear %s, never low on air", zone);  break;
+				case Type::SHADOW_RUN:			snprintf(text, sizeof(text), "%s your shadow in %s %d", (challenge.mTarget == 1) ? "Escape" : "Outrun", zone, challenge.mAct + 1);  break;
+				case Type::MONITORS:			snprintf(text, sizeof(text), "Break %u monitors", (unsigned)challenge.mTarget);  break;
+				case Type::GO_SUPER:			snprintf(text, sizeof(text), "Go Super");  break;
+				case Type::BALLOONS:			snprintf(text, sizeof(text), "Pop %u balloons in %s", (unsigned)challenge.mTarget, zone);  break;
+				case Type::NO_GHOSTS:			snprintf(text, sizeof(text), "Clear %s %d without a ghost", zone, challenge.mAct + 1);  break;
+				case Type::MOVES:
+				{
+					const Move move = getMove(challenge);
+					const unsigned count = (unsigned)getMoveCount(challenge);
+					if (move == Move::INSTA_SHIELD)
+						snprintf(text, sizeof(text), "Use the insta-shield %u times", count);
+					else if (move == Move::GLIDE)
+						snprintf(text, sizeof(text), "Glide %u times as Knuckles", count);
+					else
+						snprintf(text, sizeof(text), "Do %u %s", count, MOVE_NAMES[(int)move]);
+					break;
+				}
 				case Type::ACT_UNDER_TIME:
 				case Type::FAST_NO_HIT:
 				{
@@ -681,6 +857,15 @@ namespace n3ds
 					break;
 				case Type::BADNIKS:
 					snprintf(text, sizeof(text), "%u / %u badniks", (unsigned)std::min(challenge.mProgress, challenge.mTarget), (unsigned)challenge.mTarget);
+					break;
+				case Type::MONITORS:
+					snprintf(text, sizeof(text), "%u / %u monitors", (unsigned)std::min(challenge.mProgress, challenge.mTarget), (unsigned)challenge.mTarget);
+					break;
+				case Type::BALLOONS:
+					snprintf(text, sizeof(text), "%u / %u balloons", (unsigned)std::min(challenge.mProgress, challenge.mTarget), (unsigned)challenge.mTarget);
+					break;
+				case Type::MOVES:
+					snprintf(text, sizeof(text), "%u / %u", (unsigned)std::min(challenge.mProgress, getMoveCount(challenge)), (unsigned)getMoveCount(challenge));
 					break;
 				case Type::SCORE_IN_ACT:
 					if (challenge.mProgress > 0)
@@ -715,13 +900,15 @@ namespace n3ds
 			{
 				if (index >= 0 && index < gData.mCount && gData.mChallenges[index].mType == Type::BADNIKS)
 					return "My poor badniks! Do you know how long those take to build?!";
+				if (index >= 0 && index < gData.mCount && gData.mChallenges[index].mType == Type::SHADOW_RUN)
+					return "Outran by the original?! My shadow needs more practice!";
 				return BEATEN[(date + (uint32_t)index * 2) % (sizeof(BEATEN) / sizeof(BEATEN[0]))];
 			}
 
 			const Data& data = gData;
 			if (index < 0 || index >= data.mCount)
 				return "";
-			if (index == 4 && data.mChallenges[index].mType != Type::FAST_NO_HIT)
+			if (index == 4 && data.mChallenges[index].mType != Type::FAST_NO_HIT && data.mChallenges[index].mType != Type::SHADOW_RUN)
 				return "Robotnik's Special! My finest work. You don't stand a chance!";
 			switch (data.mChallenges[index].mType)
 			{
@@ -739,6 +926,13 @@ namespace n3ds
 				case Type::FINISH_AS:			return "Sending in your friends? They're no better than you, hedgehog!";
 				case Type::ALL_SHIELDS:			return "Fire, lightning AND bubbles? Greedy little pest!";
 				case Type::NO_DROWN:			return "I timed every air bubble in Hydrocity myself. Glub glub! Hohoho!";
+				case Type::SHADOW_RUN:			return (data.mChallenges[index].mTarget == 1) ? "My shadow never stops, hedgehog. Stand still and it's over!"
+																							  : "Meet my newest creation: YOU! Stop for a moment and... Hohoho!";
+				case Type::MONITORS:			return "Hands off my monitors! Those are company property!";
+				case Type::MOVES:				return "Show-off! All those fancy moves won't save you!";
+				case Type::GO_SUPER:			return "Super, are you? Enjoy it while your rings last. Hohoho!";
+				case Type::BALLOONS:			return "Those balloons are for MY carnival! Don't you dare pop them!";
+				case Type::NO_GHOSTS:			return "The ghosts of Sandopolis love the dark. Sweet dreams! Hohoho!";
 				case Type::FAST_NO_HIT:			return (index == 4) ? "My very own special! Fast AND flawless. Nobody can do that! Nobody!"
 																	: "Fast AND without a scratch? You'll trip over your own shoes!";
 				default:						return "";
