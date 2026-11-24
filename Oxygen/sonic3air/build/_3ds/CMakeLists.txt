@@ -29,6 +29,9 @@ set(CMAKE_C_FLAGS_RELEASE   "-O2 -g0")
 set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g0")
 
 add_compile_options(-Wno-psabi -Wno-unused-function -Wno-stringop-overflow -ffunction-sections -fdata-sections)
+# Keep the stores destructors make (like an emptied list's size): the script compiler has spots that touch an object right after
+# it got destroyed, which works on PC but went wrong here once (see TokenProcessing.cpp, mods with the ?: operator)
+add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-fno-lifetime-dse>)
 add_link_options(-Wl,--gc-sections)
 
 add_definitions(-DENDUSER)

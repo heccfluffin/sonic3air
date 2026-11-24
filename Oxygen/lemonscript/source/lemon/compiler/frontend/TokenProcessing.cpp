@@ -1177,8 +1177,18 @@ namespace lemon
 					// Move parenthesis content to the output token pointer, so it will replace the parenthesis itself
 					TokenPtr<StatementToken> tempContentPtr;
 					tempContentPtr = pt.mContent[0].as<StatementToken>();	// This intermediate step is needed to avoid reference count reaching 0 in between
+				#if defined(PLATFORM_3DS)
+					// Empty the parenthesis before replacing it: if "outTokenPtr" holds the last reference to the parenthesis (like "bot.mLeft" of an
+					// "(a == b) ? c : d"), the assignment destroys it, and clearing its content list afterwards would work on a destroyed object.
+					// With GCC's dead store elimination in destructors, that list still looks filled then, so its content (the "a == b") lost a
+					// reference too much and got destroyed while still in use: the "Invalid reference count of genericmanager::Element" crash with
+					// mods using the ?: operator.
+					pt.mContent.clear();
+					outTokenPtr = tempContentPtr;
+				#else
 					outTokenPtr = tempContentPtr;
 					pt.mContent.clear();
+				#endif
 					return true;
 				}
 				break;
