@@ -20,10 +20,11 @@ It doesn't run on the original 3DS / 2DS.
 
 - A New 3DS with custom firmware (Luma3DS), see [3ds.hacks.guide](https://3ds.hacks.guide)
 - Your own Sonic 3 & Knuckles ROM, from the Steam release
-- The `data` folder of Sonic 3 A.I.R. **26.03.28.0** for Windows, from [sonic3air.org](https://sonic3air.org)
+- The `data` folder of Sonic 3 A.I.R. **26.03.28.0** for Windows: [download it here](https://github.com/Eukaryot/sonic3air/releases/download/v26.03.28.0-stable/sonic3air_game.zip) (from [sonic3air.org](https://sonic3air.org))
 
 The port contains no game content. The **mod patcher** on the download page (`s3air_3ds_modpatcher.exe` for Windows)
-copies the data and your ROM to the SD card for you, and installs mods. Mods can also be installed over Wi-Fi from the game's Mods menu.
+copies the data and your ROM to the SD card for you. Mods can be browsed and installed right in the game's Mods menu
+(from GameBanana), sent from your phone or PC over Wi-Fi, or installed with the mod patcher.
 
 **Where things are:** the download page always has the newest test build (`.cia`, `.3dsx`, mod patcher, install guide).
 The 3DS port's code is on the [`3ds-gpu-drawer`](https://github.com/heccfluffin/sonic3air/tree/3ds-gpu-drawer) branch,
