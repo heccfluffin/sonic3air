@@ -1,5 +1,8 @@
 # Sonic 3 A.I.R. on New 3DS — install guide
 
+> [!WARNING]
+> **This project is coded by Claude (an AI).** If you do not support projects that are coded by AI, this isn't for you.
+
 This is an unofficial port by **heccfluffin** of [Sonic 3 A.I.R.](https://sonic3air.org) (by Eukaryot & contributors)
 to the **New Nintendo 3DS / New 3DS XL / New 2DS XL**. It does not run on the original (Old) 3DS / 2DS models, which don't have enough memory and CPU speed.
 
@@ -13,7 +16,7 @@ your own copy of the game's ROM, and the data files from the official A.I.R. PC 
 |---|---|
 | A New 3DS / New 3DS XL / New 2DS XL with custom firmware (Luma3DS) | Follow the official guide at [3ds.hacks.guide](https://3ds.hacks.guide) |
 | `sonic3air.cia` (or `sonic3air.3dsx`) | The [download page](https://github.com/heccfluffin/sonic3air/releases/tag/test-build), or Universal-Updater (step 5) |
-| The `data` folder of Sonic 3 A.I.R. **version 26.03.28.0** | The Windows download from [sonic3air.org](https://sonic3air.org) |
+| The `data` folder of Sonic 3 A.I.R. **version 26.03.28.0** | [This download of A.I.R. 26.03.28.0](https://github.com/Eukaryot/sonic3air/releases/download/v26.03.28.0-stable/sonic3air_game.zip) (the Windows version from [sonic3air.org](https://sonic3air.org)) |
 | The game ROM, named **exactly** `Sonic_Knuckles_wSonic3.bin` | Your own copy of the game on Steam (see step 3) |
 | `dspfirm.cdc` (needed for sound) | Dumped from your own console (see step 1) |
 
@@ -29,7 +32,7 @@ The mod patcher can set up the game files for you. On Windows it's `s3air_3ds_mo
 double-click it (Windows may warn about an unknown program the first time: **More info** -> **Run anyway**). On macOS or
 Linux use `s3air_3ds_modpatcher.py`, which needs [Python 3](https://www.python.org/downloads/). Both are on the release page.
 
-1. Download Sonic 3 A.I.R. **26.03.28.0** for Windows from [sonic3air.org](https://sonic3air.org) (just the .zip, no need to unpack it).
+1. Download Sonic 3 A.I.R. **26.03.28.0** for Windows: [sonic3air_game.zip](https://github.com/Eukaryot/sonic3air/releases/download/v26.03.28.0-stable/sonic3air_game.zip) (just the .zip, no need to unpack it).
 2. Put the 3DS SD card into your PC and double-click `s3air_3ds_modpatcher.exe` (or `s3air_3ds_modpatcher.py`).
 3. Select the SD card at the top, then click **Set up game files...** and follow the two questions:
    - pick the downloaded A.I.R. .zip: it checks the version and copies the `data` folder
@@ -54,8 +57,9 @@ It creates `sdmc:/3ds/dspfirm.cdc` for you.
 
 ## Step 2: Game data files
 
-1. Download Sonic 3 A.I.R. for Windows from [sonic3air.org](https://sonic3air.org).
-   **It must be version 26.03.28.0**, the same version this port is built from.
+1. Download Sonic 3 A.I.R. for Windows: [sonic3air_game.zip, version 26.03.28.0](https://github.com/Eukaryot/sonic3air/releases/download/v26.03.28.0-stable/sonic3air_game.zip).
+   **It must be version 26.03.28.0**, the same version this port is built from. (sonic3air.org always offers the newest
+   version, which may not fit once there's a newer one; the link here stays on 26.03.28.0.)
 2. Unpack the download on your PC and find its `data` folder.
 3. Copy the whole `data` folder to `sdmc:/3ds/sonic3air/data/` on your SD card.
 
@@ -216,36 +220,49 @@ open it in the Journal with a Fire, Lightning or Bubble Shield or 50 rings insid
 shield), and you get it at the start of your next act in a normal game. **Stats** shows your play time, days, Sonic's
 steps (running around in the game), Play Coins spent, achievements, screenshots and postcards on one page. It's all saved in `savedata/3ds_journal.txt`.
 
-The **Challenge** tab has **Doctor Robotnik's Daily Challenge**: three new challenges every day (easy, medium and hard,
-like collecting rings in a zone, destroying badniks, finishing an act in time, without a hit or as Tails or Knuckles,
-earning an extra life, finding a bonus stage, scoring points, getting all three elemental shields in one act, getting
-through Hydrocity without running low on air, breaking monitors, using moves (spindashes, and the drop dash, Super
-Peel-Out, insta-shield or Knuckles' glide only if you have them switched on), going Super (once you've had all the
-emeralds), popping Carnival Night's balloons, or turning the lights back on in Sandopolis 2), in zones you've already reached.
-The hard one can also be **Outrun your shadow**: in that act a gray copy of you with a red trail runs your exact way 2.5
-seconds behind, catching up to 1.5 seconds (he only sets off once you do, waits during cutscenes, fades away in boss fights and is gone for good once the boss is beaten). His
-touch is a hit - and loses that try - but Sonic's insta-shield or shield moves, Knuckles' glide, invincibility or Super
-knock him back further behind (hurt, like you losing rings), and then he catches up again. As Robotnik's Special he
-starts 2 seconds behind and his touch is the end. And now and then he turns up uninvited: the **Shadow
-Ambush** (on the Challenge tab: off, 1% of acts - the default -, 5%, 25% or every act). A WARNING with an alarm, then the
-Doomsday music, and he chases you for the rest of the act (not in bonus stages or Doomsday); giant rings and the bonus
-stage stars over checkpoints stay out of reach while he's there. Reach the end of the act for a Robotnik voucher. **Egg Robo
-Patrols** (also on the Challenge tab: off by default, rare, sometimes or often) send Sky Sanctuary's Egg Robos into the
-other zones: one flies in, takes a clear spot at your height, waits a moment, charges its laser gun (blinking) and fires
-when no wall is in between, aimed at where you're running to (a little up or down too) - three shots, then it flies off. Jump, roll or spindash into one to pop it like a badnik;
-an elemental shield bounces the laser off. Half of the time **Red Eye** (the Death Egg's first boss, as it is after breaking out of
-its pillar, in its own chrome colors) comes first, as a security camera: it hovers at the top of the screen sweeping towards
-you, its eye following you - let it get right above you and the alarm goes off, it flashes red with anger, its nozzle
-glows for a second, and it fires its laser straight down (following you slowly, so keep running) while two Egg Robos fly in from both sides. Keep
-out from under it for 12 seconds and it moves on. It can be popped too, if you get up there. They count
-in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile, in front of a Death Egg hall) taunts you about each one and laughs
-at you (shaking, squashing and stretching with each hop), jumps out to stomp mad (with dust flying) once it's beaten, and sulks when you've beaten them all. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after
-that 10 more (up to 150), and every level gives you a voucher. Its metal goes bronze (levels 1-4), silver (5-9), gold (10-14), diamond (15-19), platinum (20-25) and emerald
-(26 on), with a new rank every two levels up to "Robotnik's Nightmare" - and past that it never stops: the rank gets
-numbered (II, III, ...), sparkles circle the medal (one more each level) and stars appear on its ribbon (one every 5
-levels, changing color every three). At level 10 an **Expert** challenge (40 XP) joins the daily ones, and at level 20
-**Robotnik's Special** (50 XP). Press A on a challenge to pin it: it then shows on the main menu (bottom left) with
-your progress, until it's beaten. The notification light glows red when you beat one. Saved in `savedata/3ds_challenges.txt`.
+The **Challenge** tab has **Doctor Robotnik's Daily Challenge**: three new challenges every day (easy, medium and hard),
+in zones you've already reached. They count in a normal game and in Act Select.
+
+- **What they ask for:** collecting rings in a zone, destroying badniks, finishing an act in time, without a hit or as
+  Tails or Knuckles, earning an extra life, finding a bonus stage, scoring points, getting all three elemental shields in
+  one act, getting through Hydrocity without running low on air, breaking monitors, using moves (spindashes, and the drop
+  dash, Super Peel-Out, insta-shield or Knuckles' glide only if you have them switched on), going Super (once you've had
+  all the emeralds), popping Carnival Night's balloons, or turning the lights back on in Sandopolis 2.
+- **Outrun your shadow** (a hard one): in that act a gray copy of you with a red trail runs your exact way 2.5 seconds
+  behind, catching up to 1.5 seconds. He only sets off once you do, waits during cutscenes, fades away in boss fights and
+  is gone for good once the boss is beaten. His touch is a hit, and loses that try. But Sonic's insta-shield or shield
+  moves, Knuckles' glide, invincibility or Super knock him back further behind (hurt, like you losing rings), and then he
+  catches up again.
+- **Robotnik and your medal:** Robotnik (drawn from your ROM, in his Egg Mobile, in front of a Death Egg hall) taunts you
+  about each challenge and laughs at you (shaking, squashing and stretching with each hop), jumps out to stomp mad (with
+  dust flying) once one is beaten, and sulks when you've beaten them all. Every beaten challenge gives XP to your
+  **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after that 10 more (up to 150), and every
+  level gives you a voucher.
+- **Medal ranks:** its metal goes bronze (levels 1-4), silver (5-9), gold (10-14), diamond (15-19), platinum (20-25) and
+  emerald (26 on), with a new rank every two levels up to "Robotnik's Nightmare". Past that it never stops: the rank
+  gets numbered (II, III, ...), sparkles circle the medal (one more each level) and stars appear on its ribbon (one
+  every 5 levels, changing color every three).
+- **Extra challenges:** at level 10 an **Expert** challenge (40 XP) joins the daily ones, and at level 20
+  **Robotnik's Special** (50 XP). In Robotnik's Special, your shadow starts 2 seconds behind and his touch is the end.
+- **Pinning:** press A on a challenge to pin it. It then shows on the main menu (bottom left) with your progress, until
+  it's beaten. The notification light glows red when you beat one.
+
+Two surprises can also turn up while you play. Both are set on the Challenge tab:
+
+- **Shadow Ambush** (off, 1% of acts - the default -, 5%, 25% or every act): a WARNING with an alarm, then the Doomsday
+  music, and your shadow chases you for the rest of the act (not in bonus stages or Doomsday). Giant rings and the bonus
+  stage stars over checkpoints stay out of reach while he's there. Reach the end of the act for a Robotnik voucher.
+- **Egg Robo Patrols** (off by default, rare, sometimes or often) send Sky Sanctuary's Egg Robos into the other zones.
+  One flies in, takes a clear spot at your height, waits a moment, charges its laser gun (blinking) and fires when no
+  wall is in between, aimed at where you're running to (a little up or down too). Three shots, then it flies off. Jump,
+  roll or spindash into one to pop it like a badnik; an elemental shield bounces the laser off.
+  - Half of the time **Red Eye** comes first: the Death Egg's first boss (as it is after breaking out of its pillar, in
+    its own chrome colors), as a security camera. It hovers at the top of the screen sweeping towards you, its eye
+    following you. Let it get right above you and the alarm goes off: it flashes red with anger, its nozzle glows for a
+    second, and it fires its laser straight down (following you slowly, so keep running) while two Egg Robos fly in from
+    both sides. Keep out from under it for 12 seconds and it moves on. It can be popped too, if you get up there.
+
+Saved in `savedata/3ds_challenges.txt`.
 
 **Screenshots:** press L and R together to save the top screen as a PNG in `sdmc:/3ds/sonic3air/screenshots/`.
 
@@ -283,6 +300,9 @@ which is limited on the console. The patcher unpacks zips for you.
 | The game asks for the ROM / "ROM could not be loaded" | Check that the file is named **exactly** `Sonic_Knuckles_wSonic3.bin` (not `.bin.bin`), is directly in `sdmc:/3ds/sonic3air/`, and comes from the Steam version (step 3). |
 | No sound | `sdmc:/3ds/dspfirm.cdc` is missing (step 1). |
 | The game doesn't start at all on an Old 3DS / 2DS | Only New 3DS models are supported. |
+| The game crashes or shows an error after turning on a mod | First, make sure you have the newest build (mods using `? :` in their scripts crashed before b105). If it still happens, turn the mod off: in the Mods menu, or if the game doesn't get that far, with the mod patcher (Enable / Disable), or by deleting the mod's folder in `sdmc:/3ds/sonic3air/savedata/mods/`. Then report it with the log (see below) and the mod's name. |
+| GameBanana: "The secure connection failed" | Check that the 3DS's date and time are right (System Settings). The connection is checked with certificates, which only work with the right date. |
+| GameBanana: "Couldn't reach the server" / Wi-Fi install: "The 3DS isn't connected" | Turn on wireless and make sure there's an Internet connection set up in System Settings. For the Wi-Fi install, your phone or PC has to be in the same Wi-Fi. |
 | Anything else | The game writes a log to `sdmc:/3ds/sonic3air/savedata/logfile.txt`. Include it when you report a problem. |
 
 
