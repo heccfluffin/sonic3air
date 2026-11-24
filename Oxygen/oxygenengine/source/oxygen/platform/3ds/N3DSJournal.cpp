@@ -178,14 +178,15 @@ namespace n3ds
 			// A voucher and a bonus box per completed card
 			void giveRewards()
 			{
-				while (gData.mRewardedCards < gData.mCardsCompleted)
-				{
-					++gData.mRewardedCards;
-					++gData.mVouchers;
-					++gData.mBonusBoxes;
-					gNewRewardNotice = true;
-					RMX_LOG_INFO("Journal: a voucher and a bonus box for card " << gData.mRewardedCards);
-				}
+				// All at once (and never past the biggest number), so even a journal edited to millions of cards loads right away
+				if (gData.mRewardedCards >= gData.mCardsCompleted)
+					return;
+				const uint64_t cards = (uint64_t)gData.mCardsCompleted - gData.mRewardedCards;
+				gData.mVouchers = (uint32_t)std::min<uint64_t>((uint64_t)gData.mVouchers + cards, 0xffffffffull);
+				gData.mBonusBoxes = (uint32_t)std::min<uint64_t>((uint64_t)gData.mBonusBoxes + cards, 0xffffffffull);
+				gData.mRewardedCards = gData.mCardsCompleted;
+				gNewRewardNotice = true;
+				RMX_LOG_INFO("Journal: " << cards << " voucher(s) and bonus box(es) for completed cards, up to card " << gData.mRewardedCards);
 			}
 
 			void load()
@@ -420,7 +421,7 @@ namespace n3ds
 			load();
 			if (count <= 0)
 				return;
-			gData.mVouchers += (uint32_t)count;
+			gData.mVouchers = (uint32_t)std::min<uint64_t>((uint64_t)gData.mVouchers + (uint64_t)count, 0xffffffffull);
 			save();
 		}
 

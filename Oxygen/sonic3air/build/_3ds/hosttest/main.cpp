@@ -894,6 +894,36 @@ namespace
 		check(goSuper, "Go Super comes up once the emeralds were seen");
 	}
 
+	void editedFiles()
+	{
+		// Players may edit their files: silly numbers load right away and don't overflow
+		fake::setTime(2026, 11, 24, 10, 0);
+		writeJournal("started=20261001\nlast_day=20261124\ndays_played=28\nstamps=99\ncards_completed=4000000000\nrewarded_cards=0\nvouchers=4294967000\nbonus_boxes=0\n");
+		const auto start = std::chrono::steady_clock::now();
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+		check(seconds < 1.0, "a journal with 4 billion cards loads right away (" + std::to_string(seconds) + " s)");
+		check(journal.mVouchers == 0xffffffffu && journal.mBonusBoxes == 4000000000u && journal.mStamps == n3ds::journal::STAMPS_PER_CARD, "vouchers stop at the biggest number, stamps at a full card");
+		check((int)journal.mPostcards.size() == n3ds::journal::getNumPossiblePostcards(), "and all postcards are there, no more");
+
+		using namespace n3ds::challenges;
+		check(getLevel(4000000000u) > 26000000 && getXpIntoLevel(4000000000u) < getXpForNextLevel(getLevel(4000000000u)), "4 billion XP: medal level " + std::to_string(getLevel(4000000000u)));
+		bool same = true;
+		for (uint32_t xp = 0; xp < 20000; xp += 7)
+		{
+			int level = 1;
+			uint32_t rest = xp;
+			while (rest >= getXpForNextLevel(level))
+			{
+				rest -= getXpForNextLevel(level);
+				++level;
+			}
+			same = same && (getLevel(xp) == level) && (getXpIntoLevel(xp) == rest);
+		}
+		check(same, "the quick medal level is the same as counting level by level");
+		check(getRank(getLevel(4000000000u)).length() < 60, "and its rank name stays short: " + getRank(getLevel(4000000000u)));
+	}
+
 	void challengesSlots()
 	{
 		using namespace n3ds::challenges;
@@ -954,7 +984,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights }, { "editedfiles", editedFiles },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

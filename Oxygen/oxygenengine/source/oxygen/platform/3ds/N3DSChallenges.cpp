@@ -1017,13 +1017,15 @@ namespace n3ds
 
 		int getLevel(uint32_t xp)
 		{
+			// The first levels one by one (they get more expensive), then all at the same price at once - fast even for an edited
+			// file with billions of XP
 			int level = 1;
-			while (xp >= getXpForNextLevel(level))
+			while (level < 20 && xp >= getXpForNextLevel(level))
 			{
 				xp -= getXpForNextLevel(level);
 				++level;
 			}
-			return level;
+			return level + (int)(xp / getXpForNextLevel(level));
 		}
 
 		uint32_t getXpForNextLevel(int level)
@@ -1034,12 +1036,12 @@ namespace n3ds
 		uint32_t getXpIntoLevel(uint32_t xp)
 		{
 			int level = 1;
-			while (xp >= getXpForNextLevel(level))
+			while (level < 20 && xp >= getXpForNextLevel(level))
 			{
 				xp -= getXpForNextLevel(level);
 				++level;
 			}
-			return xp;
+			return xp % getXpForNextLevel(level);
 		}
 
 		std::string getRank(int level)
