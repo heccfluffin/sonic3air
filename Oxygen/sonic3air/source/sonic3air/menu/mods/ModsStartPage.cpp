@@ -19,6 +19,7 @@ namespace
 	{
 		OPEN_MODS_FOLDER = 0xfff0,
 		OPEN_MANUAL		 = 0xfff1,
+		INSTALL_OVER_WIFI = 0xfff2,
 		GO_BACK			 = 0xffff,
 	};
 }
@@ -33,7 +34,12 @@ void ModsStartPage::initialize()
 	mMenuEntries.addEntry("Open mods " PLATFORM_DIRECTORY_STRING, (uint32)Option::OPEN_MODS_FOLDER);
 #endif
 
+#if defined(PLATFORM_3DS)
+	mMenuEntries.addEntry("Install mods over Wi-Fi", (uint32)Option::INSTALL_OVER_WIFI);
+	mMenuEntries.addEntry("Read the manual (on your phone)", (uint32)Option::OPEN_MANUAL);
+#else
 	mMenuEntries.addEntry("Open Manual in web browser", (uint32)Option::OPEN_MANUAL);
+#endif
 	mMenuEntries.addEntry("Back", (uint32)Option::GO_BACK);
 }
 
@@ -63,6 +69,13 @@ bool ModsStartPage::update(float timeElapsed)
 						GameMenuBase::playMenuSound(0x63);
 						PlatformFunctions::openDirectoryExternal(Configuration::instance().mAppDataPath + L"mods/");
 						break;
+
+				#if defined(PLATFORM_3DS)
+					case Option::INSTALL_OVER_WIFI:
+						GameMenuBase::playMenuSound(0x63);
+						mWifiRequested = true;
+						break;
+				#endif
 
 					case Option::OPEN_MANUAL:
 						GameMenuBase::playMenuSound(0x63);
@@ -100,6 +113,16 @@ void ModsStartPage::render(Drawer& drawer, float visibility)
 	rect.y += 22;
 
 	Color color(0.8f, 0.9f, 1.0f, visibility);
+#if defined(PLATFORM_3DS)
+	drawer.printText(global::mOxyfontSmall, rect, "Install mods right from your phone or PC over Wi-Fi:", 1, color);
+	rect.y += 14;
+	drawer.printText(global::mOxyfontSmall, rect, "pick a mod's .zip in your browser, the 3DS does the rest.", 1, color);
+	rect.y += 18;
+	drawer.printText(global::mOxyfontSmall, rect, "Or use the mod patcher on your PC, with the SD card", 1, color);
+	rect.y += 14;
+	drawer.printText(global::mOxyfontSmall, rect, "in it (see the install guide).", 1, color);
+	rect.y += 32;
+#else
 	drawer.printText(global::mOxyfontSmall, rect, "Have a look at the game manual PDF for instructions", 1, color);
 	rect.y += 14;
 	drawer.printText(global::mOxyfontSmall, rect, "on how to install mods.", 1, color);
@@ -108,6 +131,7 @@ void ModsStartPage::render(Drawer& drawer, float visibility)
 	rect.y += 14;
 	drawer.printText(global::mOxyfontSmall, rect, "to make it scan for new mods.", 1, color);
 	rect.y += 32;
+#endif
 	rect.x += 16;
 
 	for (size_t index = 0; index < mMenuEntries.size(); ++index)

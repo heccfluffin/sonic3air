@@ -18,6 +18,10 @@ public:
 	bool update(float timeElapsed);
 	void render(Drawer& drawer, float visibility);
 
+#if defined(PLATFORM_3DS)
+	bool mWifiRequested = false;		// "Install mods over Wi-Fi" was chosen
+#endif
+
 private:
 	GameMenuEntries mMenuEntries;
 };

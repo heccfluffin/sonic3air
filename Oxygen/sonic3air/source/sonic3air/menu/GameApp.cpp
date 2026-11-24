@@ -48,7 +48,7 @@
 	#include <lemon/runtime/Runtime.h>
 	#include "sonic3air/data/N3DSAmbush.h"
 	#include "sonic3air/menu/GameMenuBase.h"
-	#include "sonic3air/menu/N3DSWebLinkQR.h"
+	#include "oxygen/platform/3ds/N3DSQRCode.h"
 	#include "oxygen/platform/3ds/N3DSWebLink.h"
 	#include <3ds.h>
 	#include <memory>
@@ -287,12 +287,14 @@ void GameApp::renderWebLink(Drawer& drawer)
 	const float alpha = std::min(mWebLinkTime / 0.15f, 1.0f);
 	drawer.drawRect(Rectf(screen), Color(0.0f, 0.0f, 0.0f, 0.6f * alpha));
 
-	const n3ds::weblinkqr::Code* code = nullptr;
-	for (const n3ds::weblinkqr::Code& candidate : n3ds::weblinkqr::CODES)
+	static std::string qrUrl;
+	static n3ds::qrcode::Code qrCode;
+	if (qrUrl != mWebLinkUrl)
 	{
-		if (mWebLinkUrl == candidate.mUrl)
-			code = &candidate;
+		qrUrl = mWebLinkUrl;
+		qrCode = n3ds::qrcode::encode(mWebLinkUrl);
 	}
+	const n3ds::qrcode::Code* code = (qrCode.mSize > 0) ? &qrCode : nullptr;
 
 	const int width = std::min(screen.width - 16, 340);
 	const int height = 150;
@@ -313,16 +315,15 @@ void GameApp::renderWebLink(Drawer& drawer)
 		drawer.drawRect(Rectf((float)qx, (float)qy, (float)size, (float)size), Color(1.0f, 1.0f, 1.0f, alpha));
 		for (int row = 0; row < code->mSize; ++row)
 		{
-			const char* line = code->mRows[row];
 			for (int column = 0; column < code->mSize; )
 			{
-				if (line[column] != '#')
+				if (!code->get(column, row))
 				{
 					++column;
 					continue;
 				}
 				const int start = column;
-				while (column < code->mSize && line[column] == '#')
+				while (column < code->mSize && code->get(column, row))
 					++column;
 				drawer.drawRect(Rectf((float)(qx + quiet + start * module), (float)(qy + quiet + row * module), (float)((column - start) * module), (float)module), Color(0.0f, 0.0f, 0.0f, alpha));
 			}

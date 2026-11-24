@@ -23,6 +23,13 @@
 #include "oxygen/application/modding/ModManager.h"
 #include "oxygen/helper/DrawerHelper.h"
 #include "oxygen/helper/FileHelper.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/application/Configuration.h"
+	#include "oxygen/platform/3ds/N3DSModServer.h"
+	#include "oxygen/platform/3ds/N3DSQRCode.h"
+	#include "oxygen_netcore/network/Sockets.h"
+	#include <unistd.h>
+#endif
 
 
 namespace
@@ -281,8 +288,26 @@ void ModsMenu::update(float timeElapsed)
 	{
 		const InputManager::ControllerScheme& keys = InputManager::instance().getController(0);
 
+	#if defined(PLATFORM_3DS)
+		if (mWifiOpen)
+		{
+			updateWifi(timeElapsed);
+			return;
+		}
+	#endif
+
 		if (mHasAnyMods)
 		{
+		#if defined(PLATFORM_3DS)
+			// SELECT: install more over Wi-Fi
+			if (keys.Back.justPressed() && !mInMovementMode)
+			{
+				playMenuSound(0x63);
+				openWifi();
+				return;
+			}
+		#endif
+
 			GameMenuEntries& menuEntries = mTabs[mActiveTab].mMenuEntries;
 
 			bool processInput = true;
@@ -497,6 +522,13 @@ void ModsMenu::update(float timeElapsed)
 			{
 				goBack();
 			}
+		#if defined(PLATFORM_3DS)
+			else if (mModsStartPage.mWifiRequested)
+			{
+				mModsStartPage.mWifiRequested = false;
+				openWifi();
+			}
+		#endif
 		}
 	}
 
@@ -600,6 +632,9 @@ void ModsMenu::render()
 	if (!mHasAnyMods)
 	{
 		mModsStartPage.render(drawer, mVisibility);
+	#if defined(PLATFORM_3DS)
+		renderWifi(drawer);
+	#endif
 		return;
 	}
 
@@ -826,6 +861,9 @@ void ModsMenu::render()
 		mGameMenuControlsDisplay.render(drawer, mVisibility * 3.0f - 2.0f);
 	}
 
+#if defined(PLATFORM_3DS)
+	renderWifi(drawer);
+#endif
 	drawer.performRendering();
 }
 
@@ -946,6 +984,10 @@ void ModsMenu::refreshControlsDisplay()
 		mGameMenuControlsDisplay.addControl("Details", false, "@input_icon_button_Y");
 		mGameMenuControlsDisplay.addControl("Hold: Quick Nav", true, "@input_icon_button_X");
 	}
+#if defined(PLATFORM_3DS)
+	if (!mInMovementMode && !keys.X.isPressed())
+		mGameMenuControlsDisplay.addControl("Wi-Fi install", true, "@input_icon_button_back");
+#endif
 
 	mGameMenuControlsDisplay.addControl("Back", true, "@input_icon_button_B");
 }
@@ -1018,3 +1060,217 @@ GameMenuEntry* ModsMenu::getSelectedGameMenuEntry()
 	}
 	return nullptr;
 }
+
+#if defined(PLATFORM_3DS)
+void ModsMenu::openWifi()
+{
+	// Changes made in the list so far count first, so the list can be rebuilt with the new mods
+	applyModChanges();
+
+	mWifiOpen = true;
+	mWifiTime = 0.0f;
+	mWifiInstalls = 0;
+	mWifiAddress.clear();
+	mWifiQrSize = 0;
+	updateWifiModList();
+
+	Sockets::startupSockets();
+	const uint32 ip = (uint32)gethostid();		// The 3DS's own address in the Wi-Fi (0 without a connection)
+	const std::string appData = WString(Configuration::instance().mAppDataPath).toStdString();
+	n3ds::modserver::start(WString(ModManager::instance().getModsBasePath()).toStdString(), appData, (ip == 0xffffffff) ? 0 : ip);
+}
+
+void ModsMenu::updateWifiModList()
+{
+	// For the web page's list: in the order of the Mods menu, active ones (highest priority first) and then the others
+	ModManager& modManager = ModManager::instance();
+	std::string json = "[";
+	const std::vector<Mod*>& activeMods = modManager.getActiveMods();
+	std::vector<Mod*> ordered(activeMods.rbegin(), activeMods.rend());
+	std::vector<Mod*> others;
+	for (Mod* mod : modManager.getAllMods())
+	{
+		if (std::find(activeMods.begin(), activeMods.end(), mod) == activeMods.end())
+			others.push_back(mod);
+	}
+	std::sort(others.begin(), others.end(), [](const Mod* a, const Mod* b) { return (a->mDisplayName < b->mDisplayName); } );
+	ordered.insert(ordered.end(), others.begin(), others.end());
+	for (const Mod* mod : ordered)
+	{
+		const bool active = (std::find(activeMods.begin(), activeMods.end(), mod) != activeMods.end());
+		json += std::string((json.size() > 1) ? "," : "") + "{\"name\":\"" + n3ds::modserver::escapeJson(mod->mDisplayName) + "\",\"folder\":\"" +
+				n3ds::modserver::escapeJson(WString(mod->mLocalDirectory).toStdString()) + "\",\"active\":" + (active ? "true" : "false") + "}";
+	}
+	json += "]";
+	n3ds::modserver::setInstalledModsJson(json);
+}
+
+void ModsMenu::activateInstalledMod(const std::string& folder)
+{
+	// Like the PC mod patcher: a new mod gets turned on, with the highest priority
+	ModManager& modManager = ModManager::instance();
+	modManager.rescanMods();
+	const std::wstring localDirectory = WString(folder).toStdWString();
+	for (Mod* mod : modManager.getAllMods())
+	{
+		if (mod->mLocalDirectory != localDirectory)
+			continue;
+		if (mod->mState == Mod::State::FAILED)
+		{
+			RMX_LOG_INFO("Mods over Wi-Fi: '" << folder << "' can't be turned on: " << mod->mFailedMessage);
+			break;
+		}
+		std::vector<Mod*> activeMods = modManager.getActiveMods();
+		activeMods.erase(std::remove(activeMods.begin(), activeMods.end(), mod), activeMods.end());
+		activeMods.push_back(mod);
+		modManager.setActiveMods(activeMods);
+		modManager.saveActiveMods();
+		Game::instance().resetCurrentMode();		// Only used to signal MenuBackground that it needs to reload the animated background
+		break;
+	}
+	++mWifiInstalls;
+	updateWifiModList();
+}
+
+void ModsMenu::updateWifi(float timeElapsed)
+{
+	mWifiTime += timeElapsed;
+	std::string folder;
+	while (n3ds::modserver::takeInstalledMod(folder))
+	{
+		playMenuSound(0x63);
+		activateInstalledMod(folder);
+	}
+
+	const n3ds::modserver::Status status = n3ds::modserver::getStatus();
+	if (status.mAddress != mWifiAddress)
+	{
+		mWifiAddress = status.mAddress;
+		const n3ds::qrcode::Code code = n3ds::qrcode::encode(mWifiAddress);
+		mWifiQrSize = code.mSize;
+		mWifiQrModules = code.mModules;
+	}
+
+	// B: done (not while a mod is being unpacked, that has to finish first)
+	const InputManager::ControllerScheme& keys = InputManager::instance().getController(0);
+	if (mWifiTime > 0.2f && (keys.B.justPressed() || keys.Back.justPressed() || keys.Start.justPressed()) && status.mState != n3ds::modserver::Status::State::UNPACKING)
+	{
+		n3ds::modserver::stop();
+		mWifiOpen = false;
+		playMenuSound(0xad);
+		if (mWifiInstalls > 0)
+		{
+			// The new mods into the lists
+			mModEntries.clear();
+			initialize();
+			refreshControlsDisplay();
+		}
+	}
+}
+
+void ModsMenu::renderWifi(Drawer& drawer)
+{
+	if (!mWifiOpen)
+		return;
+
+	const n3ds::modserver::Status status = n3ds::modserver::getStatus();
+	const float alpha = std::min(mWifiTime / 0.15f, 1.0f);
+	drawer.drawRect(Rectf(0.0f, 0.0f, 400.0f, 240.0f), Color(0.0f, 0.0f, 0.0f, 0.6f * alpha));
+	const Recti panel(12, 20, 376, 184);
+	drawer.drawRect(Rectf(panel), Color(0.07f, 0.10f, 0.22f, alpha));
+	drawer.drawRect(Rectf((float)panel.x, (float)panel.y, (float)panel.width, 2.0f), Color(0.4f, 0.6f, 1.0f, alpha));
+	drawer.drawRect(Rectf((float)panel.x, (float)(panel.y + panel.height - 2), (float)panel.width, 2.0f), Color(0.4f, 0.6f, 1.0f, alpha));
+	drawer.printText(global::mSonicFontB, Recti(panel.x + 12, panel.y + 9, 0, 10), "INSTALL MODS OVER WI-FI", 1, Color(0.6f, 0.8f, 1.0f, alpha));
+
+	const Color white(1.0f, 1.0f, 1.0f, alpha);
+	const Color gray(0.7f, 0.75f, 0.85f, alpha);
+	const Color yellow(1.0f, 0.85f, 0.3f, alpha);
+	int textX = panel.x + 14;
+	int y = panel.y + 34;
+
+	if (status.mState == n3ds::modserver::Status::State::NO_WIFI || status.mState == n3ds::modserver::Status::State::STOPPED)
+	{
+		drawer.printText(global::mOxyfontRegular, Recti(textX, y, 0, 10), "The 3DS isn't connected to Wi-Fi.", 1, white);
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 24, 0, 10), "Turn on wireless (the switch or the HOME Menu), make sure", 1, gray);
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 38, 0, 10), "the 3DS has an Internet connection set up in System", 1, gray);
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 52, 0, 10), "Settings, then come back here and try again.", 1, gray);
+	}
+	else
+	{
+		// The QR code with the address, on white
+		if (mWifiQrSize > 0)
+		{
+			const int module = 3;
+			const int quiet = 2 * module;
+			const int size = mWifiQrSize * module + quiet * 2;
+			const int qx = panel.x + 12;
+			const int qy = panel.y + 30;
+			drawer.drawRect(Rectf((float)qx, (float)qy, (float)size, (float)size), Color(1.0f, 1.0f, 1.0f, alpha));
+			for (int row = 0; row < mWifiQrSize; ++row)
+			{
+				for (int column = 0; column < mWifiQrSize; )
+				{
+					if (!mWifiQrModules[(size_t)(row * mWifiQrSize + column)])
+					{
+						++column;
+						continue;
+					}
+					const int start = column;
+					while (column < mWifiQrSize && mWifiQrModules[(size_t)(row * mWifiQrSize + column)])
+						++column;
+					drawer.drawRect(Rectf((float)(qx + quiet + start * module), (float)(qy + quiet + row * module), (float)((column - start) * module), (float)module), Color(0.0f, 0.0f, 0.0f, alpha));
+				}
+			}
+			textX = qx + size + 12;
+		}
+
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y, 0, 10), "On your phone or PC, in the same", 1, white);
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 13, 0, 10), "Wi-Fi, scan the code or open:", 1, white);
+		drawer.printText(global::mOxyfontRegular, Recti(textX, y + 32, 0, 10), String(status.mAddress), 1, yellow);
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 52, 0, 10), "Then pick a mod's .zip there. It's", 1, gray);
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 65, 0, 10), "unpacked and turned on right away.", 1, gray);
+
+		// What's going on
+		std::string line;
+		Color lineColor = white;
+		if (status.mState == n3ds::modserver::Status::State::RECEIVING)
+		{
+			const int percent = (status.mTotalBytes > 0) ? (int)(status.mBytes * 100 / status.mTotalBytes) : 0;
+			line = "Receiving " + status.mFileName + "... " + std::to_string(percent) + "%";
+		}
+		else if (status.mState == n3ds::modserver::Status::State::UNPACKING)
+		{
+			line = "Unpacking... " + std::to_string(status.mFilesDone) + " of " + std::to_string(status.mFilesTotal) + " files";
+		}
+		else if (!status.mLastMessage.empty())
+		{
+			line = status.mLastMessage;
+			lineColor = status.mLastSuccess ? Color(0.55f, 0.9f, 0.55f, alpha) : Color(1.0f, 0.55f, 0.55f, alpha);
+			if (status.mLastSuccess && !status.mLastWarnings.empty())
+				line += " - see the warning in the browser";
+		}
+		if (!line.empty())
+		{
+			// In two lines if it's long
+			const size_t maxChars = 58;
+			const int lineY = panel.y + panel.height - 46;
+			if (line.size() > maxChars)
+			{
+				size_t cut = line.rfind(' ', maxChars);
+				if (cut == std::string::npos)
+					cut = maxChars;
+				drawer.printText(global::mOxyfontSmall, Recti(panel.x + 14, lineY, 0, 10), String(line.substr(0, cut)), 1, lineColor);
+				drawer.printText(global::mOxyfontSmall, Recti(panel.x + 14, lineY + 13, 0, 10), String(line.substr(std::min(cut + 1, line.size()), maxChars)), 1, lineColor);
+			}
+			else
+			{
+				drawer.printText(global::mOxyfontSmall, Recti(panel.x + 14, lineY + 6, 0, 10), String(line), 1, lineColor);
+			}
+		}
+	}
+
+	const bool busy = (status.mState == n3ds::modserver::Status::State::UNPACKING);
+	drawer.printText(global::mOxyfontTiny, Recti(panel.x + panel.width - 12, panel.y + panel.height - 14, 0, 10), busy ? "Please wait..." : "B: done", 3, gray);
+	drawer.performRendering();
+}
+#endif

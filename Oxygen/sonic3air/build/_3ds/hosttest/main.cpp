@@ -10,6 +10,8 @@
 #include "oxygen/platform/3ds/N3DSChallenges.h"
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
 #include "oxygen/platform/3ds/N3DSJournal.h"
+#include "oxygen/platform/3ds/N3DSModServer.h"
+#include "oxygen/platform/3ds/N3DSQRCode.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
 
@@ -22,6 +24,7 @@
 #include <map>
 #include <memory>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 using Request = n3ds::bottomscreen::Request;
 
@@ -994,6 +997,128 @@ namespace
 	}
 }
 
+// Mods over Wi-Fi: the real little web server on this PC, a mod uploaded with curl like a browser does
+void modServer()
+{
+	using namespace n3ds;
+	const auto run = [](const std::string& command) -> std::string
+	{
+		std::string output;
+		if (FILE* pipe = popen(command.c_str(), "r"))
+		{
+			char buffer[4096];
+			size_t count;
+			while ((count = fread(buffer, 1, sizeof(buffer), pipe)) > 0)
+				output.append(buffer, count);
+			pclose(pipe);
+		}
+		return output;
+	};
+	const auto exists = [](const std::string& path) { struct stat info; return stat(path.c_str(), &info) == 0; };
+
+	// The checks for what's in a zip
+	{
+		std::string root, error;
+		check(modserver::findModRoot({ "mod.json", "sprites/a.png" }, root, error) && root.empty(), "mod.json at the top: the zip is the mod");
+		bool found = modserver::findModRoot({ "Cool Mod/", "Cool Mod/mod.json", "Cool Mod/sprites/a.png", "__MACOSX/Cool Mod/mod.json" }, root, error);
+		check(found && root == "Cool Mod/", "mod.json in an extra folder: that folder is the mod ('" + root + "')");
+		found = modserver::findModRoot({ "A/mod.json", "B/mod.json" }, root, error);
+		check(!found, "two mods in one zip: refused (" + error + ")");
+		found = modserver::findModRoot({ "readme.txt" }, root, error);
+		check(!found, "no mod.json: refused (" + error + ")");
+		check(!modserver::isSafeZipPath("../evil.txt") && !modserver::isSafeZipPath("a/../../b") && !modserver::isSafeZipPath("/abs") &&
+			  !modserver::isSafeZipPath("sdmc:/x") && modserver::isSafeZipPath("a/b..c/d.png"), "unsafe paths in zips are refused");
+		check(modserver::cleanFolderName("My Mod: v2?") == "My Mod_ v2_" && modserver::cleanFolderName(" .. ") == "mod", "folder names are cleaned up");
+	}
+
+	// A QR code for the address is made on the 3DS
+	{
+		const qrcode::Code code = qrcode::encode("http://192.168.178.200:8080/");
+		check(code.mSize == 29, "QR code for the address: " + std::to_string(code.mSize) + " modules (version 3)");
+		std::ofstream out(gOut + "/../qr_test.txt");
+		out << "http://192.168.178.200:8080/\n";
+		for (int y = 0; y < code.mSize; ++y)
+		{
+			for (int x = 0; x < code.mSize; ++x)
+				out << (code.get(x, y) ? '#' : '.');
+			out << "\n";
+		}
+	}
+
+	// The server
+	mkdir("sdmc:/3ds", 0777);
+	const std::string modsDir = "sdmc:/3ds/sonic3air/savedata/mods/";
+	const std::string workDir = "sdmc:/3ds/sonic3air/savedata/";
+	modserver::setInstalledModsJson("[{\"name\":\"Old Mod\",\"folder\":\"Old Mod\",\"active\":true}]");
+	check(modserver::start(modsDir, workDir, inet_addr("127.0.0.1")), "the server starts");
+	const modserver::Status ready = modserver::getStatus();
+	check(ready.mState == modserver::Status::State::READY, "... and waits for an upload at " + ready.mAddress);
+	const std::string base = ready.mAddress;
+
+	const std::string page = run("curl -s " + base);
+	check(page.find("<title>Sonic 3 A.I.R. 3DS - Mods</title>") != std::string::npos && page.find("/upload") != std::string::npos, "the page is served");
+	check(run("curl -s " + base + "mods").find("Old Mod") != std::string::npos, "the list of mods is served");
+	check(run("curl -s -o /dev/null -w '%{http_code}' " + base + "nothing") == "404", "unknown addresses: 404");
+
+	// A mod in an extra folder, with a shader and a big image, as most downloads are
+	run("python3 -c \"import zipfile, struct; z = zipfile.ZipFile('upload_test.zip', 'w', zipfile.ZIP_DEFLATED); "
+		"z.writestr('Super Mod/mod.json', '{\\\"Metadata\\\": {\\\"Name\\\": \\\"Super Test Mod\\\", \\\"Author\\\": \\\"Me\\\"}}'); "
+		"z.writestr('Super Mod/sprites/big.png', b'\\x89PNG\\r\\n\\x1a\\n' + b'\\0\\0\\0\\x0dIHDR' + struct.pack('>II', 2048, 512) + bytes(200)); "
+		"z.writestr('Super Mod/shaders/glow.glsl', 'void main() {}'); "
+		"z.writestr('Super Mod/data/' + 'x' * 10 + '.bin', bytes(300000)); z.close()\"");
+	const std::string uploadAnswer = run("curl -s -X POST --data-binary @upload_test.zip -H 'X-File-Name: Super%20Mod%20v1.zip' " + base + "upload");
+	check(uploadAnswer.find("\"installs\":0") != std::string::npos, "upload accepted (" + uploadAnswer + ")");
+
+	modserver::Status status;
+	std::string installed;
+	for (int k = 0; k < 400; ++k)
+	{
+		n3ds::filewriter::update();
+		status = modserver::getStatus();
+		if (status.mInstalls > 0)
+			break;
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+	check(status.mInstalls == 1 && status.mLastSuccess, "unpacked: " + status.mLastMessage);
+	const bool told = modserver::takeInstalledMod(installed);
+	check(told && installed == "Super Mod", "the game gets told the new mod's folder ('" + installed + "')");
+	check(exists(modsDir + "Super Mod/mod.json") && exists(modsDir + "Super Mod/sprites/big.png") && exists(modsDir + "Super Mod/data/xxxxxxxxxx.bin"),
+		  "its files are in the mods folder, without the extra folder");
+	check(!exists(workDir + "wifi_upload.zip") && !exists(workDir + "wifi_install"), "nothing left over");
+	check(status.mLastWarnings.size() == 2, "warnings for the shader and the big image (" + std::to_string(status.mLastWarnings.size()) + ")");
+	check(status.mLastMessage.find("Super Test Mod") != std::string::npos, "the message names the mod by its name in mod.json");
+	const std::string statusJson = run("curl -s " + base + "status");
+	check(statusJson.find("\"installs\":1") != std::string::npos && statusJson.find("\"success\":true") != std::string::npos, "the page sees it too");
+
+	// Again: an update replaces it
+	run("python3 -c \"import zipfile; z = zipfile.ZipFile('upload_test2.zip', 'w'); z.writestr('mod.json', '{}'); z.writestr('new.txt', 'new'); z.close()\"");
+	run("curl -s -X POST --data-binary @upload_test2.zip -H 'X-File-Name: Super%20Mod.zip' " + base + "upload");
+	for (int k = 0; k < 400 && modserver::getStatus().mInstalls < 2; ++k)
+	{
+		n3ds::filewriter::update();
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+	status = modserver::getStatus();
+	check(status.mInstalls == 2 && exists(modsDir + "Super Mod/new.txt") && !exists(modsDir + "Super Mod/sprites"), "uploading it again replaces the old version (" + status.mLastMessage + ")");
+
+	// Not a mod
+	run("python3 -c \"import zipfile; z = zipfile.ZipFile('upload_test3.zip', 'w'); z.writestr('readme.txt', 'hi'); z.close()\"");
+	run("curl -s -X POST --data-binary @upload_test3.zip -H 'X-File-Name: notamod.zip' " + base + "upload");
+	for (int k = 0; k < 400; ++k)
+	{
+		n3ds::filewriter::update();
+		status = modserver::getStatus();
+		if (status.mState == modserver::Status::State::READY && !status.mLastSuccess)
+			break;
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	}
+	check(!status.mLastSuccess && status.mLastMessage.find("No mod.json") != std::string::npos, "a zip without a mod: refused (" + status.mLastMessage + ")");
+	check(run("curl -s -X POST --data-binary @upload_test3.zip -H 'X-File-Name: picture.png' " + base + "upload").find("Only .zip") != std::string::npos, "only .zip files");
+
+	modserver::stop();
+	check(!modserver::isRunning() && run("curl -s -m 2 " + base) .empty(), "stopped: the page is gone");
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 3)
@@ -1008,7 +1133,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights }, { "editedfiles", editedFiles },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights }, { "editedfiles", editedFiles }, { "modserver", modServer },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

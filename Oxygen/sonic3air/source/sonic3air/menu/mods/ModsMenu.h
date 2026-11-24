@@ -55,6 +55,15 @@ private:
 
 	bool applyModChanges(bool dryRun = false);
 	void goBack();
+
+#if defined(PLATFORM_3DS)
+	// Installing mods over Wi-Fi (see N3DSModServer.h)
+	void openWifi();
+	void updateWifi(float timeElapsed);
+	void renderWifi(Drawer& drawer);
+	void activateInstalledMod(const std::string& folder);
+	void updateWifiModList();
+#endif
 	GameMenuEntry* getSelectedGameMenuEntry();
 
 private:
@@ -95,4 +104,13 @@ private:
 	float mFadeInDelay = 0.0f;
 	uint32 mApplyingChangesFrameCounter = 0;
 	bool mInMovementMode = false;
+
+#if defined(PLATFORM_3DS)
+	bool mWifiOpen = false;
+	float mWifiTime = 0.0f;
+	int mWifiInstalls = 0;
+	std::string mWifiAddress;			// For which the QR code was made
+	std::vector<bool> mWifiQrModules;
+	int mWifiQrSize = 0;
+#endif
 };

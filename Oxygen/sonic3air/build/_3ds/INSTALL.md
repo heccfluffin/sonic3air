@@ -247,7 +247,13 @@ your progress, until it's beaten. The notification light glows red when you beat
 
 ## Mods
 
-Use the mod patcher (`s3air_3ds_modpatcher.exe` on Windows, or `s3air_3ds_modpatcher.py`, see its README) with the SD card in your PC.
+**The easiest way: over Wi-Fi.** In the game's **Mods** menu, choose **Install mods over Wi-Fi** (or press **SELECT** once
+you have mods). The 3DS shows its address, like `http://192.168.1.23/`, and a QR code for it. Open that on your phone or PC
+(in the same Wi-Fi) and pick a mod's `.zip`: it's sent straight to the SD card, unpacked and turned on - nothing to install
+anywhere. The page warns about things the 3DS can't do (custom shaders, very big images or music). The 3DS needs an Internet
+connection set up in System Settings, and the Wi-Fi screen has to stay open while you upload.
+
+Or use the mod patcher (`s3air_3ds_modpatcher.exe` on Windows, or `s3air_3ds_modpatcher.py`, see its README) with the SD card in your PC.
 It copies mods to the right folder, unpacks zip files, and turns them on.
 You can also copy mod folders to `sdmc:/3ds/sonic3air/savedata/mods/` yourself and enable them in the game's Mods menu.
 
