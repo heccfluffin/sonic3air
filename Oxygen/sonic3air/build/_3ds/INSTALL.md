@@ -226,10 +226,10 @@ stage stars over checkpoints stay out of reach while he's there. Reach the end o
 Patrols** (also on the Challenge tab: off by default, rare, sometimes or often) send Sky Sanctuary's Egg Robos into the
 other zones: one flies in, takes a clear spot at your height, waits a moment, charges its laser gun (blinking) and fires
 when no wall is in between - three shots, then it flies off. Jump, roll or spindash into one to pop it like a badnik;
-an elemental shield bounces the laser off. Half of the time **Red Eye** (the Death Egg's first boss, in its familiar blue steel
-with red domes and side cannons) comes first, as a security camera: it hovers at the top of the screen sweeping towards
-you, its eye following you - let it get right above you and the alarm goes off, its nozzle glows for a second, and it
-fires its laser straight down (following you slowly, so keep running) while two Egg Robos fly in from both sides. Keep
+an elemental shield bounces the laser off. Half of the time **Red Eye** (the Death Egg's first boss, as it is after breaking out of
+its pillar, in its own chrome colors) comes first, as a security camera: it hovers at the top of the screen sweeping towards
+you, its eye following you - let it get right above you and the alarm goes off, it flashes red with anger, its nozzle
+glows for a second, and it fires its laser straight down (following you slowly, so keep running) while two Egg Robos fly in from both sides. Keep
 out from under it for 12 seconds and it moves on. It can be popped too, if you get up there. They count
 in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile, in front of a Death Egg hall) taunts you about each one and laughs
 at you (shaking, squashing and stretching with each hop), jumps out to stomp mad (with dust flying) once it's beaten, and sulks when you've beaten them all. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after

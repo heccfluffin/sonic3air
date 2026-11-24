@@ -96,7 +96,7 @@ namespace n3ds
 			// the Egg Robos come
 			const uint32 RED_EYE_ART_ADDRESS = 0x1805a0;
 			const uint32 RED_EYE_MAPPINGS_ADDRESS = 0x184fba;
-			const int RED_EYE_FRAME_BODY = 0;			// Its core (built symmetric, see "setupRedEyeGraphics")...
+			const int RED_EYE_FRAME_BODY = 0;			// Its core (as it is after breaking out of its pillar)...
 			const int RED_EYE_FRAME_EYE = 2;			// ...and the eye in the middle: 2 to 5, looking more and more to the side
 			const int RED_EYE_FRAME_GLOW = 6;			// The laser charging, at the nozzle underneath
 			const int RED_EYE_FRAME_SPLASH = 8;			// 8 to 10: where the laser hits the floor
@@ -222,10 +222,7 @@ namespace n3ds
 			// Builds a sprite frame from art compressed in the ROM (Kosinski, in modules of up to 4 KB) and its mappings. Done here
 			// rather than with the engine's own ROM sprite setup: that one only gets the first module right, and art in several
 			// modules (like Red Eye's) overran its buffer.
-			// "customPieces": instead of the frame's own mapping pieces, these (6 bytes each, in the ROM's format); "frame" then only
-			// names the sprite
-			uint64 setupSprite(uint32 artAddress, uint32 mappingsAddress, int frame, uint8 (*recolor)(int x, int y, uint8 color) = nullptr,
-							   const uint8* customPieces = nullptr, int customCount = 0)
+			uint64 setupSprite(uint32 artAddress, uint32 mappingsAddress, int frame, uint8 (*recolor)(int x, int y, uint8 color) = nullptr)
 			{
 				EmulatorInterface& emulatorInterface = emu();
 				static uint32 cachedArtAddress = 0;
@@ -259,18 +256,10 @@ namespace n3ds
 				}
 
 				std::vector<RenderUtils::SinglePattern> patterns;
-				if (nullptr != customPieces)
-				{
-					for (int k = 0; k < customCount; ++k)
-						RenderUtils::fillPatternsFromSpriteData(patterns, customPieces + k * 6, patternBuffer, 0);
-				}
-				else
-				{
-					const uint32 mappingAddress = mappingsAddress + emulatorInterface.readMemory16(mappingsAddress + frame * 2);
-					const int count = emulatorInterface.readMemory16(mappingAddress);
-					for (int k = 0; k < count && k < 64; ++k)
-						RenderUtils::fillPatternsFromSpriteData(patterns, emulatorInterface.getRom() + mappingAddress + 2 + k * 6, patternBuffer, 0);
-				}
+				const uint32 mappingAddress = mappingsAddress + emulatorInterface.readMemory16(mappingsAddress + frame * 2);
+				const int count = emulatorInterface.readMemory16(mappingAddress);
+				for (int k = 0; k < count && k < 64; ++k)
+					RenderUtils::fillPatternsFromSpriteData(patterns, emulatorInterface.getRom() + mappingAddress + 2 + k * 6, patternBuffer, 0);
 
 				const uint64 key = rmx::getMurmur2_64(String(0, "n3ds_rom_sprite_%06x_%02x", artAddress, frame));
 				SpriteCollection::Item& item = SpriteCollection::instance().getOrCreatePaletteSprite(key);
@@ -329,123 +318,39 @@ namespace n3ds
 				}
 			}
 
-			// Red Eye's side cannons, which its sprite doesn't have: horizontal cylinders at the eye's height, in its own color ramp, with
-			// a ring near the body and a yellow tip
-			void addRedEyeCannons(PaletteSprite& sprite)
-			{
-				static const uint8 SHADES[10] = { 0xd, 0xc, 0xb, 0xa, 0x9, 0x1, 0xa, 0xb, 0xc, 0xd };
-				static const uint8 TIP[10]    = { 0x6, 0x5, 0x5, 0x5, 0x1, 0x5, 0x5, 0x5, 0x6, 0x6 };
-				const int CANNON_LENGTH = 14;
-				const int TOP = -9;
-				PaletteBitmap old;
-				old.copy(sprite.getBitmap());
-				const Vec2i oldOffset = sprite.mOffset;
-				const int left = std::min(oldOffset.x, -32 - CANNON_LENGTH);
-				const int right = std::max(oldOffset.x + old.getWidth(), 32 + CANNON_LENGTH);
-				PaletteBitmap bitmap;
-				bitmap.create(right - left, old.getHeight(), 0);
-				for (int y = 0; y < old.getHeight(); ++y)
-					for (int x = 0; x < old.getWidth(); ++x)
-						*bitmap.getPixelPointer(x + oldOffset.x - left, y) = *old.getPixelPointer(x, y);
-				for (int side = -1; side <= 1; side += 2)
-				{
-					for (int k = 0; k < CANNON_LENGTH; ++k)
-					{
-						for (int r = 0; r < 10; ++r)
-						{
-							uint8 color;
-							if (k <= 1)
-								color = (r == 0 || r == 9) ? 0xe : 0xd;
-							else if (k == 9)
-								color = (r == 0 || r == 9) ? 0xe : (r < 5) ? 0xc : 0xd;
-							else if (k >= 12)
-								color = (k == 12 || (r > 0 && r < 9)) ? TIP[r] : 0;
-							else
-								color = SHADES[r];
-							if (color == 0)
-								continue;
-							const int x = (side > 0) ? (32 + k) : (-33 - k);
-							const int y = TOP + r - oldOffset.y;
-							if (y >= 0 && y < bitmap.getHeight())
-								*bitmap.getPixelPointer(x - left, y) = color;
-						}
-					}
-				}
-				sprite.createFromBitmap(std::move(bitmap), Vec2i(left, oldOffset.y));
-			}
-
 			void setupRedEyeGraphics()
 			{
 				EmulatorInterface& emulatorInterface = emu();
 				SpriteCollection& spriteCollection = SpriteCollection::instance();
-				if (gRedEyeKeys[RED_EYE_FRAME_BODY] == 0 || !spriteCollection.hasSprite(gRedEyeKeys[RED_EYE_FRAME_BODY]))
-				{
-					// Its core, like its familiar look: the ROM's frame with the small cap on top replaced by the bottom's collar and dome
-					// turned upside down; blue steel (palette line 1) with red domes (line 2), and side cannons
-					uint8 pieces[6 * 8];
-					int count = 0;
-					const uint32 mappingAddress = RED_EYE_MAPPINGS_ADDRESS + emulatorInterface.readMemory16(RED_EYE_MAPPINGS_ADDRESS + RED_EYE_FRAME_BODY * 2);
-					const int romCount = std::min<int>(emulatorInterface.readMemory16(mappingAddress), 6);
-					for (int k = 0; k < romCount; ++k)
-					{
-						const uint8* piece = emulatorInterface.getRom() + mappingAddress + 2 + k * 6;
-						if ((((piece[2] << 8) | piece[3]) & 0x7ff) == 0)
-							continue;		// The cap on top
-						memcpy(&pieces[count * 6], piece, 6);
-						++count;
-					}
-					static const uint8 TOP[12] =
-					{
-						0xe0, 0x09, 0x10, 0x12, 0xff, 0xe8,		// y -32, 3x2 tiles, tile 0x12 flipped vertically, x -24
-						0xe0, 0x09, 0x18, 0x12, 0x00, 0x00		// y -32, 3x2 tiles, tile 0x12 flipped both ways, x 0
-					};
-					memcpy(&pieces[count * 6], TOP, 12);
-					count += 2;
-
-					const auto recolor = [](int x, int y, uint8 color) -> uint8
-					{
-						if (y < -16 && (color == 2 || color == 5))
-							color = 0xb;		// The bottom's glow at the laser nozzle isn't on top
-						return (y >= 24 || y <= -25) ? (uint8)(color + 0x10) : color;
-					};
-					gRedEyeKeys[RED_EYE_FRAME_BODY] = setupSprite(RED_EYE_ART_ADDRESS, RED_EYE_MAPPINGS_ADDRESS, RED_EYE_FRAME_BODY, recolor, pieces, count);
-					SpriteCollection::Item& item = spriteCollection.getOrCreatePaletteSprite(gRedEyeKeys[RED_EYE_FRAME_BODY]);
-					addRedEyeCannons(*static_cast<PaletteSprite*>(item.mSprite));
-					++item.mChangeCounter;
-				}
-
-				// The eye (steel, with its red iris), and the laser with the glows in the boss fight's own colors (line 3)
-				static const int FRAMES[] = { 2, 3, 4, 5, 6, 8, 9, 10, 27, 28, 29, 30, 31, 32, 33, 34 };
+				// Its core, the eye, the glow at the nozzle, the laser and its splash on the floor, all as in the ROM
+				static const int FRAMES[] = { 0, 2, 3, 4, 5, 6, 8, 9, 10, 27, 28, 29, 30, 31, 32, 33, 34 };
 				for (int frame : FRAMES)
 				{
 					if (gRedEyeKeys[frame] != 0 && spriteCollection.hasSprite(gRedEyeKeys[frame]))
 						continue;
-					uint8 (*recolor)(int, int, uint8) = nullptr;
-					if (frame >= RED_EYE_FRAME_GLOW)
-						recolor = [](int x, int y, uint8 color) -> uint8  { return (uint8)(color + 0x20); };
-					gRedEyeKeys[frame] = setupSprite(RED_EYE_ART_ADDRESS, RED_EYE_MAPPINGS_ADDRESS, frame, recolor);
+					gRedEyeKeys[frame] = setupSprite(RED_EYE_ART_ADDRESS, RED_EYE_MAPPINGS_ADDRESS, frame);
 				}
 
 				if (!gRedEyeReady)
 				{
-					// The boss fight's colors (the palette line it loads): as they are for the laser, with the gray ramp (colors 9 to 14)
-					// as blue steel and as red for the rest
+					// The colors it starts its boss fight with (palette line 1), and its two "anger" palettes (lines 2 and 3: the chrome
+					// turning red, colors 11 to 13), which it flashes between once it spotted the character
 					static const uint8 LEVELS[8] = { 0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff };
 					uint32 colors[64] = { 0 };
 					for (int k = 1; k < 16; ++k)
 					{
-						const uint16 md = emulatorInterface.readMemory16(0x07f01c + k * 2);
+						const uint16 md = emulatorInterface.readMemory16(0x07effc + k * 2);
 						const uint32 color = 0xff000000 | ((uint32)LEVELS[(md >> 9) & 7] << 16) | ((uint32)LEVELS[(md >> 5) & 7] << 8) | (uint32)LEVELS[(md >> 1) & 7];
 						colors[16 + k] = colors[32 + k] = colors[48 + k] = color;
 					}
-					static const uint32 STEEL[6] = { 0xffffecd8, 0xfff0c49c, 0xffd89664, 0xffb06c3c, 0xff7c4222, 0xff441c0e };		// ABGR
-					static const uint32 RED[6]   = { 0xffa0b4ff, 0xff465af4, 0xff2424d0, 0xff12129c, 0xff080864, 0xff040430 };
-					for (int k = 0; k < 6; ++k)
+					static const uint32 ANGER_1[3] = { 0xff6c6cb6, 0xff494992, 0xff24246d };		// ABGR
+					static const uint32 ANGER_2[3] = { 0xff6c6cdb, 0xff4949b6, 0xff242492 };
+					for (int k = 0; k < 3; ++k)
 					{
-						colors[16 + 9 + k] = STEEL[k];
-						colors[32 + 9 + k] = RED[k];
+						colors[32 + 11 + k] = ANGER_1[k];
+						colors[48 + 11 + k] = ANGER_2[k];
 					}
-					gRedEyePalette.initPalette(0x5ad0e9b2u, 64, BitFlagSet<PaletteBase::Properties>(), "n3ds_redeye");
+					gRedEyePalette.initPalette(0x5ad0e9b3u, 64, BitFlagSet<PaletteBase::Properties>(), "n3ds_redeye");
 					gRedEyePalette.writeRawColors(colors, 64);
 					gRedEyeReady = true;
 				}
@@ -771,7 +676,7 @@ namespace n3ds
 				{
 					// The laser comes out, then follows the character slowly (they can outrun it)
 					const int elapsed = RED_EYE_FIRE_FRAMES - eye.mTimer;
-					++eye.mBeamGrowth;
+					eye.mBeamGrowth = std::min(eye.mBeamGrowth + 1, 8);		// The longest of its 8 laser frames
 					if (elapsed % 32 == 0)
 						playSound(SFX_RED_EYE_LASER);
 					if (elapsed % 30 == 15)
@@ -841,10 +746,13 @@ namespace n3ds
 			const int y = roundToInt(eye.mY) - emulatorInterface.readMemory16(0xffffee84);
 			SpriteManager& spriteManager = RenderParts::instance().getSpriteManager();
 			spriteManager.setCustomSpritePaletteOverride(&gRedEyePalette, &gRedEyePalette);
+			// Angry once it spotted the character: flashing between its two anger palettes
+			const bool angry = (eye.mState == EyeState::CHARGE || eye.mState == EyeState::FIRE);
+			const uint16 atex = !angry ? 0x10 : ((eye.mAge / 4) % 2) ? 0x30 : 0x20;
 			const auto draw = [&](int frame, int px, int py, bool flipX, uint16 renderQueue, const Color& tint)
 			{
 				if (gRedEyeKeys[frame] != 0)
-					spriteManager.drawCustomSprite(gRedEyeKeys[frame], Vec2i(px, py), 0x10, flipX ? 0x01 : 0x00, renderQueue, tint);
+					spriteManager.drawCustomSprite(gRedEyeKeys[frame], Vec2i(px, py), atex, flipX ? 0x01 : 0x00, renderQueue, tint);
 			};
 
 			// The laser, coming out of the nozzle a frame at a time like in the boss fight (from behind the body), and splashing on
@@ -868,7 +776,7 @@ namespace n3ds
 			draw(RED_EYE_FRAME_BODY, x, y, false, 0x9e04, Color::WHITE);
 
 			// The eye, following the character like in the boss fight (the ROM's table of how far it moves, and which frame); dimming
-			// for a blink now and then, flashing when it spotted someone
+			// for a blink now and then
 			const int dx = eye.mLookX - roundToInt(eye.mX);
 			const int index = (std::min(std::abs(dx), 0xa0) >> 3) & 0xfe;
 			int eyeOffset = emulatorInterface.readMemory8(0x07edba + index);
@@ -876,9 +784,7 @@ namespace n3ds
 			if (dx < 0)
 				eyeOffset = -eyeOffset;
 			Color eyeTint = Color::WHITE;
-			if (eye.mState == EyeState::CHARGE || eye.mState == EyeState::FIRE)
-				eyeTint = ((eye.mAge / 6) % 2) ? Color(1.8f, 1.2f, 1.2f, 1.0f) : Color::WHITE;
-			else if ((eye.mAge % 180) < 8)
+			if (!angry && (eye.mAge % 180) < 8)
 				eyeTint = Color(0.45f, 0.45f, 0.45f, 1.0f);
 			draw(eyeFrame, x + eyeOffset, y - 4, dx < 0, 0x9e05, eyeTint);
 
