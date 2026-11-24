@@ -174,6 +174,9 @@ private:
 	DrawerTexture mRobotnikMad[3];		// On foot, his mad animation (mustache flaring), lined up by their origins
 	Vec2i mRobotnikMadOrigin[3];
 	bool mHasRobotnikMad = false;
+	DrawerTexture mShadowIcon[4];		// The shadow ambush's icon: gray Sonic running (4 frames), lined up by their origins
+	Vec2i mShadowIconOrigin[4];
+	bool mHasShadowIcon = false;
 	bool mHasDust = false;
 	bool mRobotnikCreated = false;
 	bool mHasRobotnik = false;

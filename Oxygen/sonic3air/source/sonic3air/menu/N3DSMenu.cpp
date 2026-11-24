@@ -227,9 +227,15 @@ namespace
 		// Doctor Robotnik on foot, the other two frames of his mad animation (0x070419: frames 0, 1, 2, 1, his mustache flaring)
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 0, 0, 0, 0x200 } } },
 		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 1, 0, 0, 0x200 } } },
+		// Sonic running (his four running frames, in his own colors), for the shadow's icon: made gray like the shadow in the game
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x148378, 0x21, 0x100000 } }, 0x0a8a3c, { { 0x146816, 0x0000, 0x21, 0, 0, 0x100 } } },
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x148378, 0x22, 0x100000 } }, 0x0a8a3c, { { 0x146816, 0x0000, 0x22, 0, 0, 0x100 } } },
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x148378, 0x23, 0x100000 } }, 0x0a8a3c, { { 0x146816, 0x0000, 0x23, 0, 0, 0x100 } } },
+		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x148378, 0x24, 0x100000 } }, 0x0a8a3c, { { 0x146816, 0x0000, 0x24, 0, 0, 0x100 } } },
 	};
 	const int DUST_ROM_SPRITE = 12;		// The first of the four dust frames
 	const int ROBOTNIK_MAD_ROM_SPRITES[3] = { 16, 17, 10 };		// His mad animation's frames 0, 1 and 2
+	const int SHADOW_ROM_SPRITE = 18;		// The first of Sonic's four running frames
 	const float ROBOTNIK_SWITCH_TIME = 0.5f;		// Seconds for jumping out of the Egg Mobile, or back in
 	const float ROBOTNIK_LETTERS_PER_SECOND = 30.0f;	// How fast his words appear
 	const int ROBOTNIK_ROM_SPRITE = 6;		// The first of his sprites, see "N3DSMenu::mRobotnik"
@@ -2732,14 +2738,23 @@ void N3DSMenu::render()
 								  ((survived > 0) ? String(0, " Outran: %u.", (unsigned)survived).toStdString() : std::string());
 					const bool flash = (chance > 0) && (std::fmod(FTX::getTime(), 1.0) < 0.5);
 					drawer.drawRect(imageRect, flash ? Color(0.35f, 0.02f, 0.02f, tabAlpha) : Color(0.15f, 0.02f, 0.03f, tabAlpha));
-					for (int k = 0; k < 8; ++k)
+					if (mHasShadowIcon)
 					{
-						// A warning triangle with an exclamation mark
-						const int rowWidth = 4 + k * 6;
-						drawer.drawRect(Recti(imageRect.x + 32 - rowWidth / 2, imageRect.y + 8 + k * 4, rowWidth, 4), Color(1.0f, 0.8f, 0.1f, tabAlpha * ((chance > 0) ? 1.0f : 0.4f)));
+						// The shadow himself: gray Sonic running, with his red trail behind him (like in the game); dim while he's off
+						const float strength = (chance > 0) ? 1.0f : 0.4f;
+						const int frame = (int)(FTX::getTime() * 12.0) % 4;
+						// Centered in the picture by his first frame (the others line up by their origins)
+						const int originX = imageRect.x + 40;
+						const int originY = imageRect.y + (imageRect.height - mShadowIcon[0].getHeight()) / 2 + mShadowIconOrigin[0].y;
+						for (int k = 2; k >= 0; --k)
+						{
+							const int trailFrame = (frame + 4 - k) % 4;
+							DrawerTexture& texture = mShadowIcon[trailFrame];
+							const Recti rect(originX - k * 10 - mShadowIconOrigin[trailFrame].x, originY - mShadowIconOrigin[trailFrame].y, texture.getWidth(), texture.getHeight());
+							const Color tint = (k == 0) ? Color(1.0f, 1.0f, 1.0f, tabAlpha * strength) : Color(1.0f, 0.25f, 0.25f, tabAlpha * strength * ((k == 1) ? 0.45f : 0.22f));
+							drawer.drawRect(rect, texture, tint);
+						}
 					}
-					drawer.drawRect(Recti(imageRect.x + 31, imageRect.y + 17, 3, 9), Color(0.1f, 0.05f, 0.0f, tabAlpha));
-					drawer.drawRect(Recti(imageRect.x + 31, imageRect.y + 29, 3, 3), Color(0.1f, 0.05f, 0.0f, tabAlpha));
 				}
 				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_LOCKED)
 				{
@@ -3091,6 +3106,22 @@ void N3DSMenu::createRobotnik()
 	{
 		mHasRobotnikMad = n3ds::romsprites::draw(ROM_SPRITES[ROBOTNIK_MAD_ROM_SPRITES[k]], true, mRobotnikMad[k].accessBitmap(), &mRobotnikMadOrigin[k]);
 		mRobotnikMad[k].bitmapUpdated();
+	}
+	// The shadow's icon: Sonic running, gray like the shadow in the game (the brightness only, lifted a bit; see N3DSShadow)
+	mHasShadowIcon = true;
+	for (int k = 0; k < 4 && mHasShadowIcon; ++k)
+	{
+		Bitmap& bitmap = mShadowIcon[k].accessBitmap();
+		mHasShadowIcon = n3ds::romsprites::draw(ROM_SPRITES[SHADOW_ROM_SPRITE + k], false, bitmap, &mShadowIconOrigin[k]);
+		uint32* data = bitmap.getData();
+		for (int i = 0; i < bitmap.getPixelCount(); ++i)
+		{
+			const uint32 color = data[i];
+			const uint32 luma = ((color & 0xff) * 77 + ((color >> 8) & 0xff) * 150 + ((color >> 16) & 0xff) * 29) >> 8;
+			const uint32 value = 48 + luma * 176 / 255;
+			data[i] = (color & 0xff000000) | (value << 16) | (value << 8) | value;
+		}
+		mShadowIcon[k].bitmapUpdated();
 	}
 	mHasDust = true;
 	for (int k = 0; k < 4 && mHasDust; ++k)
