@@ -1,3 +1,29 @@
+# Sonic 3 A.I.R. for New Nintendo 3DS (unofficial port)
+
+**[Download the latest build](https://github.com/heccfluffin/sonic3air/releases/tag/test-build)** &nbsp;·&nbsp;
+**[Install guide](https://github.com/heccfluffin/sonic3air/blob/3ds-gpu-drawer/Oxygen/sonic3air/build/_3ds/INSTALL.md)** &nbsp;·&nbsp;
+[Install and update with Universal-Updater](https://github.com/heccfluffin/sonic3air/blob/3ds-gpu-drawer/Oxygen/sonic3air/build/_3ds/INSTALL.md#step-5-install-and-start)
+
+This fork is an unofficial port of Sonic 3 A.I.R. to the **New 3DS, New 3DS XL and New 2DS XL**.
+It doesn't run on the original 3DS / 2DS.
+
+**What you need**
+
+- A New 3DS with custom firmware (Luma3DS), see [3ds.hacks.guide](https://3ds.hacks.guide)
+- Your own Sonic 3 & Knuckles ROM, from the Steam release
+- The `data` folder of Sonic 3 A.I.R. **26.03.28.0** for Windows, from [sonic3air.org](https://sonic3air.org)
+
+The port contains no game content. The **mod patcher** on the download page (`s3air_3ds_modpatcher.exe` for Windows)
+copies the data and your ROM to the SD card for you, and installs mods. Mods can also be installed over Wi-Fi from the game's Mods menu.
+
+**Where things are:** the download page always has the newest test build (`.cia`, `.3dsx`, mod patcher, install guide).
+The 3DS port's code is on the [`3ds-gpu-drawer`](https://github.com/heccfluffin/sonic3air/tree/3ds-gpu-drawer) branch,
+with the 3DS-specific build files in [`Oxygen/sonic3air/build/_3ds`](https://github.com/heccfluffin/sonic3air/tree/3ds-gpu-drawer/Oxygen/sonic3air/build/_3ds).
+
+---
+
+*The original Sonic 3 A.I.R. readme follows.*
+
 # Sonic 3 A.I.R.
 
 Source code incl. dependencies for "Sonic 3 - Angel Island Revisited", a fan-made remaster of Sonic 3 & Knuckles.

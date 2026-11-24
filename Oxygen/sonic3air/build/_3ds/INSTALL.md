@@ -12,7 +12,7 @@ your own copy of the game's ROM, and the data files from the official A.I.R. PC 
 | What | Where it comes from |
 |---|---|
 | A New 3DS / New 3DS XL / New 2DS XL with custom firmware (Luma3DS) | Follow the official guide at [3ds.hacks.guide](https://3ds.hacks.guide) |
-| `sonic3air.cia` (or `sonic3air.3dsx`) | From this port's download / GitHub Actions build |
+| `sonic3air.cia` (or `sonic3air.3dsx`) | The [download page](https://github.com/heccfluffin/sonic3air/releases/tag/test-build), or Universal-Updater (step 5) |
 | The `data` folder of Sonic 3 A.I.R. **version 26.03.28.0** | The Windows download from [sonic3air.org](https://sonic3air.org) |
 | The game ROM, named **exactly** `Sonic_Knuckles_wSonic3.bin` | Your own copy of the game on Steam (see step 3) |
 | `dspfirm.cdc` (needed for sound) | Dumped from your own console (see step 1) |
@@ -133,15 +133,20 @@ The game creates `savedata/` and `themes/` itself. Your settings, save games, sa
 1. Open **Universal-Updater** on the 3DS (get it from [its releases](https://github.com/Universal-Team/Universal-Updater/releases) if you don't have it).
 2. Open the store list (the "UniStore" menu) and add a new UniStore, either by scanning this QR code with the camera:
 
-   ![Sonic 3 A.I.R. store QR code](universal-updater/store-qr.png)
+   ![Sonic 3 A.I.R. store QR code](universal-updater/test-store-qr.png)
 
    or by entering this URL:
 
    ```
-   https://github.com/heccfluffin/sonic3air/releases/latest/download/sonic3air-3ds.unistore
+   https://github.com/heccfluffin/sonic3air/releases/download/test-build/sonic3air-3ds-test.unistore
    ```
-3. Select the new store "Sonic 3 A.I.R. for New 3DS", pick **sonic3air.cia (recommended)** and install it.
+3. Select the new store "Sonic 3 A.I.R. for New 3DS by heccfluffin (test builds)", pick **sonic3air.cia (recommended)** and install it.
 4. Start **Sonic 3 A.I.R.** from the HOME Menu.
+
+> The port is still in testing, so every build is a test build for now, and this store always has the newest one.
+> Once there are numbered versions, they get a store of their own at
+> `https://github.com/heccfluffin/sonic3air/releases/latest/download/sonic3air-3ds.unistore` (QR code: `universal-updater/store-qr.png`).
+> That address only works after the first numbered version is out.
 
 To update later: open the store in Universal-Updater. When a new version is out, it shows up there;
 install it the same way. Your saves and settings are kept.
