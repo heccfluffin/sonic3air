@@ -62,6 +62,7 @@ namespace
 	static constexpr uint32 JOURNAL_VOUCHERS = 0x60b;
 	static constexpr uint32 CHALLENGE_MEDAL = 0x700;		// Doctor Robotnik's Daily Challenge: him, and the Robotnik medal
 	static constexpr uint32 CHALLENGE_FIRST = 0x701;		// Today's challenges, 0x701 to 0x705
+	static constexpr uint32 CHALLENGE_EGGROBOS = 0x70d;		// Egg Robo patrols, changed with left / right
 	static constexpr uint32 CHALLENGE_AMBUSH = 0x70e;		// The shadow ambush's chance, changed with left / right
 	static constexpr uint32 CHALLENGE_LOCKED = 0x70f;		// The next challenge slot, unlocked by a higher medal level
 
@@ -1247,6 +1248,13 @@ void N3DSMenu::rebuildTabs()
 				entry.addOption((chance == 0) ? std::string("OFF") : (chance == 100) ? std::string("EVERY ACT") : (std::to_string(chance) + "% OF ACTS"), (uint32)chance);
 			entry.setSelectedIndexByValue((uint32)n3ds::challenges::getAmbushChance());
 		}
+		{
+			GameMenuEntry& entry = entries.addEntry("Egg Robo Patrols", CHALLENGE_EGGROBOS);
+			static const char* const NAMES[4] = { "OFF", "RARE", "SOMETIMES", "OFTEN" };
+			for (uint32 k = 0; k < 4; ++k)
+				entry.addOption(NAMES[k], k);
+			entry.setSelectedIndexByValue((uint32)n3ds::challenges::getEggRoboSetting());
+		}
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -1435,6 +1443,11 @@ void N3DSMenu::update(float timeElapsed)
 				mActiveTab = mTabMenuEntries[0].mSelectedIndex;
 				playMenuSound(0xb7);
 			}
+			else if (result == GameMenuEntries::UpdateResult::OPTION_CHANGED && mActiveMenu->selected().mData == CHALLENGE_EGGROBOS)
+			{
+				n3ds::challenges::setEggRoboSetting((int)mActiveMenu->selected().selected().mValue);
+				playMenuSound((mActiveMenu->selected().selected().mValue > 0) ? 0x5e : 0x5b);		// Switched on: their laser
+			}
 			else if (result == GameMenuEntries::UpdateResult::OPTION_CHANGED && mActiveMenu->selected().mData == CHALLENGE_AMBUSH)
 			{
 				// The shadow ambush's chance: saved right away
@@ -1581,7 +1594,7 @@ void N3DSMenu::onAccept()
 	if (mActiveTab == Tab::Id::CHALLENGE)
 	{
 		const n3ds::challenges::Data& challenges = n3ds::challenges::get();
-		if (data == CHALLENGE_AMBUSH)
+		if (data == CHALLENGE_AMBUSH || data == CHALLENGE_EGGROBOS)
 		{
 			playMenuSound(0x5b);
 			showMessage("Change the chance with Left and Right", false);
@@ -2648,6 +2661,22 @@ void N3DSMenu::render()
 					drawer.printText(global::mOxyfontTiny, Recti(px - 109, py + 75, 0, 10), String(0, "New ones in %d h %02d min", minutesLeft / 60, minutesLeft % 60), 1, color2);
 					drawer.printText(global::mOxyfontSmall, Recti(getCardTextRight(px - 185, 92, 74), py + 63, 0, 10), n3ds::challenges::getRank(level), 3, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontTiny, Recti(getCardTextRight(px - 185, 92, 84), py + 75, 0, 10), "A voucher every level", 3, Color(0.6f, 0.9f, 1.0f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_EGGROBOS)
+				{
+					// Egg Robo patrols: Robotnik's monitor with a laser shot across
+					const int setting = entry.hasSelected() ? (int)entry.selected().mValue : n3ds::challenges::getEggRoboSetting();
+					status = isSelected ? ("< " + entry.selected().mText + " >") : entry.selected().mText;
+					statusColor = (setting == 0) ? Color(0.6f, 0.6f, 0.7f, tabAlpha) : Color(0.5f, 0.8f, 1.0f, tabAlpha);
+					description = "Sky Sanctuary's Egg Robos fly into other zones to hunt you down. They line up at your height to fire their lasers - jump into them to pop them like badniks.";
+					drawer.drawRect(imageRect, Color(0.06f, 0.08f, 0.2f, tabAlpha));
+					drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 8, 32, 32), mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha * ((setting > 0) ? 1.0f : 0.4f)));
+					if (setting > 0)
+					{
+						const int beamX = imageRect.x + 2 + (int)(std::fmod(FTX::getTime() * 60.0, 60.0));
+						drawer.drawRect(Recti(beamX, imageRect.y + 42, 16, 3), Color(0.55f, 0.85f, 1.0f, tabAlpha));
+						drawer.drawRect(Recti(beamX + 1, imageRect.y + 43, 14, 1), Color(1.0f, 1.0f, 1.0f, tabAlpha));
+					}
 				}
 				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_AMBUSH)
 				{

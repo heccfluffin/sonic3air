@@ -100,6 +100,10 @@ namespace n3ds
 		int getAmbushChance();
 		void setAmbushChance(int percent);
 		void addAmbushSurvived();
+
+		// Egg Robo patrols: 0 off (the default), 1 rare, 2 sometimes, 3 often
+		int getEggRoboSetting();
+		void setEggRoboSetting(int setting);
 		uint32_t getAmbushesSurvived();
 
 		// Pins one of today's challenges to the main menu (-1: none); only one that isn't beaten yet

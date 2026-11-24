@@ -222,7 +222,11 @@ that try - but Sonic's insta-shield or shield moves, Knuckles' glide, invincibil
 behind. As Robotnik's Special he's only 2 seconds behind and his touch is the end. And now and then he turns up uninvited: the **Shadow
 Ambush** (on the Challenge tab: off, 1% of acts - the default -, 5%, 25% or every act). A WARNING with an alarm, then the
 Doomsday music, and he chases you for the rest of the act (not in bonus stages or Doomsday); giant rings and the bonus
-stage stars over checkpoints stay out of reach while he's there. Reach the end of the act for a Robotnik voucher. They count
+stage stars over checkpoints stay out of reach while he's there. Reach the end of the act for a Robotnik voucher. **Egg Robo
+Patrols** (also on the Challenge tab: off by default, rare, sometimes or often) send Sky Sanctuary's Egg Robos into the
+other zones: one flies in, takes a clear spot at your height, waits a moment, charges its laser gun (blinking) and fires
+when no wall is in between - three shots, then it flies off. Jump, roll or spindash into one to pop it like a badnik;
+an elemental shield bounces the laser off. They count
 in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile, in front of a Death Egg hall) taunts you about each one and laughs
 at you (shaking, squashing and stretching with each hop), jumps out to stomp mad (with dust flying) once it's beaten, and sulks when you've beaten them all. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after
 that 10 more (up to 150), and every level gives you a voucher. Its metal goes bronze (levels 1-4), silver (5-9), gold (10-14), diamond (15-19), platinum (20-25) and emerald

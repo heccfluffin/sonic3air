@@ -73,6 +73,7 @@ namespace n3ds
 			uint32_t gEmeraldsSeen = 0;		// The most emeralds seen in a game (for "Go Super")
 			int gAmbushChance = 1;			// Percent
 			uint32_t gAmbushesSurvived = 0;
+			int gEggRoboSetting = 0;		// Off
 			uint32_t (*gMovesProvider)() = nullptr;
 
 			// The acts for "Outrun your shadow": long stretches to keep running, without much waiting for platforms or
@@ -93,9 +94,9 @@ namespace n3ds
 			std::string toText(const Data& data)
 			{
 				char text[256];
-				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\nemeralds=%u\nambush=%d\nambushes_survived=%u\npinned=%d\n",
+				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\nemeralds=%u\nambush=%d\nambushes_survived=%u\neggrobos=%d\npinned=%d\n",
 						 (unsigned)data.mDate, (unsigned)data.mXp, (unsigned)data.mBeaten, (unsigned)data.mPerfectDays, (unsigned)gZoneMask, (unsigned)gEmeraldsSeen,
-						 gAmbushChance, (unsigned)gAmbushesSurvived, data.mPinned);
+						 gAmbushChance, (unsigned)gAmbushesSurvived, gEggRoboSetting, data.mPinned);
 				std::string result = text;
 				for (int index = 0; index < data.mCount; ++index)
 				{
@@ -406,6 +407,7 @@ namespace n3ds
 						else if (sscanf(line, "emeralds=%u", &value) == 1)		gEmeraldsSeen = value;
 						else if (sscanf(line, "ambush=%u", &value) == 1)		gAmbushChance = std::min<int>((int)value, 100);
 						else if (sscanf(line, "ambushes_survived=%u", &value) == 1)	gAmbushesSurvived = value;
+						else if (sscanf(line, "eggrobos=%u", &value) == 1)		gEggRoboSetting = std::min<int>((int)value, 3);
 						else if (sscanf(line, "pinned=%d", &type) == 1)			gData.mPinned = type;
 						else if (sscanf(line, "challenge=%d %d %d %u %u %d", &type, &zone, &act, &target, &progress, &done) == 6 && index < MAX_PER_DAY &&
 								 type >= 0 && type < (int)Type::_NUM && zone >= 0 && zone < NUM_ZONES && act >= 0 && act < ZONES[zone].mActs)
@@ -521,6 +523,19 @@ namespace n3ds
 		{
 			load();
 			++gAmbushesSurvived;
+			save();
+		}
+
+		int getEggRoboSetting()
+		{
+			load();
+			return gEggRoboSetting;
+		}
+
+		void setEggRoboSetting(int setting)
+		{
+			load();
+			gEggRoboSetting = std::max(std::min(setting, 3), 0);
 			save();
 		}
 

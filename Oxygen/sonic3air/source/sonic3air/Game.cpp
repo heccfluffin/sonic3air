@@ -36,6 +36,7 @@
 	#include "oxygen/platform/3ds/N3DSJournal.h"
 	#include "oxygen/platform/3ds/N3DSShop.h"
 	#include "sonic3air/data/N3DSAmbush.h"
+	#include "sonic3air/data/N3DSEggRobos.h"
 	#include "sonic3air/data/N3DSShadow.h"
 
 	namespace
@@ -567,6 +568,7 @@ void Game::onPostUpdateFrame()
 		const bool challengeShadow = isChallengeModeActive() && !mChallengeShadowTouched && n3ds::challenges::isShadowAct((uint8)(zoneAct >> 8), (uint8)(zoneAct & 0xff), deadly);
 		const bool ambushShadow = isChallengeModeActive() && n3ds::ambush::isChasing();		// He keeps coming after a touch
 		n3ds::shadow::onPostFrame(challengeShadow || ambushShadow, challengeShadow && deadly);
+		n3ds::eggrobos::onPostFrame();
 	}
 #endif
 
@@ -625,6 +627,9 @@ void Game::onUpdateControls()
 		bool deadly = false;
 		const bool allowedHere = ((zoneAct >> 8) <= 0x0b) && !n3ds::challenges::isShadowAct((uint8)(zoneAct >> 8), (uint8)(zoneAct & 0xff), deadly);
 		n3ds::ambush::onControls(isChallengeModeActive(), levelRunning, zoneAct, allowedHere);
+
+		// Egg Robo patrols, in the zones up to the Death Egg
+		n3ds::eggrobos::onControls(isChallengeModeActive() && (zoneAct >> 8) <= 0x0b);
 	}
 
 	// The shadow's touch happens here, between frames
