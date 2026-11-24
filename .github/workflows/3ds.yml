@@ -224,7 +224,12 @@ jobs:
           Needs the \`data\` folder of A.I.R. **26.03.28.0** and your own Sonic 3 & Knuckles ROM from Steam in \`sdmc:/3ds/sonic3air/\`,
           see INSTALL.md. No game content is included here.
 
-          Universal-Updater test store: https://github.com/$GITHUB_REPOSITORY/releases/download/test-build/sonic3air-3ds-test.unistore
+          **Universal-Updater:** add a new UniStore in Universal-Updater on the 3DS and scan this QR code, or enter
+          https://github.com/$GITHUB_REPOSITORY/releases/download/test-build/sonic3air-3ds-test.unistore
+
+          <img src="https://github.com/$GITHUB_REPOSITORY/raw/$GITHUB_REF_NAME/Oxygen/sonic3air/build/_3ds/universal-updater/test-store-qr.png" width="180" alt="QR code of the Universal-Updater store">
+
+          Install guide: https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/Oxygen/sonic3air/build/_3ds/INSTALL.md
           EOF
           gh release delete test-build --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
           gh release create test-build --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
