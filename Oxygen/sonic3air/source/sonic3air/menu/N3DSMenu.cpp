@@ -62,6 +62,7 @@ namespace
 	static constexpr uint32 JOURNAL_VOUCHERS = 0x60b;
 	static constexpr uint32 CHALLENGE_MEDAL = 0x700;		// Doctor Robotnik's Daily Challenge: him, and the Robotnik medal
 	static constexpr uint32 CHALLENGE_FIRST = 0x701;		// Today's challenges, 0x701 to 0x705
+	static constexpr uint32 CHALLENGE_AMBUSH = 0x70e;		// The shadow ambush's chance, changed with left / right
 	static constexpr uint32 CHALLENGE_LOCKED = 0x70f;		// The next challenge slot, unlocked by a higher medal level
 
 	std::string formatNumber(uint32 value)
@@ -1240,6 +1241,12 @@ void N3DSMenu::rebuildTabs()
 			entries.addEntry(n3ds::challenges::getSlotName(k), CHALLENGE_FIRST + k);
 		if (challenges.mCount < n3ds::challenges::MAX_PER_DAY)
 			entries.addEntry(n3ds::challenges::getSlotName(challenges.mCount), CHALLENGE_LOCKED);		// The next one to unlock, as a teaser
+		{
+			GameMenuEntry& entry = entries.addEntry("Shadow Ambush", CHALLENGE_AMBUSH);
+			for (const int chance : n3ds::challenges::AMBUSH_CHANCES)
+				entry.addOption((chance == 0) ? std::string("OFF") : (chance == 100) ? std::string("EVERY ACT") : (std::to_string(chance) + "% OF ACTS"), (uint32)chance);
+			entry.setSelectedIndexByValue((uint32)n3ds::challenges::getAmbushChance());
+		}
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -1428,6 +1435,12 @@ void N3DSMenu::update(float timeElapsed)
 				mActiveTab = mTabMenuEntries[0].mSelectedIndex;
 				playMenuSound(0xb7);
 			}
+			else if (result == GameMenuEntries::UpdateResult::OPTION_CHANGED && mActiveMenu->selected().mData == CHALLENGE_AMBUSH)
+			{
+				// The shadow ambush's chance: saved right away
+				n3ds::challenges::setAmbushChance((int)mActiveMenu->selected().selected().mValue);
+				playMenuSound((mActiveMenu->selected().selected().mValue == 100) ? 0x86 : 0x5b);		// "Every act" gets the alarm
+			}
 			else if (result == GameMenuEntries::UpdateResult::OPTION_CHANGED && (mActiveMenu->selected().mData == NIGHT_START || mActiveMenu->selected().mData == NIGHT_END))
 			{
 				// Night mode times: saved right away (in the background)
@@ -1568,6 +1581,12 @@ void N3DSMenu::onAccept()
 	if (mActiveTab == Tab::Id::CHALLENGE)
 	{
 		const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+		if (data == CHALLENGE_AMBUSH)
+		{
+			playMenuSound(0x5b);
+			showMessage("Change the chance with Left and Right", false);
+			return;
+		}
 		if (data == CHALLENGE_LOCKED)
 		{
 			const int level = n3ds::challenges::getLevel(challenges.mXp);
@@ -2629,6 +2648,26 @@ void N3DSMenu::render()
 					drawer.printText(global::mOxyfontTiny, Recti(px - 109, py + 75, 0, 10), String(0, "New ones in %d h %02d min", minutesLeft / 60, minutesLeft % 60), 1, color2);
 					drawer.printText(global::mOxyfontSmall, Recti(getCardTextRight(px - 185, 92, 74), py + 63, 0, 10), n3ds::challenges::getRank(level), 3, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 					drawer.printText(global::mOxyfontTiny, Recti(getCardTextRight(px - 185, 92, 84), py + 75, 0, 10), "A voucher every level", 3, Color(0.6f, 0.9f, 1.0f, tabAlpha));
+				}
+				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_AMBUSH)
+				{
+					// The shadow ambush: a red warning sign, his chance to turn up
+					const int chance = entry.hasSelected() ? (int)entry.selected().mValue : n3ds::challenges::getAmbushChance();
+					const uint32 survived = n3ds::challenges::getAmbushesSurvived();
+					status = isSelected ? ("< " + entry.selected().mText + " >") : entry.selected().mText;
+					statusColor = (chance == 0) ? Color(0.6f, 0.6f, 0.7f, tabAlpha) : Color(1.0f, 0.35f, 0.3f, tabAlpha);
+					description = std::string("Now and then the shadow turns up uninvited: an alarm, the Doomsday music, and no special stages until the act is over. Outrun him for a voucher.") +
+								  ((survived > 0) ? String(0, " Outran: %u.", (unsigned)survived).toStdString() : std::string());
+					const bool flash = (chance > 0) && (std::fmod(FTX::getTime(), 1.0) < 0.5);
+					drawer.drawRect(imageRect, flash ? Color(0.35f, 0.02f, 0.02f, tabAlpha) : Color(0.15f, 0.02f, 0.03f, tabAlpha));
+					for (int k = 0; k < 8; ++k)
+					{
+						// A warning triangle with an exclamation mark
+						const int rowWidth = 4 + k * 6;
+						drawer.drawRect(Recti(imageRect.x + 32 - rowWidth / 2, imageRect.y + 8 + k * 4, rowWidth, 4), Color(1.0f, 0.8f, 0.1f, tabAlpha * ((chance > 0) ? 1.0f : 0.4f)));
+					}
+					drawer.drawRect(Recti(imageRect.x + 31, imageRect.y + 17, 3, 9), Color(0.1f, 0.05f, 0.0f, tabAlpha));
+					drawer.drawRect(Recti(imageRect.x + 31, imageRect.y + 29, 3, 3), Color(0.1f, 0.05f, 0.0f, tabAlpha));
 				}
 				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_LOCKED)
 				{

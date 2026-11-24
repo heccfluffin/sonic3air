@@ -94,6 +94,13 @@ namespace n3ds
 		// Asked when new challenges get chosen: a bit (1 << Move) for each move that can be used right now (unlocked, switched on)
 		void setAvailableMovesProvider(uint32_t (*provider)());
 
+		// The shadow ambush: the chance (in percent) of him turning up in an act, 0 for never; 1 by default
+		static const int AMBUSH_CHANCES[] = { 0, 1, 5, 25, 100 };
+		int getAmbushChance();
+		void setAmbushChance(int percent);
+		void addAmbushSurvived();
+		uint32_t getAmbushesSurvived();
+
 		// Pins one of today's challenges to the main menu (-1: none); only one that isn't beaten yet
 		void setPinned(int index);
 

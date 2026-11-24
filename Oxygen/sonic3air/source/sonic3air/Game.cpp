@@ -35,6 +35,7 @@
 	#include "oxygen/platform/3ds/N3DSChallenges.h"
 	#include "oxygen/platform/3ds/N3DSJournal.h"
 	#include "oxygen/platform/3ds/N3DSShop.h"
+	#include "sonic3air/data/N3DSAmbush.h"
 	#include "sonic3air/data/N3DSShadow.h"
 
 	namespace
@@ -563,8 +564,9 @@ void Game::onPostUpdateFrame()
 	{
 		const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
 		bool deadly = false;
-		const bool shadowActive = isChallengeModeActive() && !mChallengeShadowTouched && n3ds::challenges::isShadowAct((uint8)(zoneAct >> 8), (uint8)(zoneAct & 0xff), deadly);
-		n3ds::shadow::onPostFrame(shadowActive, deadly);
+		const bool challengeShadow = isChallengeModeActive() && !mChallengeShadowTouched && n3ds::challenges::isShadowAct((uint8)(zoneAct >> 8), (uint8)(zoneAct & 0xff), deadly);
+		const bool ambushShadow = isChallengeModeActive() && n3ds::ambush::isChasing();		// He keeps coming after a touch
+		n3ds::shadow::onPostFrame(challengeShadow || ambushShadow, challengeShadow && deadly);
 	}
 #endif
 
@@ -613,6 +615,17 @@ void Game::onUpdateControls()
 	updateBonusGift();
 
 	updateLevelTracking();
+
+	// The shadow ambush: a roll of the dice for each new act in a normal game or Act Select (not in bonus stages, Doomsday or the
+	// act of a shadow challenge)
+	{
+		EmulatorInterface& emulatorInterface = EmulatorInterface::instance();
+		const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
+		const bool levelRunning = (emulatorInterface.readMemory8(0xfffff600) == 0x0c) && ((int8)emulatorInterface.readMemory8(0xfffff711) > 0);	// global.level_started
+		bool deadly = false;
+		const bool allowedHere = ((zoneAct >> 8) <= 0x0b) && !n3ds::challenges::isShadowAct((uint8)(zoneAct >> 8), (uint8)(zoneAct & 0xff), deadly);
+		n3ds::ambush::onControls(isChallengeModeActive(), levelRunning, zoneAct, allowedHere);
+	}
 
 	// The shadow's touch happens here, between frames
 	n3ds::shadow::onControls();
@@ -1079,6 +1092,13 @@ void Game::onZoneActCompleted(uint16 zoneAndAct)
 		result.mGhostsWoken = mChallengeGhostsWoken;
 		if (n3ds::challenges::onActCompleted(result))
 			AudioOut::instance().playAudioDirect(0x68, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
+	}
+
+	// Outran the shadow of an ambush: a Robotnik voucher
+	if (n3ds::ambush::onActCompleted())
+	{
+		n3ds::journal::addVouchers(1);
+		n3ds::challenges::addAmbushSurvived();
 	}
 	mChallengeHit = false;
 	mChallengeLowOnAir = false;

@@ -46,6 +46,7 @@
 	#include "oxygen/simulation/LemonScriptRuntime.h"
 	#include "oxygen/simulation/SaveStateSerializer.h"
 	#include <lemon/runtime/Runtime.h>
+	#include "sonic3air/data/N3DSAmbush.h"
 	#include <3ds.h>
 	#include <memory>
 	#include <sys/stat.h>
@@ -228,6 +229,13 @@ void GameApp::render()
 		const char* text = "3DS port  -  A.I.R. " BUILD_STRING;
 	#endif
 		drawer.printText(global::mSmallfontSemiOutlined, Vec2i(3, (int)mRect.height - 8), text, 1, Color(1.0f, 1.0f, 1.0f, 0.75f));
+		drawer.performRendering();
+	}
+
+	// The shadow ambush's WARNING (and the message when he was outrun), over the game
+	if (mCurrentState == State::INGAME)
+	{
+		n3ds::ambush::render(drawer, (int)FTX::screenRect().width);
 		drawer.performRendering();
 	}
 #endif

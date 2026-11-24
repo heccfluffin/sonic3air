@@ -791,6 +791,13 @@ namespace
 		result.mGhostsWoken = false;
 		onActCompleted(result);
 		check(data.mChallenges[4].mDone, "Sandopolis 2 without a ghost: beaten");
+
+		check(getAmbushChance() == 1, "the shadow ambush is on at 1% by default");
+		setAmbushChance(25);
+		addAmbushSurvived();
+		n3ds::filewriter::waitUntilDone();
+		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt");
+		check(saved.find("ambush=25\n") != std::string::npos && saved.find("ambushes_survived=1\n") != std::string::npos, "its chance and the ambushes outrun are saved");
 	}
 
 	uint32_t onlySpindash()  { return 1u << (int)n3ds::challenges::Move::SPINDASH; }
