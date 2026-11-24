@@ -256,11 +256,12 @@ Two surprises can also turn up while you play. Both are set on the Challenge tab
   One flies in, takes a clear spot at your height, waits a moment, charges its laser gun (blinking) and fires when no
   wall is in between, aimed at where you're running to (a little up or down too). Three shots, then it flies off. Jump,
   roll or spindash into one to pop it like a badnik; an elemental shield bounces the laser off.
-  - Half of the time **Red Eye** comes first: the Death Egg's first boss (as it is after breaking out of its pillar, in
-    its own chrome colors), as a security camera. It hovers at the top of the screen sweeping towards you, its eye
-    following you. Let it get right above you and the alarm goes off: it flashes red with anger, its nozzle glows for a
-    second, and it fires its laser straight down (following you slowly, so keep running) while two Egg Robos fly in from
-    both sides. Keep out from under it for 12 seconds and it moves on. It can be popped too, if you get up there.
+  - **Red Eye** guards every act: the Death Egg's first boss (as it is after breaking out of its pillar, in its own chrome
+    colors), as a security camera with a post of its own, hovering above the act's middle checkpoint. It sweeps to and
+    fro there, its eye following you. Get right below it and the alarm goes off: it flashes red with anger, its nozzle
+    glows for a second, and it fires its laser straight down (following you slowly, so keep running) while two Egg Robos
+    fly in from both sides. Then it goes back to its post and keeps watching. It can be popped too, if you get up there;
+    like a badnik, it's back if you lose a life.
 
 Saved in `savedata/3ds_challenges.txt`.
 

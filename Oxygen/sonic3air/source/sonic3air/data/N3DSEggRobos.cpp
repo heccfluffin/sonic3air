@@ -104,7 +104,11 @@ namespace n3ds
 			const int RED_EYE_FRAME_GLOW = 6;			// The laser charging, at the nozzle underneath
 			const int RED_EYE_FRAME_SPLASH = 8;			// 8 to 10: where the laser hits the floor
 			const int RED_EYE_FRAME_BEAM = 27;			// 27 to 34: the laser, 24 to 136 pixels long
-			const int RED_EYE_SCAN_FRAMES = 12 * 60;
+			const int RED_EYE_REST_FRAMES = 5 * 60;		// After firing, before it watches again
+			const int RED_EYE_SWEEP = 64;				// How far it sweeps to each side of its post
+			const int RED_EYE_FOLLOW = 112;				// How far its laser follows the character from its post
+			const int RED_EYE_AWAKE_X = 320;			// It only watches (and shows) with the character this close
+			const int RED_EYE_AWAKE_Y = 224;
 			const int RED_EYE_CHARGE_FRAMES = 60;		// The alarm and the glow at the nozzle: a second to get away
 			const int RED_EYE_FIRE_FRAMES = 150;
 			const int RED_EYE_NOZZLE = 28;				// The laser starts this far below its middle
@@ -113,19 +117,21 @@ namespace n3ds
 
 			enum class EyeState
 			{
-				ARRIVE,
-				SCAN,
+				SCAN,		// At its post, sweeping to and fro around it
 				CHARGE,
 				FIRE,
-				LEAVE
+				REST,		// After firing: back to its post, then watching again
+				LEAVE		// Only for boss fights
 			};
 
 			struct RedEye
 			{
 				bool mActive = false;
-				EyeState mState = EyeState::ARRIVE;
+				EyeState mState = EyeState::SCAN;
 				float mX = 0.0f;
 				float mY = 0.0f;
+				int mHomeX = 0;				// Its post in the act (see "findRedEyePost")
+				int mHomeY = 0;
 				int mDirection = 1;
 				int mTimer = 0;
 				int mAge = 0;
@@ -136,6 +142,11 @@ namespace n3ds
 			};
 
 			RedEye gRedEye;
+			uint16 gRedEyePostAct = 0xffff;		// The act its post was looked for in
+			bool gRedEyeHasPost = false;
+			int gRedEyePostX = 0;
+			int gRedEyePostY = 0;
+			bool gRedEyeGone = false;			// Popped (it's back after losing a life, like a badnik)
 			uint64 gRedEyeKeys[35] = { 0 };
 			PaletteBase gRedEyePalette;
 			bool gRedEyeReady = false;
@@ -589,17 +600,94 @@ namespace n3ds
 				}
 			}
 
-			void spawnRedEye(int characterX, int cameraY)
+			// Room for Red Eye (about 48 pixels across) at a spot, and nothing in the way of its laser down to the ground
+			bool isClearForRedEye(int x, int y, int groundY)
+			{
+				for (int dy = -24; dy <= 24; dy += 8)
+				{
+					for (int dx = -24; dx <= 24; dx += 8)
+					{
+						if (isSolid(x + dx, y + dy))
+							return false;
+					}
+				}
+				for (int beamY = y + RED_EYE_NOZZLE; beamY < groundY - 4; beamY += 4)
+				{
+					if (isSolid(x, beamY))
+						return false;
+				}
+				return true;
+			}
+
+			// Its post in this act: above one of the act's checkpoints (they're on the main way through every act, so it's always
+			// somewhere the player passes), the middle one by position. The checkpoints come from the act's object list, which the
+			// game builds at 0x810000 when the act starts (6 bytes each: x, y with flags in the upper bits, type, subtype).
+			bool findRedEyePost(int& outX, int& outY)
+			{
+				EmulatorInterface& emulatorInterface = emu();
+				std::vector<std::pair<int, int>> checkpoints;
+				for (uint32 address = 0x810000; address < 0x810000 + 6 * 4096; address += 6)
+				{
+					const uint16 x = emulatorInterface.readMemory16(address);
+					if (x == 0xffff)
+						break;
+					if (emulatorInterface.readMemory8(address + 4) == 0x34)		// Checkpoint / star post
+						checkpoints.emplace_back((int)x, (int)(emulatorInterface.readMemory16(address + 2) & 0x0fff));
+				}
+				if (checkpoints.empty())
+					return false;
+				std::sort(checkpoints.begin(), checkpoints.end());
+
+				// The middle one first, then the others going outward from it
+				const int count = (int)checkpoints.size();
+				const int middle = (count - 1) / 2;
+				for (int k = 0; k < count * 2; ++k)
+				{
+					const int index = middle + ((k % 2) ? -(k + 1) / 2 : k / 2);
+					if (index < 0 || index >= count)
+						continue;
+					const int checkpointX = checkpoints[index].first;
+					const int checkpointY = checkpoints[index].second;
+					static const int OFFSETS[5] = { 0, -48, 48, -96, 96 };
+					for (const int offset : OFFSETS)
+					{
+						// The ground there, then as high up as fits, with its laser still reaching the ground
+						const int x = checkpointX + offset;
+						int groundY = -1;
+						for (int y = checkpointY - 8; y <= checkpointY + 96; y += 4)
+						{
+							if (isSolid(x, y))
+							{
+								groundY = y & ~3;
+								break;
+							}
+						}
+						if (groundY < 0)
+							continue;
+						for (int height = 100; height >= 64; height -= 6)
+						{
+							if (isClearForRedEye(x, groundY - height, groundY))
+							{
+								outX = x;
+								outY = groundY - height;
+								return true;
+							}
+						}
+					}
+				}
+				return false;
+			}
+
+			void placeRedEye()
 			{
 				gRedEye = RedEye();
 				gRedEye.mActive = true;
-				gRedEye.mState = EyeState::ARRIVE;
-				// It arrives off to one side and sweeps towards the character: there's time to see it coming
-				const int side = (random(2) == 0) ? -1 : 1;
-				gRedEye.mX = (float)(characterX + side * (130 + (int)random(40)));
-				gRedEye.mY = (float)(cameraY - 48);
-				gRedEye.mDirection = -side;
-				RMX_LOG_INFO("Red Eye: watching");
+				gRedEye.mState = EyeState::SCAN;
+				gRedEye.mHomeX = gRedEyePostX;
+				gRedEye.mHomeY = gRedEyePostY;
+				gRedEye.mX = (float)gRedEyePostX;
+				gRedEye.mY = (float)gRedEyePostY;
+				gRedEye.mDirection = (random(2) == 0) ? -1 : 1;
 			}
 
 			void playSound(uint8 sfx)
@@ -612,28 +700,18 @@ namespace n3ds
 				RedEye& eye = gRedEye;
 				++eye.mAge;
 				eye.mLookX = characterX;
-				const float hoverY = (float)(cameraY + 44);		// Near the top of the screen
 				if (eye.mState == EyeState::LEAVE)
 				{
+					// Boss fight: it rises out of the way
 					eye.mBeamGrowth = std::max(eye.mBeamGrowth - 1, 0);
 					eye.mY -= 3.0f;
 					if (eye.mY < cameraY - 64)
 						eye.mActive = false;
 					return;
 				}
-				if (eye.mState == EyeState::ARRIVE)
-				{
-					eye.mY = std::min(eye.mY + 2.0f, hoverY);
-					if (eye.mY >= hoverY)
-					{
-						eye.mState = EyeState::SCAN;
-						eye.mTimer = RED_EYE_SCAN_FRAMES;
-					}
-				}
-				else
-				{
-					eye.mY += clamp(hoverY - eye.mY, -3.0f, 3.0f);
-				}
+				// Hovering at its post, bobbing gently
+				const float hoverY = (float)eye.mHomeY + std::sin((float)eye.mAge * 0.05f) * 2.0f;
+				eye.mY += clamp(hoverY - eye.mY, -1.0f, 1.0f);
 
 				// How far down its laser would reach: until the ground
 				const int eyeX = roundToInt(eye.mX);
@@ -653,10 +731,9 @@ namespace n3ds
 
 				if (eye.mState == EyeState::SCAN)
 				{
-					// Sweeping to and fro around the character, within the screen
-					eye.mX += (float)eye.mDirection * 1.25f;
-					if ((eye.mDirection > 0 && (eye.mX > characterX + 140 || eye.mX > cameraX + screenWidth - 48)) ||
-						(eye.mDirection < 0 && (eye.mX < characterX - 140 || eye.mX < cameraX + 48)))
+					// Sweeping to and fro around its post
+					eye.mX += (float)eye.mDirection * 0.75f;
+					if ((eye.mDirection > 0 && eye.mX > eye.mHomeX + RED_EYE_SWEEP) || (eye.mDirection < 0 && eye.mX < eye.mHomeX - RED_EYE_SWEEP))
 						eye.mDirection = -eye.mDirection;
 
 					// Right above the character: spotted
@@ -667,11 +744,14 @@ namespace n3ds
 						playSound(SFX_ALARM);
 						RMX_LOG_INFO("Red Eye: spotted the character");
 					}
-					else if (--eye.mTimer <= 0)
-					{
-						eye.mState = EyeState::LEAVE;
-						RMX_LOG_INFO("Red Eye: saw nothing, moving on");
-					}
+				}
+				else if (eye.mState == EyeState::REST)
+				{
+					// Back to its post, then watching again
+					eye.mX += clamp((float)eye.mHomeX - eye.mX, -1.0f, 1.0f);
+					eye.mBeamGrowth = std::max(eye.mBeamGrowth - 1, 0);
+					if (--eye.mTimer <= 0)
+						eye.mState = EyeState::SCAN;
 				}
 				else if (eye.mState == EyeState::CHARGE)
 				{
@@ -700,6 +780,7 @@ namespace n3ds
 					if (elapsed % 30 == 15)
 						playSound(SFX_ALARM);
 					eye.mX += clamp((float)(characterX - eye.mX) * 0.05f, -0.75f, 0.75f);
+					eye.mX = clamp(eye.mX, (float)(eye.mHomeX - RED_EYE_FOLLOW), (float)(eye.mHomeX + RED_EYE_FOLLOW));		// It doesn't leave its post
 
 					const int reach = std::min(eye.mBeamLength, 24 + 16 * eye.mBeamGrowth);
 					if (std::abs(characterX - roundToInt(eye.mX)) < 12 && characterY > beamTop && characterY < beamTop + reach + 16 && canBeHurt())
@@ -708,7 +789,10 @@ namespace n3ds
 						hurtCharacter(characterX < eye.mX);
 					}
 					if (--eye.mTimer <= 0)
-						eye.mState = EyeState::LEAVE;
+					{
+						eye.mState = EyeState::REST;
+						eye.mTimer = RED_EYE_REST_FRAMES;
+					}
 				}
 
 				// It can be popped too, if the character gets up there
@@ -719,6 +803,7 @@ namespace n3ds
 					asRobo.mY = eye.mY;
 					pop(asRobo);
 					eye.mActive = false;
+					gRedEyeGone = true;
 					RMX_LOG_INFO("Red Eye: popped");
 				}
 			}
@@ -765,6 +850,8 @@ namespace n3ds
 			const RedEye& eye = gRedEye;
 			const int x = roundToInt(eye.mX) - emulatorInterface.readMemory16(0xffffee80);
 			const int y = roundToInt(eye.mY) - emulatorInterface.readMemory16(0xffffee84);
+			if (x < -64 || x > VideoOut::instance().getScreenWidth() + 64 || y < -64 || y > VideoOut::instance().getScreenHeight() + 160)
+				return;		// Not on the screen
 			SpriteManager& spriteManager = RenderParts::instance().getSpriteManager();
 			spriteManager.setCustomSpritePaletteOverride(&gRedEyePalette, &gRedEyePalette);
 			// Angry once it spotted the character: flashing between its two anger palettes
@@ -822,6 +909,7 @@ namespace n3ds
 			for (Laser& laser : gLasers)
 				laser.mActive = false;
 			gRedEye.mActive = false;
+			gRedEyeGone = false;
 			gHasFrameNumber = false;
 			gActFrames = 0;
 		}
@@ -874,24 +962,11 @@ namespace n3ds
 				--gSpawnTimer;
 			if (gSpawnTimer == 0 && !bossFight && gActFrames > 10 * 60)
 			{
-				// Half of the time, Red Eye comes first to look for the character (when nothing else is around)
-				bool anyRobo = false;
-				for (const Robo& robo : gRobos)
-					anyRobo = anyRobo || robo.mActive;
-				if (!anyRobo && !gRedEye.mActive && random(2) == 0)
-				{
-					setupRedEyeGraphics();
-					spawnRedEye(characterX, cameraY);
+				setupGraphics();
+				if (trySpawn(characterX, characterY, cameraX, screenWidth))
 					gSpawnTimer = -1;
-				}
 				else
-				{
-					setupGraphics();
-					if (trySpawn(characterX, characterY, cameraX, screenWidth))
-						gSpawnTimer = -1;
-					else
-						gSpawnTimer = 3 * 60;		// No room right now: try again in a moment
-				}
+					gSpawnTimer = 3 * 60;		// No room right now: try again in a moment
 			}
 
 			for (Robo& robo : gRobos)
@@ -908,11 +983,34 @@ namespace n3ds
 				if (laser.mActive)
 					updateLaser(laser, characterX, characterY, cameraX, screenWidth);
 			}
+			// Red Eye at its post in this act (looked for once the act's objects are there)
+			if (gRedEyePostAct != zoneAct && gActFrames > 2)
+			{
+				gRedEyePostAct = zoneAct;
+				gRedEyeHasPost = findRedEyePost(gRedEyePostX, gRedEyePostY);
+				if (gRedEyeHasPost)
+				{
+					RMX_LOG_INFO("Red Eye: its post in this act is at " << gRedEyePostX << ", " << gRedEyePostY);
+				}
+				else
+				{
+					RMX_LOG_INFO("Red Eye: no post in this act");
+				}
+			}
+			if (gRedEyeHasPost && !gRedEyeGone && !gRedEye.mActive && !bossFight)
+			{
+				setupRedEyeGraphics();
+				placeRedEye();
+			}
 			if (gRedEye.mActive)
 			{
 				if (bossFight && gRedEye.mState != EyeState::LEAVE)
 					gRedEye.mState = EyeState::LEAVE;
-				updateRedEye(characterX, characterY, cameraX, cameraY, screenWidth);
+				// It only watches with the character close by (and keeps its state otherwise)
+				const bool awake = (gRedEye.mState == EyeState::LEAVE) ||
+								   (std::abs(characterX - gRedEye.mHomeX) < RED_EYE_AWAKE_X && std::abs(characterY - gRedEye.mHomeY) < RED_EYE_AWAKE_Y);
+				if (awake)
+					updateRedEye(characterX, characterY, cameraX, cameraY, screenWidth);
 			}
 		}
 
