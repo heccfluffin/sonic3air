@@ -11,6 +11,9 @@
 #include "oxygen/helper/JsonHelper.h"
 #include "oxygen/helper/JsonSerializer.h"
 #include "oxygen/platform/PlatformFunctions.h"
+#if defined(PLATFORM_3DS)
+	#include "oxygen/platform/3ds/N3DSFileWriter.h"
+#endif
 
 #include <lemon/translator/SourceCodeWriter.h>
 
@@ -741,5 +744,12 @@ void Configuration::saveSettingsInput(const std::wstring& filename) const
 
 	writer.endBlock();
 	writer.endBlock();
+#if defined(PLATFORM_3DS)
+	// 3DS: written in the background like the other settings - written here directly, leaving the options froze the game for
+	// a couple of seconds on a slow SD card
+	std::vector<uint8> data((const uint8*)*output, (const uint8*)*output + output.length());
+	if (n3ds::filewriter::writeFileIfOnSDCard(filename, data))
+		return;
+#endif
 	output.saveFile(filename);
 }

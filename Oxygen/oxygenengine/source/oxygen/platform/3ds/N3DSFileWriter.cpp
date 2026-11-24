@@ -13,6 +13,7 @@
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
 
 #include <3ds.h>
+#include <map>
 #include <deque>
 #include <dirent.h>
 #include <errno.h>
@@ -284,6 +285,22 @@ namespace n3ds
 		{
 			if (path.compare(0, 6, L"sdmc:/") != 0)
 				return false;
+
+			// Nothing to do if the file got exactly this content already (like settings saved without a change): every write keeps
+			// the SD card busy for a moment, and anything reading from it meanwhile has to wait
+			static std::map<std::wstring, uint64_t> lastWritten;
+			uint64_t hash = 0xcbf29ce484222325ull ^ data.size();
+			for (const uint8_t byte : data)
+				hash = (hash ^ byte) * 0x100000001b3ull;
+			const auto it = lastWritten.find(path);
+			if (it != lastWritten.end() && it->second == hash)
+			{
+				if (onDone)
+					onDone(true, 0);
+				return true;
+			}
+			lastWritten[path] = hash;
+
 			writeFile(rmx::convertToUTF8(path), std::move(data), std::move(onDone));
 			return true;
 		}

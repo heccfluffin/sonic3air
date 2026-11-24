@@ -407,6 +407,22 @@ namespace
 		n3ds::filewriter::waitUntilDone();
 		check(readFile("sdmc:/3ds/sonic3air/new/folder/file.txt") == "hi", "writing into missing folders creates them");
 
+		// The same content again isn't written again (the file is removed in between, so a write would bring it back)
+		{
+			std::vector<uint8_t> same = { 's', 'a', 'm', 'e' };
+			n3ds::filewriter::writeFileIfOnSDCard(L"sdmc:/3ds/sonic3air/same.txt", same);
+			n3ds::filewriter::waitUntilDone();
+			std::remove("sdmc:/3ds/sonic3air/same.txt");
+			std::vector<uint8_t> again = { 's', 'a', 'm', 'e' };
+			n3ds::filewriter::writeFileIfOnSDCard(L"sdmc:/3ds/sonic3air/same.txt", again);
+			n3ds::filewriter::waitUntilDone();
+			check(readFile("sdmc:/3ds/sonic3air/same.txt").empty(), "unchanged content: not written again");
+			std::vector<uint8_t> changed = { 'n', 'e', 'w' };
+			n3ds::filewriter::writeFileIfOnSDCard(L"sdmc:/3ds/sonic3air/same.txt", changed);
+			n3ds::filewriter::waitUntilDone();
+			check(readFile("sdmc:/3ds/sonic3air/same.txt") == "new", "changed content: written");
+		}
+
 		// Written under another name first, then put in place; interrupted writes get sorted out at the next start
 		struct stat info;
 		check(stat("sdmc:/3ds/sonic3air/new/folder/file.txt.new", &info) != 0, "no temporary file left behind after writing");
