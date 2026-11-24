@@ -220,8 +220,8 @@ The hard one can also be **Outrun your shadow**: in that act a gray copy of you 
 seconds behind (he only sets off once you do, and waits during cutscenes and boss fights). His touch is a hit - and loses
 that try - but Sonic's insta-shield or shield moves, Knuckles' glide, invincibility or Super knock him back further
 behind. As Robotnik's Special he's only 2 seconds behind and his touch is the end. They count
-in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile) taunts you about each one and laughs
-at you, jumps out to stomp mad (with dust flying) once it's beaten, and sulks when you've beaten them all. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after
+in a normal game and Act Select. Robotnik (drawn from your ROM, in his Egg Mobile, in front of a Death Egg hall) taunts you about each one and laughs
+at you (shaking, squashing and stretching with each hop), jumps out to stomp mad (with dust flying) once it's beaten, and sulks when you've beaten them all. Every beaten challenge gives XP to your **Robotnik medal** (10, 20 or 30). Its first level takes 50 XP, each one after
 that 10 more (up to 150), and every level gives you a voucher. Its metal goes bronze (levels 1-4), silver (5-9), gold (10-14), diamond (15-19), platinum (20-25) and emerald
 (26 on), with a new rank every two levels up to "Robotnik's Nightmare" - and past that it never stops: the rank gets
 numbered (II, III, ...), sparkles circle the medal (one more each level) and stars appear on its ribbon (one every 5

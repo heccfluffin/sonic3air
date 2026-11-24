@@ -2350,6 +2350,17 @@ void N3DSMenu::render()
 						mRobotnikTalkStart = time;
 					}
 
+					// His backdrop: a hall of the Death Egg (the game's zone picture), dimmed a little and drifting slowly, so he stands out
+					{
+						static const uint64 BACKDROP_KEY = rmx::getMurmur2_64(std::string_view("zone13_act1b"));
+						const Recti inside(px - 183, py + 2, CARD_BOX_WIDTH - 4, 88);
+						drawer.drawRect(inside, Color(0.04f, 0.05f, 0.16f, tabAlpha));
+						drawer.pushScissor(inside);
+						const int pan = 198 + roundToInt(std::sin(FTX::getTime() * 0.3) * 4.0);
+						drawer.drawSprite(Vec2i(inside.x - pan, inside.y + inside.height - 80), BACKDROP_KEY, BACKDROP_KEY, Color(0.6f, 0.6f, 0.72f, tabAlpha));
+						drawer.popScissor();
+					}
+
 					// Robotnik himself: hovering in his Egg Mobile, talking, and laughing at "Hohoho" (his head's laughing frames, the Egg Mobile
 					// hopping); out of it to stomp mad at a beaten challenge (mustache flaring, a hop and a thud with dust); and sulking in it
 					// with his defeated face once all are beaten
@@ -2441,23 +2452,28 @@ void N3DSMenu::render()
 					{
 						DrawerTexture& texture = mRobotnik[sprite];
 						const int boxX = px - 185;
-						const int x = boxX + (CARD_BOX_WIDTH - texture.getWidth()) / 2 + offsetX;
-						const int y = (sprite == ROBOTNIK_MAD) ? (py + 92 - 6 - texture.getHeight()) : (py + (92 - texture.getHeight()) / 2);		// On foot: standing on the box's floor
-						drawer.drawRect(Recti(x, y + offsetY, texture.getWidth(), texture.getHeight()), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
-						if (laughTime >= 0.0f)
+
+						// Laughing: shaking with it, and squash and stretch with each hop - stretched going up, squashed landing
+						int width = texture.getWidth();
+						int height = texture.getHeight();
+						if (laughTime >= 0.0f && laughTime < 1.4f)
 						{
-							// "HO" popping out of him with each hop (the font has no "!"), rising and fading, alternating to the left and right
-							for (int k = 0; k < 3; ++k)
+							const float hoPhase = std::fmod(laughTime, 0.4f);
+							if (laughTime < 1.2f && hoPhase < 0.2f)
 							{
-								const float age = laughTime - (float)k * 0.4f;
-								if (age < 0.0f || age > 0.8f)
-									continue;
-								const int textX = boxX + CARD_BOX_WIDTH / 2 + ((k % 2 == 0) ? -14 : 14);
-								const int textY = py + 20 - roundToInt(age * 22.0f);
-								const float fade = (age < 0.5f) ? 1.0f : (1.0f - (age - 0.5f) / 0.3f);
-								drawer.printText(global::mSonicFontB, Recti(textX, textY, 0, 10), "HO", 5, Color(1.0f, 0.85f, 0.2f, tabAlpha * fade));
+								height += 3;
+								width -= 2;
 							}
+							else if (laughTime < 1.2f && hoPhase < 0.28f)
+							{
+								height -= 4;
+								width += 4;
+							}
+							offsetX += ((int)(time * 24.0f) % 2) ? 1 : -1;
 						}
+						const int x = boxX + (CARD_BOX_WIDTH - width) / 2 + offsetX;
+						const int bottom = (sprite == ROBOTNIK_MAD) ? (py + 92 - 6) : (py + (92 + texture.getHeight()) / 2);		// On foot: standing on the box's floor
+						drawer.drawRect(Recti(x, bottom - height + offsetY, width, height), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 						if (dust && mHasDust)
 						{
 							// The game's spin dash dust bursting out at his feet: its thick end at his feet, trailing outward on both sides
@@ -2477,7 +2493,7 @@ void N3DSMenu::render()
 						drawer.drawRect(Recti(px - 167, py + 30, 32, 32), mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 					}
 
-					// Speech bubble, pointing at him: a comic one - cream, rounded, with a shadow and a tail curving down to him; it pops
+					// Speech bubble, pointing at him: rounded, with a shadow and a tail curving down to him; it pops
 					// up with each new line and shakes while he laughs
 					{
 						const Recti full(px - 109, py + 10, 172, 48);
@@ -2486,8 +2502,8 @@ void N3DSMenu::render()
 						const int shrinkY = roundToInt((1.0f - pop) * 4.0f);
 						const int shakeX = (laughTime >= 0.0f && laughTime < 1.2f) ? (((int)(time * 30.0f) % 2) ? 1 : -1) : 0;
 						const Recti bubble(full.x + shrinkX + shakeX, full.y + shrinkY, full.width - shrinkX * 2, full.height - shrinkY * 2);
-						const Color fillColor(0.98f, 0.93f, 0.81f, tabAlpha);
-						const Color outlineColor(0.55f, 0.07f, 0.07f, tabAlpha);
+						const Color fillColor(0.16f, 0.04f, 0.05f, tabAlpha);
+						const Color outlineColor(0.9f, 0.25f, 0.2f, tabAlpha);
 						const Color shadowColor(0.0f, 0.0f, 0.0f, 0.35f * tabAlpha);
 						const auto drawRounded = [&](const Recti& rect, const Color& color)
 						{
@@ -2498,9 +2514,9 @@ void N3DSMenu::render()
 						const auto drawTail = [&](int offsetX, int offsetY, int grow, const Color& color)
 						{
 							// Columns from the bubble's left edge to the tip, getting thinner and going down a bit
-							for (int i = 0; i <= 9; ++i)
+							for (int i = 0; i <= 12; ++i)
 							{
-								const int half = (9 - i) * 4 / 9 + grow;
+								const int half = (12 - i) * 5 / 12 + grow;
 								if (half < 0)
 									continue;
 								const int centerY = bubble.y + bubble.height / 2 + 4 + i / 2;
@@ -2513,18 +2529,18 @@ void N3DSMenu::render()
 						drawTail(-1, 0, 1, outlineColor);
 						drawRounded(bubble, fillColor);
 						drawTail(0, 0, 0, fillColor);
-						drawer.drawRect(Recti(bubble.x + 2, bubble.y + 1, bubble.width - 4, 1), Color(1.0f, 1.0f, 1.0f, 0.7f * tabAlpha));		// A little shine on top
+						drawer.drawRect(Recti(bubble.x + 2, bubble.y + 1, bubble.width - 4, 1), Color(0.9f, 0.25f, 0.2f, 0.3f * tabAlpha));		// A little shine on top
 
 						if (pop >= 1.0f)
 						{
 							std::vector<std::string_view> textLines;
-							utils::splitTextIntoLines(textLines, mRobotnikLine, global::mOxyfontTinySimple, full.width - 10);		// From all of it, so lines don't jump around
+							utils::splitTextIntoLines(textLines, mRobotnikLine, global::mOxyfontTiny, full.width - 10);		// From all of it, so lines don't jump around
 							const int textY = full.y + std::max(4, (full.height - (int)std::min<size_t>(textLines.size(), 4) * 10) / 2);
 							int lettersLeft = (int)(sinceLine * ROBOTNIK_LETTERS_PER_SECOND);
 							for (size_t k = 0; k < textLines.size() && k < 4 && lettersLeft > 0; ++k)
 							{
 								const std::string_view shown = textLines[k].substr(0, std::min<size_t>(textLines[k].length(), (size_t)lettersLeft));
-								drawer.printText(global::mOxyfontTinySimple, Recti(full.x + 5 + shakeX, textY + (int)k * 10, 0, 10), shown, 1, Color(0.42f, 0.05f, 0.06f, tabAlpha));		// Plain letters: the outlined ones look smudged on a light bubble
+								drawer.printText(global::mOxyfontTiny, Recti(full.x + 5 + shakeX, textY + (int)k * 10, 0, 10), shown, 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 								lettersLeft -= (int)textLines[k].length() + 1;		// Plus the space where the line was split
 							}
 						}
