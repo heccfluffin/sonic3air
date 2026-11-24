@@ -167,6 +167,16 @@ target_link_libraries(oxygen s3air_3ds_bottom_screen_overlay_data s3air_3ds_them
 dkp_add_embedded_binary_library(s3air_3ds_bottom_screen_clock_data ${CMAKE_CURRENT_SOURCE_DIR}/bottomscreen/s3air_bottom_screen_clock.bin)
 target_link_libraries(oxygen s3air_3ds_bottom_screen_clock_data)
 
+# GameBanana mod browser (Mods menu): HTTPS with libcurl and mbedTLS, JPEG previews with libjpeg-turbo (devkitPro portlibs),
+# and Mozilla's root certificates for checking the servers (net/cacert.pem, from https://curl.se/docs/caextract.html)
+dkp_add_embedded_binary_library(s3air_3ds_cacert_data ${CMAKE_CURRENT_SOURCE_DIR}/net/cacert.pem)
+target_link_libraries(oxygen s3air_3ds_cacert_data curl mbedtls mbedx509 mbedcrypto turbojpeg ZLIB::ZLIB)
+# For tests in the emulator only (it has no Wi-Fi of its own): a local stand-in for gamebanana.com, like "http://127.0.0.1:8000"
+set(S3AIR_3DS_GAMEBANANA_TEST_URL "" CACHE STRING "Test builds only: address of a local GameBanana stand-in")
+if (S3AIR_3DS_GAMEBANANA_TEST_URL)
+	add_compile_definitions(N3DS_GAMEBANANA_TEST_URL="${S3AIR_3DS_GAMEBANANA_TEST_URL}")
+endif()
+
 # Presenting frames with the PICA200 GPU (citro3d) instead of SDL's CPU-side rotated copy
 option(S3AIR_3DS_GPU_PRESENT "Present frames via the 3DS GPU" ON)
 set(S3AIR_3DS_GPU_LIBS "")

@@ -1,0 +1,279 @@
+{
+    "_tsDateUpdated": 1795320769,
+    "_tsDateAdded": 1795153063,
+    "_sName": "Character Underwater Palette Scripted",
+    "_sVersion": "v1.1",
+    "_aPreviewMedia": {
+        "_aImages": [
+            {
+                "_sType": "screenshot",
+                "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                "_sCaption": "Greeeeen",
+                "_sFile": "6affdc66f0d56.jpg",
+                "_sFile220": "220-90_6affdc66f0d56.jpg",
+                "_hFile220": 124,
+                "_wFile220": 220,
+                "_sFile530": "530-90_6affdc66f0d56.jpg",
+                "_hFile530": 300,
+                "_wFile530": 530,
+                "_sFile100": "100-90_6affdc66f0d56.jpg",
+                "_hFile100": 57,
+                "_wFile100": 100
+            },
+            {
+                "_sType": "screenshot",
+                "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                "_sCaption": "Super\/hyper underwater palette",
+                "_sFile": "6affdc7c3b6ba.jpg",
+                "_sFile100": "100-90_6affdc7c3b6ba.jpg",
+                "_hFile100": 57,
+                "_wFile100": 100
+            },
+            {
+                "_sType": "screenshot",
+                "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                "_sCaption": "No more bright as hell pink Knuckles",
+                "_sFile": "6affddd460675.jpg",
+                "_sFile100": "100-90_6affddd460675.jpg",
+                "_hFile100": 58,
+                "_wFile100": 100
+            },
+            {
+                "_sType": "screenshot",
+                "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                "_sCaption": "Oh no Amy died. lol",
+                "_sFile": "6affdde3932ba.jpg",
+                "_sFile100": "100-90_6affdde3932ba.jpg",
+                "_hFile100": 57,
+                "_wFile100": 100
+            }
+        ]
+    },
+    "_nDownloadCount": 573,
+    "_sText": "Spiritual successor of Level Palette Scripted (I guess), character underwater palettes are now handled by scripts by tinting the primary\/above water palette.<br><br>Changes\/enhancements with this mod: more accurate\/realistic colors (especially for Knuckles), underwater palette for Super\/Hyper Tails\/Knuckles, HCZ's underwater palette is now tinted green, and separated CNZ and LBZ's underwater palettes<br><br>has support for Chemical Plant Zone, and should be compatible with pretty much any character (as far as I've tested)<br><br><span class=\"GreenColor\">Free to use with credits (other than directly reuploading), feel free to add this for your extra slot character or something if you don't feel like doing the colors manually<\/span>",
+    "_sDescription": "idk why I'm spending time doing mods when I seriously need to be studying",
+    "_nViewCount": 1383,
+    "_nLikeCount": 25,
+    "_bIsObsolete": false,
+    "_aRootCategory": {
+        "_idRow": 4819,
+        "_sName": "Script Mods",
+        "_sModelName": "ModCategory",
+        "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+        "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+    },
+    "_aSubmitter": {
+        "_idRow": 2377024,
+        "_sName": "A S3AIR Modder",
+        "_sUserTitle": "A S3AIR Modder",
+        "_sHonoraryTitle": "",
+        "_tsJoinDate": 1670233052,
+        "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/6455fe0126f32.gif",
+        "_sSigUrl": "https:\/\/images.gamebanana.com\/img\/sig\/63cb7ce1bc06e.gif",
+        "_sProfileUrl": "https:\/\/gamebanana.com\/members\/2377024",
+        "_sPointsUrl": "https:\/\/gamebanana.com\/members\/logs\/pointslog\/2377024",
+        "_sMedalsUrl": "https:\/\/gamebanana.com\/members\/stats\/medals\/2377024",
+        "_bIsOnline": false,
+        "_sLocation": "<a href=\"https:\/\/gamebanana.com\">Home<\/a> > <a href=\"https:\/\/gamebanana.com\/games\/6878\"><img src=\"https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png\"\/><span>Sonic 3 A.I.R.<\/span><\/a> > <a href=\"https:\/\/gamebanana.com\/mods\/games\/6878\">Mods<\/a> > <a href=\"https:\/\/gamebanana.com\/mods\/cats\/4819\">Script Mods<\/a> > <a href=\"https:\/\/gamebanana.com\/mods\/cats\/4822\">Characters<\/a> > <a href=\"https:\/\/gamebanana.com\/mods\/743095\">Character Underwater Palette Scripted<\/a>",
+        "_sOnlineTitle": "",
+        "_sOfflineTitle": "",
+        "_nPoints": 51251,
+        "_nPointsRank": 496,
+        "_aNormalMedals": [
+            [
+                "m_age_1.png",
+                "One month a member",
+                "normal",
+                868745
+            ],
+            [
+                "mods1.png",
+                "Submitted 5 Mods",
+                "normal",
+                868755
+            ],
+            [
+                "features_1.png",
+                "Submission featured",
+                "normal",
+                869221
+            ],
+            [
+                "thanks_recvd_1.png",
+                "Received thanks 5 times",
+                "normal",
+                954595
+            ],
+            [
+                "m_age_2.png",
+                "6 months a member",
+                "normal",
+                1078442
+            ],
+            [
+                "m_age_3.png",
+                "1 year a member",
+                "normal",
+                1411132
+            ],
+            [
+                "subscribers_1.png",
+                "Reached 10 subscribers",
+                "normal",
+                1484508
+            ],
+            [
+                "m_pr_1.png",
+                "Reached 1,000 Points",
+                "normal",
+                1509064
+            ],
+            [
+                "m_pr_2.png",
+                "Reached 2,500 Points",
+                "normal",
+                2240052
+            ],
+            [
+                "m_age_4.png",
+                "2 years a member",
+                "normal",
+                2518406
+            ],
+            [
+                "mods2.png",
+                "Submitted 10 Mods",
+                "normal",
+                2661703
+            ],
+            [
+                "m_pr_3.png",
+                "Reached 7,500 Points",
+                "normal",
+                2666534
+            ],
+            [
+                "m_pr_4.png",
+                "Reached 25,000 Points",
+                "normal",
+                4816880
+            ],
+            [
+                "tools1.png",
+                "Submitted 1 Tool",
+                "normal",
+                5385917
+            ]
+        ],
+        "_aRareMedals": [
+            [
+                "subscribers_2.png",
+                "Reached 50 subscribers",
+                "rare",
+                2896300
+            ],
+            [
+                "features_2.png",
+                "10 submissions featured",
+                "rare",
+                2933298
+            ],
+            [
+                "mods3.png",
+                "Submitted 15 Mods",
+                "rare",
+                2962426
+            ],
+            [
+                "mods4.png",
+                "Submitted 20 Mods",
+                "rare",
+                3809418
+            ],
+            [
+                "thanks_recvd_2.png",
+                "Received thanks 50 times",
+                "rare",
+                5110447
+            ]
+        ],
+        "_aLegendaryMedals": [
+            [
+                "subscribers_3.png",
+                "Reached 100 subscribers",
+                "legendary",
+                3908705
+            ],
+            [
+                "features_3.png",
+                "30 submissions featured",
+                "legendary",
+                5278467
+            ]
+        ],
+        "_bHasRipe": false,
+        "_nBuddyCount": 40,
+        "_nSubscriberCount": 205,
+        "_aDonationMethods": [],
+        "_bAccessorIsBuddy": false,
+        "_bBuddyRequestExistsWithAccessor": false,
+        "_bAccessorIsSubscribed": false,
+        "_sUpicUrl": "https:\/\/images.gamebanana.com\/img\/upic\/63cb74338fed6.gif",
+        "_sGlobalSubmissionAnnouncement": "<p>Pls check out my <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https:\/\/gamebanana.com\/mods\/545198\">Pizza Tower Taunt <\/a>mod and my <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https:\/\/gamebanana.com\/mods\/681649\">Reimagined Rendering<\/a> mod :p<\/p>",
+        "_sGsa": "<p>Pls check out my <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https:\/\/gamebanana.com\/mods\/545198\">Pizza Tower Taunt <\/a>mod and my <a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https:\/\/gamebanana.com\/mods\/681649\">Reimagined Rendering<\/a> mod :p<\/p>",
+        "_aDefaultLicenseChecklist": [
+            "yes",
+            "ask",
+            "ask",
+            "ask",
+            "ask",
+            "ask",
+            "no",
+            "ask"
+        ],
+        "_sDefaultLicense": "",
+        "_aCubeatar": {
+            "Speed": 3,
+            "SpinAxes": [
+                0,
+                1,
+                0
+            ]
+        }
+    },
+    "_aFiles": [
+        {
+            "_idRow": 1896718,
+            "_sFile": "character_underwater_palette_scripted.zip",
+            "_nFilesize": 2090,
+            "_tsDateAdded": 1795153060,
+            "_nDownloadCount": 386,
+            "_sDownloadUrl": "https:\/\/gamebanana.com\/dl\/1896718",
+            "_sMd5Checksum": "b95fc5cd8b16cc25bbf89327f798a011",
+            "_sAnalysisState": "done",
+            "_sAnalysisResult": "ok",
+            "_sAnalysisResultVerbose": "File passed preliminary analysis",
+            "_sAvState": "done",
+            "_sAvResult": "clean",
+            "_bIsArchived": true,
+            "_bHasContents": true,
+            "_sVersion": "v1.0"
+        },
+        {
+            "_idRow": 1899327,
+            "_sFile": "character_underwater_palette_scripted_v11.zip",
+            "_nFilesize": 2505,
+            "_tsDateAdded": 1795320764,
+            "_nDownloadCount": 185,
+            "_sDownloadUrl": "https:\/\/gamebanana.com\/dl\/1899327",
+            "_sMd5Checksum": "6d86ee60fc51db43316afbde79410c17",
+            "_sAnalysisState": "done",
+            "_sAnalysisResult": "ok",
+            "_sAnalysisResultVerbose": "File passed preliminary analysis",
+            "_sAvState": "done",
+            "_sAvResult": "clean",
+            "_bIsArchived": false,
+            "_bHasContents": true
+        }
+    ]
+}

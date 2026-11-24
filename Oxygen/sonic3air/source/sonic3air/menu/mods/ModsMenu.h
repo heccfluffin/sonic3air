@@ -11,6 +11,9 @@
 #include "sonic3air/menu/GameMenuBase.h"
 #include "sonic3air/menu/mods/ModResources.h"
 #include "sonic3air/menu/mods/ModsStartPage.h"
+#if defined(PLATFORM_3DS)
+	#include "sonic3air/menu/mods/N3DSGameBananaBrowser.h"
+#endif
 
 class MenuBackground;
 class Mod;
@@ -63,6 +66,9 @@ private:
 	void renderWifi(Drawer& drawer);
 	void activateInstalledMod(const std::string& folder);
 	void updateWifiModList();
+	void openGameBanana();
+	void updateGameBanana(float timeElapsed);
+	void reloadAfterInstalls();
 #endif
 	GameMenuEntry* getSelectedGameMenuEntry();
 
@@ -112,5 +118,6 @@ private:
 	std::string mWifiAddress;			// For which the QR code was made
 	std::vector<bool> mWifiQrModules;
 	int mWifiQrSize = 0;
+	GameBananaBrowser mGameBanana;		// Browsing and installing mods from GameBanana
 #endif
 };

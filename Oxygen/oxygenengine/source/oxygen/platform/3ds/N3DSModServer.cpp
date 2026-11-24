@@ -224,14 +224,6 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 
 			// --- Unpacking (in the background file writer's thread, with the SD card to itself) ---
 
-			struct UnpackResult
-			{
-				bool mSuccess = false;
-				std::string mMessage;
-				std::string mFolder;
-				std::vector<std::string> mWarnings;
-			};
-
 			void setUnpackProgress(int done, int total)
 			{
 				Locked lock;
@@ -239,9 +231,9 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				gShared.mStatus.mFilesTotal = total;
 			}
 
-			UnpackResult unpack(const std::string& zipPath, const std::string& uploadName)
+			InstallResult unpack(const std::string& zipPath, const std::string& uploadName, const std::string& modsDirectory, const std::string& installDir, const std::function<void(int, int)>& progress)
 			{
-				UnpackResult result;
+				InstallResult result;
 				unzFile zip = unzOpen64(zipPath.c_str());
 				if (nullptr == zip)
 				{
@@ -296,8 +288,7 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				}
 				folderName = cleanFolderName(folderName);
 
-				// Unpack into a folder of its own first; only a complete mod takes the place of an older version
-				const std::string installDir = gWorkDirectory + "wifi_install/";
+				// Unpack into a folder of its own first ("installDir", ending with '/'); only a complete mod takes the place of an older version
 				removeRecursively(installDir.substr(0, installDir.size() - 1));
 				createDirectories(installDir);
 
@@ -307,7 +298,8 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 					if (entry.compare(0, root.size(), root) == 0 && entry.size() > root.size() && entry.back() != '/')
 						++total;
 				}
-				setUnpackProgress(0, total);
+				if (progress)
+					progress(0, total);
 
 				std::vector<uint8_t> buffer(32 * 1024);
 				uint64_t totalSize = 0;
@@ -391,7 +383,9 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 						if ((int)std::max(width, height) > MAX_IMAGE_SIDE && bigImages.size() < 3)
 							bigImages.push_back(relative + " (" + std::to_string(width) + "x" + std::to_string(height) + ")");
 					}
-					setUnpackProgress(++done, total);
+					++done;
+					if (progress)
+						progress(done, total);
 				}
 				unzClose(zip);
 
@@ -402,12 +396,12 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				}
 
 				// In place: an older version of the same mod goes
-				const std::string destination = gModsDirectory + folderName;
+				const std::string destination = modsDirectory + folderName;
 				struct stat existing;
 				const bool replaced = (stat(destination.c_str(), &existing) == 0);
 				if (replaced)
 					removeRecursively(destination);
-				createDirectories(gModsDirectory);
+				createDirectories(modsDirectory);
 				if (rename(installDir.substr(0, installDir.size() - 1).c_str(), destination.c_str()) != 0)
 				{
 					removeRecursively(installDir.substr(0, installDir.size() - 1));
@@ -606,11 +600,11 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				RMX_LOG_INFO("Mods over Wi-Fi: received " << fileName << " (" << received << " bytes), unpacking");
 
 				// Unpacking in the background file writer (the SD card's busy enough as it is), reported back on the main thread
-				auto result = std::make_shared<UnpackResult>();
+				auto result = std::make_shared<InstallResult>();
 				const std::string uploadName = fileName;
 				n3ds::filewriter::runInBackground("unpacking a mod", [result, zipPath, uploadName]()
 				{
-					*result = unpack(zipPath, uploadName);
+					*result = installZip(zipPath, uploadName, gModsDirectory, gWorkDirectory + "wifi_install/", &setUnpackProgress);
 					unlink(zipPath.c_str());
 				},
 				[result]()
@@ -775,6 +769,11 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 					fcntl(listenSocket, F_SETFL, flags | O_NONBLOCK);
 				return listenSocket;
 			}
+		}
+
+		InstallResult installZip(const std::string& zipPath, const std::string& nameHint, const std::string& modsDirectory, const std::string& tempDirectory, const std::function<void(int, int)>& progress)
+		{
+			return unpack(zipPath, nameHint, modsDirectory, tempDirectory, progress);
 		}
 
 		bool start(const std::string& modsDirectory, const std::string& workDirectory, uint32_t ipAddress)

@@ -9,6 +9,7 @@
 #include "oxygen/platform/3ds/N3DSBottomScreen.h"
 #include "oxygen/platform/3ds/N3DSChallenges.h"
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
+#include "oxygen/platform/3ds/N3DSGameBanana.h"
 #include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSModServer.h"
 #include "oxygen/platform/3ds/N3DSQRCode.h"
@@ -1119,6 +1120,210 @@ void modServer()
 	check(!modserver::isRunning() && run("curl -s -m 2 " + base) .empty(), "stopped: the page is gone");
 }
 
+// The GameBanana mod browser: GameBanana's real answers (saved in "fixtures"), and with N3DS_TEST_ONLINE=1 the real thing
+void gameBanana()
+{
+	using namespace n3ds;
+	const std::string fixtures = std::string(HOSTTEST_DIR) + "/fixtures/";
+	const auto readFile = [](const std::string& path)
+	{
+		std::ifstream in(path, std::ios::binary);
+		return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+	};
+	const auto exists = [](const std::string& path) { struct stat info; return stat(path.c_str(), &info) == 0; };
+
+	// Addresses
+	check(gamebanana::getListUrl(gamebanana::Listing::POPULAR, "", 2) == "https://gamebanana.com/apiv11/Mod/Index?_nPage=2&_nPerpage=15&_aFilters%5BGeneric_Game%5D=6878&_sSort=Generic_MostDownloaded",
+		  "list address: " + gamebanana::getListUrl(gamebanana::Listing::POPULAR, "", 2));
+	const std::string searchUrl = gamebanana::getListUrl(gamebanana::Listing::SEARCH, "super sonic & tails", 1);
+	check(searchUrl.find("_sSearchString=super%20sonic%20%26%20tails&") != std::string::npos, "search address with the words encoded: " + searchUrl);
+
+	// Lists
+	{
+		std::vector<gamebanana::ModSummary> mods;
+		int total = 0;
+		std::string error;
+		const bool parsed = gamebanana::parseModList(readFile(fixtures + "gb_list_popular.json"), mods, total, error);
+		check(parsed && mods.size() == 15 && total > 6000, "most downloaded: " + std::to_string(mods.size()) + " mods of " + std::to_string(total));
+		if (!mods.empty())
+		{
+			const gamebanana::ModSummary& first = mods[0];
+			check(first.mId != 0 && !first.mName.empty() && !first.mAuthor.empty() && first.mThumbnailUrl.find("https://images.gamebanana.com/") == 0 && first.mThumbnailUrl.find("/100-90_") != std::string::npos,
+				  "first: \"" + first.mName + "\" by " + first.mAuthor + " (" + first.mCategory + "), " + std::to_string(first.mLikes) + " likes, picture " + first.mThumbnailUrl);
+		}
+		mods.clear();
+		const bool searched = gamebanana::parseModList(readFile(fixtures + "gb_search_tails.json"), mods, total, error);
+		bool allTails = searched && !mods.empty();
+		std::string names;
+		for (const gamebanana::ModSummary& mod : mods)
+			names += (names.empty() ? "" : ", ") + mod.mName;
+		check(allTails && total > 100, "search for \"tails\": " + std::to_string(mods.size()) + " of " + std::to_string(total) + " (" + names.substr(0, 120) + "...)");
+		const bool htmlRefused = !gamebanana::parseModList("<html>Bad gateway</html>", mods, total, error);
+		check(htmlRefused && !error.empty(), "an HTML error page instead of JSON: '" + error + "'");
+		const bool errorRefused = !gamebanana::parseModList("{\"_sErrorCode\":\"Throttled\",\"_sErrorMessage\":\"Too many requests\"}", mods, total, error);
+		check(errorRefused && error.find("Too many requests") != std::string::npos, "GameBanana's own error message is shown: '" + error + "'");
+	}
+
+	// Details
+	{
+		gamebanana::ModDetails details;
+		std::string error;
+		const bool parsedDetails = gamebanana::parseModDetails(readFile(fixtures + "gb_details_zip.json"), details, error);
+		check(parsedDetails && details.mName == "Character Underwater Palette Scripted" && details.mFiles.size() == 2,
+			  "details: \"" + details.mName + "\" by " + details.mAuthor + ", " + std::to_string(details.mFiles.size()) + " files, " + std::to_string(details.mDownloads) + " downloads");
+		if (details.mFiles.size() == 2)
+		{
+			check(details.mFiles[0].mName == "character_underwater_palette_scripted_v11.zip" && details.mFiles[0].mDateAdded >= details.mFiles[1].mDateAdded,
+				  "newest file first: " + details.mFiles[0].mName + " (" + std::to_string(details.mFiles[0].mSize) + " bytes)");
+			check(gamebanana::getFileProblem(details.mFiles[0]) == nullptr && !details.mFiles[0].mFlagged, "a .zip that passed GameBanana's checks can be installed");
+		}
+		check(details.mText.find('<') == std::string::npos && details.mText.find("&nbsp;") == std::string::npos, "description as plain text: \"" + details.mText.substr(0, 80) + "...\"");
+		check(!details.mImageUrls.empty() && details.mImageUrls[0].find("/220-90_") != std::string::npos, "preview pictures: " + std::to_string(details.mImageUrls.size()));
+
+		gamebanana::ModDetails rar;
+		const bool parsedRar = gamebanana::parseModDetails(readFile(fixtures + "gb_details_rar.json"), rar, error);
+		check(parsedRar && !rar.mFiles.empty(), "a mod with .rar files: " + std::to_string(rar.mFiles.size()) + " files");
+		const char* problem = rar.mFiles.empty() ? nullptr : gamebanana::getFileProblem(rar.mFiles[0]);
+		check(nullptr != problem && std::string(problem).find(".rar") != std::string::npos, std::string("... can't be installed on the 3DS: ") + (problem ? problem : "(no reason)"));
+	}
+
+	// Text
+	check(gamebanana::htmlToText("Hello<br>World &amp; more<br><br><br>&nbsp;<ul><li>One</li><li>Two</li></ul>") == "Hello\nWorld & more\n\n- One\n- Two",
+		  "HTML to text: '" + gamebanana::htmlToText("Hello<br>World &amp; more<br><br><br>&nbsp;<ul><li>One</li><li>Two</li></ul>") + "'");
+	check(gamebanana::toDisplayText("Sonic\xe2\x80\x99s \xe2\x80\x9c" "caf\xc3\xa9\xe2\x80\x9d \xe2\x80\x93 ok\xe2\x80\xa6 \xf0\x9f\x94\xa5!") == "Sonic's \"cafe\" - ok... !",
+		  "display text: '" + gamebanana::toDisplayText("Sonic\xe2\x80\x99s \xe2\x80\x9c" "caf\xc3\xa9\xe2\x80\x9d \xe2\x80\x93 ok\xe2\x80\xa6 \xf0\x9f\x94\xa5!") + "' (emoji left out)");
+	check(gamebanana::toDisplayText("cut \xe2\x80") == "cut ", "a character cut off at the end doesn't break anything");
+
+	// Pictures
+	{
+		gamebanana::Thumbnail thumbnail;
+		const bool decoded = gamebanana::decodeJpeg(readFile(fixtures + "gb_thumb_100.jpg"), 100, thumbnail);
+		check(decoded && thumbnail.mWidth == 100 && thumbnail.mHeight == 56 && thumbnail.mPixels.size() == 5600,
+			  "thumbnail JPEG decoded: " + std::to_string(thumbnail.mWidth) + "x" + std::to_string(thumbnail.mHeight));
+		gamebanana::Thumbnail small;
+		const bool decodedSmall = gamebanana::decodeJpeg(readFile(fixtures + "gb_thumb_100.jpg"), 50, small);
+		check(decodedSmall && small.mWidth == 50 && small.mHeight == 28, "... and scaled down while decoding: " + std::to_string(small.mWidth) + "x" + std::to_string(small.mHeight));
+		gamebanana::Thumbnail webp;
+		check(!gamebanana::decodeJpeg("RIFF....WEBPVP8 ", 100, webp), "a WebP picture is skipped (shown as a placeholder)");
+		if (thumbnail.mWidth == 100)
+		{
+			// As a picture, to look at
+			std::ofstream out(gOut + "/gamebanana_thumbnail.ppm", std::ios::binary);
+			out << "P6\n100 56\n255\n";
+			for (const uint32_t pixel : thumbnail.mPixels)
+				out << (char)(pixel & 0xff) << (char)((pixel >> 8) & 0xff) << (char)((pixel >> 16) & 0xff);
+		}
+	}
+
+	if (nullptr == getenv("N3DS_TEST_ONLINE"))
+	{
+		printf("  (set N3DS_TEST_ONLINE=1 to also test against the real GameBanana)\n");
+		return;
+	}
+
+	// The real GameBanana
+	if (const char* ca = getenv("CURL_CA_BUNDLE"))
+		setenv("N3DS_TEST_CA_FILE", ca, 1);
+	mkdir("sdmc:/3ds", 0777);
+	mkdir("sdmc:/3ds/sonic3air", 0777);
+	mkdir("sdmc:/3ds/sonic3air/savedata", 0777);
+	const std::string modsDir = "sdmc:/3ds/sonic3air/savedata/mods/";
+	const std::string workDir = "sdmc:/3ds/sonic3air/savedata/";
+	gamebanana::start(modsDir, workDir);
+
+	const auto waitFor = [](const std::function<bool(const gamebanana::State&)>& done, double seconds)
+	{
+		const auto start = std::chrono::steady_clock::now();
+		gamebanana::State state;
+		while (std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count() < seconds)
+		{
+			state = gamebanana::getState();
+			if (done(state))
+				return std::make_pair(true, state);
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		}
+		return std::make_pair(false, state);
+	};
+
+	auto t0 = std::chrono::steady_clock::now();
+	const auto seconds = [&]() { return std::to_string((int)(std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count() * 1000)) + " ms"; };
+	gamebanana::requestList(gamebanana::Listing::NEWEST, "", 1);
+	auto listed = waitFor([](const gamebanana::State& s) { return s.mListLoad == gamebanana::Load::READY || s.mListLoad == gamebanana::Load::FAILED; }, 30);
+	check(listed.second.mListLoad == gamebanana::Load::READY && listed.second.mMods.size() == 15,
+		  "online, newest: " + std::to_string(listed.second.mMods.size()) + " mods in " + seconds() + (listed.second.mListError.empty() ? "" : " - " + listed.second.mListError) +
+		  (listed.second.mMods.empty() ? "" : ", first \"" + listed.second.mMods[0].mName + "\""));
+
+	// Requests replace each other: only the last list counts
+	t0 = std::chrono::steady_clock::now();
+	gamebanana::requestList(gamebanana::Listing::POPULAR, "", 1);
+	gamebanana::requestList(gamebanana::Listing::SEARCH, "underwater palette", 1);
+	listed = waitFor([](const gamebanana::State& s) { return s.mListLoad == gamebanana::Load::READY || s.mListLoad == gamebanana::Load::FAILED; }, 30);
+	uint32_t underwaterId = 0;
+	for (const gamebanana::ModSummary& mod : listed.second.mMods)
+	{
+		if (mod.mName == "Character Underwater Palette Scripted")
+			underwaterId = mod.mId;
+	}
+	check(listed.second.mListing == gamebanana::Listing::SEARCH && underwaterId == 743095, "online search \"underwater palette\" finds the mod (" + seconds() + ")");
+
+	if (!listed.second.mMods.empty())
+	{
+		gamebanana::requestThumbnail(listed.second.mMods[0].mThumbnailUrl, 64);
+		gamebanana::Thumbnail thumbnail;
+		bool got = false;
+		for (int k = 0; k < 300 && !got; ++k)
+		{
+			got = gamebanana::takeThumbnail(thumbnail);
+			std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		}
+		check(got && !thumbnail.mFailed && thumbnail.mWidth >= 50, "online thumbnail: " + std::to_string(thumbnail.mWidth) + "x" + std::to_string(thumbnail.mHeight));
+	}
+
+	gamebanana::requestDetails(743095);
+	auto detailed = waitFor([](const gamebanana::State& s) { return s.mDetailsLoad == gamebanana::Load::READY || s.mDetailsLoad == gamebanana::Load::FAILED; }, 30);
+	check(detailed.second.mDetailsLoad == gamebanana::Load::READY && !detailed.second.mDetails.mFiles.empty(), "online details: " + std::to_string(detailed.second.mDetails.mFiles.size()) + " files");
+
+	if (!detailed.second.mDetails.mFiles.empty())
+	{
+		t0 = std::chrono::steady_clock::now();
+		gamebanana::requestInstall(detailed.second.mDetails.mFiles[0], detailed.second.mDetails.mName);
+		auto installed = waitFor([](const gamebanana::State& s) { return s.mInstall == gamebanana::Install::DONE; }, 60);
+		check(installed.second.mInstallSuccess, "online install: " + installed.second.mInstallMessage + " (" + seconds() + ")");
+		std::string folder;
+		const bool told = gamebanana::takeInstalledMod(folder);
+		check(told && exists(modsDir + folder + "/mod.json") && exists(modsDir + folder + "/scripts/main.lemon"), "... in the mods folder: " + folder);
+		check(!exists(workDir + "gamebanana_download.zip") && !exists(workDir + "gamebanana_install"), "... and the download is cleaned up");
+		gamebanana::acknowledgeInstall();
+	}
+
+	// A .rar: told right away, nothing downloaded
+	{
+		gamebanana::FileInfo rar;
+		rar.mName = "dreamcast_sonic.rar";
+		rar.mUrl = "https://gamebanana.com/dl/0";
+		gamebanana::requestInstall(rar, "Dreamcast sonic");
+		auto refused = waitFor([](const gamebanana::State& s) { return s.mInstall == gamebanana::Install::DONE; }, 10);
+		check(!refused.second.mInstallSuccess && refused.second.mInstallMessage.find(".rar") != std::string::npos, "online .rar: " + refused.second.mInstallMessage);
+		gamebanana::acknowledgeInstall();
+	}
+
+	// Cancelling a bigger download (Amy Galore, about 10 MB)
+	{
+		gamebanana::FileInfo big;
+		big.mName = "amy_galore.zip";
+		big.mUrl = "https://gamebanana.com/dl/1752484";
+		big.mSize = 9607788;
+		gamebanana::requestInstall(big, "Amy Galore");
+		waitFor([](const gamebanana::State& s) { return s.mBytes > 0; }, 20);
+		gamebanana::cancelInstall();
+		auto cancelled = waitFor([](const gamebanana::State& s) { return s.mInstall == gamebanana::Install::DONE; }, 20);
+		check(!cancelled.second.mInstallSuccess && cancelled.second.mInstallMessage == "Download cancelled." && !exists(workDir + "gamebanana_download.zip"),
+			  "online cancel: '" + cancelled.second.mInstallMessage + "', nothing left behind");
+		gamebanana::acknowledgeInstall();
+	}
+	gamebanana::stop();
+}
+
 int main(int argc, char** argv)
 {
 	if (argc < 3)
@@ -1133,7 +1338,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights }, { "editedfiles", editedFiles }, { "modserver", modServer },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights }, { "editedfiles", editedFiles }, { "modserver", modServer }, { "gamebanana", gameBanana },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

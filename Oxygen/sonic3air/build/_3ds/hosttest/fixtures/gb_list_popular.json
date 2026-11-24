@@ -1,0 +1,2462 @@
+{
+    "_aMetadata": {
+        "_nRecordCount": 6498,
+        "_bIsComplete": false,
+        "_nPerpage": 15
+    },
+    "_aRecords": [
+        {
+            "_idRow": 361972,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Modern Sonic S3&K Style v6",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/361972",
+            "_tsDateAdded": 1646374959,
+            "_tsDateModified": 1772742249,
+            "_bHasFiles": true,
+            "_aTags": [
+                "Software Used: Paint.NET"
+            ],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6592590d79260.jpg",
+                        "_sFile220": "220-90_6592590d79260.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_sFile530": "530-90_6592590d79260.jpg",
+                        "_hFile530": 297,
+                        "_wFile530": 530,
+                        "_sFile100": "100-90_6592590d79260.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "65924ada0c41a.jpg",
+                        "_sFile100": "100-90_65924ada0c41a.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "62eb57e4e25c8.jpg",
+                        "_sFile100": "100-90_62eb57e4e25c8.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "62eb57ef55590.jpg",
+                        "_sFile100": "100-90_62eb57ef55590.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "62eb57f8355a8.jpg",
+                        "_sFile100": "100-90_62eb57f8355a8.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68dd041b9f.jpg",
+                        "_sFile100": "100-90_63a68dd041b9f.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a6900916ab3.jpg",
+                        "_sFile100": "100-90_63a6900916ab3.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a69009169fc.jpg",
+                        "_sFile100": "100-90_63a69009169fc.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df831f4d.jpg",
+                        "_sFile100": "100-90_63a68df831f4d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7dd407.jpg",
+                        "_sFile100": "100-90_63a68df7dd407.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7a14fd.jpg",
+                        "_sFile100": "100-90_63a68df7a14fd.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df81296c.jpg",
+                        "_sFile100": "100-90_63a68df81296c.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7e7cd0.jpg",
+                        "_sFile100": "100-90_63a68df7e7cd0.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7dd334.jpg",
+                        "_sFile100": "100-90_63a68df7dd334.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df81c3b4.jpg",
+                        "_sFile100": "100-90_63a68df81c3b4.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7e5266.jpg",
+                        "_sFile100": "100-90_63a68df7e5266.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7b10a4.jpg",
+                        "_sFile100": "100-90_63a68df7b10a4.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df774d3f.jpg",
+                        "_sFile100": "100-90_63a68df774d3f.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7a0999.jpg",
+                        "_sFile100": "100-90_63a68df7a0999.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df76e2ea.jpg",
+                        "_sFile100": "100-90_63a68df76e2ea.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df74d515.jpg",
+                        "_sFile100": "100-90_63a68df74d515.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df74962a.jpg",
+                        "_sFile100": "100-90_63a68df74962a.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7302f2.jpg",
+                        "_sFile100": "100-90_63a68df7302f2.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68df7527ac.jpg",
+                        "_sFile100": "100-90_63a68df7527ac.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "659250699a5e6.jpg",
+                        "_sFile100": "100-90_659250699a5e6.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68e1e76dc7.jpg",
+                        "_sFile100": "100-90_63a68e1e76dc7.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "65924f9115202.jpg",
+                        "_sFile100": "100-90_65924f9115202.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "65924ff3de9cc.jpg",
+                        "_sFile100": "100-90_65924ff3de9cc.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "65924f912ad30.jpg",
+                        "_sFile100": "100-90_65924f912ad30.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a68fc365997.jpg",
+                        "_sFile100": "100-90_63a68fc365997.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "62eb58f84d40c.jpg",
+                        "_sFile100": "100-90_62eb58f84d40c.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "62eb58fea7b4d.jpg",
+                        "_sFile100": "100-90_62eb58fea7b4d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "62eb5905020b2.jpg",
+                        "_sFile100": "100-90_62eb5905020b2.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a69c6bcb41e.jpg",
+                        "_sFile100": "100-90_63a69c6bcb41e.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a69c91378b9.jpg",
+                        "_sFile100": "100-90_63a69c91378b9.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a69c912fd00.jpg",
+                        "_sFile100": "100-90_63a69c912fd00.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a69c92ae9dc.jpg",
+                        "_sFile100": "100-90_63a69c92ae9dc.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "65925152bda25.jpg",
+                        "_sFile100": "100-90_65925152bda25.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a69c91198ea.jpg",
+                        "_sFile100": "100-90_63a69c91198ea.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "65924a4f8256a.jpg",
+                        "_sFile100": "100-90_65924a4f8256a.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 2081286,
+                "_sName": "Faust64",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/2081286",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/6af029a1c709a.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Mod Packs",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/20004",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/637a7e8ee164f.png"
+            },
+            "_sVersion": "",
+            "_tsDateUpdated": 1648621961,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 86,
+            "_nPostCount": 137,
+            "_bWasFeatured": false,
+            "_nViewCount": 246913,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 54154,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Debug Mode+",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/54154",
+            "_tsDateAdded": 1590297600,
+            "_tsDateModified": 1753773621,
+            "_bHasFiles": true,
+            "_aTags": [
+                "Development State: Final"
+            ],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Monitors placed through Debug Mode+",
+                        "_sFile": "5f1ff3b441d5b.jpg",
+                        "_sFile220": "220-90_5f1ff3b441d5b.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_sFile530": "530-90_5f1ff3b441d5b.jpg",
+                        "_hFile530": 298,
+                        "_wFile530": 530,
+                        "_sFile100": "100-90_5f1ff3b441d5b.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "V2.0 now supports S2 Monitors, as well as monitor icons in placement mode",
+                        "_sFile": "5f1ff3b476690.jpg",
+                        "_sFile100": "100-90_5f1ff3b476690.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Upside-down S2 Monitor w\/ Icon",
+                        "_sFile": "5f1ff3b483bf3.jpg",
+                        "_sFile100": "100-90_5f1ff3b483bf3.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Custom Monitor Support! (Chaos Emerald Monitors mod)",
+                        "_sFile": "5f1ff3b474860.jpg",
+                        "_sFile100": "100-90_5f1ff3b474860.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Always-On Debug Mode HUD",
+                        "_sFile": "5f1ff3b471d02.jpg",
+                        "_sFile100": "100-90_5f1ff3b471d02.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Vanilla Debug Mode HUD option",
+                        "_sFile": "5f1ff3b48236d.jpg",
+                        "_sFile100": "100-90_5f1ff3b48236d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "graphic design is my passion",
+                        "_sFile": "5eca03b9c686e.jpg",
+                        "_sFile100": "100-90_5eca03b9c686e.jpg",
+                        "_hFile100": 100,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1709126,
+                "_sName": "DaKingofCheckerz",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1709126",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/5fc1c7dd7a29f.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Script Mods",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+            },
+            "_sVersion": "v2.0.1",
+            "_tsDateUpdated": 1680336651,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 106,
+            "_nPostCount": 87,
+            "_bWasFeatured": false,
+            "_nViewCount": 269418,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 54174,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Data Select Character Sprite Mod Support",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/54174",
+            "_tsDateAdded": 1596942322,
+            "_tsDateModified": 1662917285,
+            "_bHasFiles": true,
+            "_aTags": [],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "60469e71eda36.jpg",
+                        "_sFile220": "220-90_60469e71eda36.jpg",
+                        "_sFile530": "530-90_60469e71eda36.jpg",
+                        "_sFile100": "100-90_60469e71eda36.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_hFile530": 296,
+                        "_wFile530": 530,
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "60307deb2711e.jpg",
+                        "_sFile100": "100-90_60307deb2711e.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "60307deb1d341.jpg",
+                        "_sFile100": "100-90_60307deb1d341.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "60307deb1789e.jpg",
+                        "_sFile100": "100-90_60307deb1789e.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "60307deb1d7ee.jpg",
+                        "_sFile100": "100-90_60307deb1d7ee.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "60307dead9bfc.jpg",
+                        "_sFile100": "100-90_60307dead9bfc.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "60469fd5ecd9d.jpg",
+                        "_sFile100": "100-90_60469fd5ecd9d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6247db27303d6.jpg",
+                        "_sFile100": "100-90_6247db27303d6.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "this is the main mod, used to run alongside sprite mods made by other users",
+                        "_sFile": "60477fc7c8d2d.jpg",
+                        "_sFile100": "100-90_60477fc7c8d2d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "this is an example sprite mod, to be used alongside the main mod and as a reference to mod makers",
+                        "_sFile": "60477fc6987ff.jpg",
+                        "_sFile100": "100-90_60477fc6987ff.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "this is the template mod, containing unmodified assets for modders to use for their own sprite mods",
+                        "_sFile": "6047814d34cd7.jpg",
+                        "_sFile100": "100-90_6047814d34cd7.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1721297,
+                "_sName": "Vinnygar",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1721297",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/5ec3e48249a5e.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Script Mods",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+            },
+            "_sVersion": "version 2.5.0.0",
+            "_tsDateUpdated": 1662917486,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 218,
+            "_nPostCount": 196,
+            "_bWasFeatured": false,
+            "_nViewCount": 312110,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 54355,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Characters Go Super Then Hyper",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/54355",
+            "_tsDateAdded": 1589074599,
+            "_tsDateModified": 1610251358,
+            "_bHasFiles": true,
+            "_aTags": [],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Thumbnail",
+                        "_sFile": "5f7baf676147e.jpg",
+                        "_sFile530": "530-90_5f7baf676147e.jpg",
+                        "_sFile100": "100-90_5f7baf676147e.jpg",
+                        "_sFile220": "220-90_5f7baf676147e.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_hFile530": 298,
+                        "_wFile530": 530,
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Sonic",
+                        "_sFile": "5eb75711b5a7a.jpg",
+                        "_sFile100": "100-90_5eb75711b5a7a.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Sonic",
+                        "_sFile": "5eb75711af39c.jpg",
+                        "_sFile100": "100-90_5eb75711af39c.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Tails",
+                        "_sFile": "5eb757cf64b8b.jpg",
+                        "_sFile100": "100-90_5eb757cf64b8b.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Tails (Super Flickies are offscreen)",
+                        "_sFile": "5eb84694bb4d7.jpg",
+                        "_sFile100": "100-90_5eb84694bb4d7.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Knuckles",
+                        "_sFile": "5eb757cf62e9b.jpg",
+                        "_sFile100": "100-90_5eb757cf62e9b.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Knuckles",
+                        "_sFile": "5eb757cf64f40.jpg",
+                        "_sFile100": "100-90_5eb757cf64f40.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1728886,
+                "_sName": "Ghost1728886",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1728886",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/static\/img\/defaults\/avatar.gif"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Script Mods",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+            },
+            "_aSubCategory": {
+                "_sName": "Gameplay Modifications",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4831",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/5eded1f929178.png"
+            },
+            "_sVersion": "",
+            "_tsDateUpdated": 1610251287,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 147,
+            "_nPostCount": 153,
+            "_bWasFeatured": true,
+            "_nViewCount": 303384,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 252862,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Mania Tails for Sonic 3 A.I.R.",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/252862",
+            "_tsDateAdded": 1584685487,
+            "_tsDateModified": 1592272877,
+            "_bHasFiles": true,
+            "_aTags": [
+                "Animation: Custom"
+            ],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5e74609ab12f9.jpg",
+                        "_sFile530": "530-90_5e74609ab12f9.jpg",
+                        "_sFile100": "100-90_5e74609ab12f9.jpg",
+                        "_sFile220": "220-90_5e74609ab12f9.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Alternate Palettes",
+                        "_sFile": "5e74609f71c38.jpg",
+                        "_sFile100": "100-90_5e74609f71c38.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5e74609f56111.jpg",
+                        "_sFile100": "100-90_5e74609f56111.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5e74609f56f47.jpg",
+                        "_sFile100": "100-90_5e74609f56f47.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5e74609f713b4.jpg",
+                        "_sFile100": "100-90_5e74609f713b4.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5e74609f75461.jpg",
+                        "_sFile100": "100-90_5e74609f75461.jpg"
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1456298,
+                "_sName": "mrgrassman14",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1456298",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/5d3230c90aa84.gif",
+                "_sUpicUrl": "https:\/\/images.gamebanana.com\/img\/upic\/5f1cca043bc67.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Skins",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/11361",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1da32af.png"
+            },
+            "_aSubCategory": {
+                "_sName": "Tails",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/11364",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/62815601bf91e.png"
+            },
+            "_sVersion": "",
+            "_tsDateUpdated": 1584859218,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 77,
+            "_nPostCount": 62,
+            "_bWasFeatured": false,
+            "_nViewCount": 225837,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 363396,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Sonic 3D in 2D Shadow",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/363396",
+            "_tsDateAdded": 1646928195,
+            "_tsDateModified": 1685087244,
+            "_bHasFiles": true,
+            "_aTags": [],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "3D in 2D Shadow",
+                        "_sFile": "622a205131588.jpg",
+                        "_sFile220": "220-90_622a205131588.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_sFile530": "622a205131588.jpg",
+                        "_hFile530": 288,
+                        "_wFile530": 530,
+                        "_sFile100": "100-90_622a205131588.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Home in on enemies, but be careful, some may hurt you if you don't pay attention!",
+                        "_sFile": "622a20709b832.jpg",
+                        "_sFile100": "100-90_622a20709b832.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Boost your way through!",
+                        "_sFile": "622a207340046.jpg",
+                        "_sFile100": "100-90_622a207340046.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Wall latch and climb to other paths",
+                        "_sFile": "622a2073859ff.jpg",
+                        "_sFile100": "100-90_622a2073859ff.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "An all new Blue Spheres animation!",
+                        "_sFile": "622a2072c8f94.jpg",
+                        "_sFile100": "100-90_622a2072c8f94.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "V1.7 - Sonic 3D in 2D stars for Hyper Form",
+                        "_sFile": "644fb4b798e75.jpg",
+                        "_sFile100": "100-90_644fb4b798e75.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1759942,
+                "_sName": "Sotaknuck",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1759942",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/5fb97c93a5985.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Script Mods",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+            },
+            "_aSubCategory": {
+                "_sName": "Characters",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4822",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/5ec84c1bd82a3.png"
+            },
+            "_sVersion": "",
+            "_tsDateUpdated": 1685087281,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 141,
+            "_nPostCount": 237,
+            "_bWasFeatured": true,
+            "_nViewCount": 285496,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 252879,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Mania Knuckles for Sonic 3 A.I.R.",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/252879",
+            "_tsDateAdded": 1575206276,
+            "_tsDateModified": 1588337445,
+            "_bHasFiles": true,
+            "_aTags": [
+                "Texture: Custom"
+            ],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5de3ba74418e6.jpg",
+                        "_sFile220": "220-90_5de3ba74418e6.jpg",
+                        "_sFile530": "530-90_5de3ba74418e6.jpg",
+                        "_sFile100": "100-90_5de3ba74418e6.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Multiple palettes available",
+                        "_sFile": "5de4c88f7a92d.jpg",
+                        "_sFile100": "100-90_5de4c88f7a92d.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5de3b52bac2b2.jpg",
+                        "_sFile100": "100-90_5de3b52bac2b2.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5de3b52bb0b00.jpg",
+                        "_sFile100": "100-90_5de3b52bb0b00.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5de3b52bc435f.jpg",
+                        "_sFile100": "100-90_5de3b52bc435f.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5e03eb1d8fd7a.jpg",
+                        "_sFile100": "100-90_5e03eb1d8fd7a.jpg"
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5e03eb1d9021f.jpg",
+                        "_sFile100": "100-90_5e03eb1d9021f.jpg"
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1456298,
+                "_sName": "mrgrassman14",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1456298",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/5d3230c90aa84.gif",
+                "_sUpicUrl": "https:\/\/images.gamebanana.com\/img\/upic\/5f1cca043bc67.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Skins",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/11361",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1da32af.png"
+            },
+            "_aSubCategory": {
+                "_sName": "Knuckles",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/11365",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/628154ae98b21.png"
+            },
+            "_sVersion": "",
+            "_tsDateUpdated": 1588337137,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 93,
+            "_nPostCount": 50,
+            "_bWasFeatured": true,
+            "_nViewCount": 197110,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 151029,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Sonic 3: D.A. Garden Edition",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/151029",
+            "_tsDateAdded": 1591822190,
+            "_tsDateModified": 1792715564,
+            "_bHasFiles": true,
+            "_aTags": [
+                "Type: Game Modes"
+            ],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66b8f84c38d42.jpg",
+                        "_sFile220": "220-90_66b8f84c38d42.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_sFile530": "66b8f84c38d42.jpg",
+                        "_hFile530": 224,
+                        "_wFile530": 530,
+                        "_sFile100": "100-90_66b8f84c38d42.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100,
+                        "_sFile800": "66b8f84c38d42.jpg",
+                        "_hFile800": 224,
+                        "_wFile800": 800
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fd87b3a.jpg",
+                        "_sFile100": "100-90_6adaa9fd87b3a.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fdb439c.jpg",
+                        "_sFile100": "100-90_6adaa9fdb439c.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fdb7d10.jpg",
+                        "_sFile100": "100-90_6adaa9fdb7d10.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fdd70fd.jpg",
+                        "_sFile100": "100-90_6adaa9fdd70fd.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "69252a4eecddd.jpg",
+                        "_sFile100": "100-90_69252a4eecddd.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fdb446a.jpg",
+                        "_sFile100": "100-90_6adaa9fdb446a.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fdcfe7c.jpg",
+                        "_sFile100": "100-90_6adaa9fdcfe7c.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "688e4f708857b.jpg",
+                        "_sFile100": "100-90_688e4f708857b.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fe0e5ce.jpg",
+                        "_sFile100": "100-90_6adaa9fe0e5ce.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fdc603b.jpg",
+                        "_sFile100": "100-90_6adaa9fdc603b.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "658b9e1b3683d.jpg",
+                        "_sFile100": "100-90_658b9e1b3683d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6963657cbf575.jpg",
+                        "_sFile100": "100-90_6963657cbf575.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6963657cbc9c0.jpg",
+                        "_sFile100": "100-90_6963657cbc9c0.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fd9f812.jpg",
+                        "_sFile100": "100-90_6adaa9fd9f812.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaa9fdbaf9f.jpg",
+                        "_sFile100": "100-90_6adaa9fdbaf9f.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6adaaae11f310.jpg",
+                        "_sFile100": "100-90_6adaaae11f310.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1734581,
+                "_sName": "Thorn_SRetro",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1734581",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/5ee124e2d2c3a.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Full Game Edit",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/13644",
+                "_sIconUrl": ""
+            },
+            "_sVersion": "v1.13.3.2",
+            "_tsDateUpdated": 1790137662,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 343,
+            "_nPostCount": 822,
+            "_bWasFeatured": true,
+            "_nViewCount": 371994,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 462026,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Extra Slot Modern Trio",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/462026",
+            "_tsDateAdded": 1691849796,
+            "_tsDateModified": 1755739046,
+            "_bHasFiles": true,
+            "_aTags": [],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6547988bd062b.jpg",
+                        "_sFile220": "220-90_6547988bd062b.jpg",
+                        "_hFile220": 154,
+                        "_wFile220": 220,
+                        "_sFile530": "530-90_6547988bd062b.jpg",
+                        "_hFile530": 371,
+                        "_wFile530": 530,
+                        "_sFile100": "100-90_6547988bd062b.jpg",
+                        "_hFile100": 70,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "64d7940625e95.jpg",
+                        "_sFile100": "100-90_64d7940625e95.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918c058571b.jpg",
+                        "_sFile100": "100-90_66918c058571b.jpg",
+                        "_hFile100": 61,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918c05d0f19.jpg",
+                        "_sFile100": "100-90_66918c05d0f19.jpg",
+                        "_hFile100": 30,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918c05e7024.jpg",
+                        "_sFile100": "100-90_66918c05e7024.jpg",
+                        "_hFile100": 71,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918c05eb70e.jpg",
+                        "_sFile100": "100-90_66918c05eb70e.jpg",
+                        "_hFile100": 20,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918c05ed8d6.jpg",
+                        "_sFile100": "100-90_66918c05ed8d6.jpg",
+                        "_hFile100": 68,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918c060eb8b.jpg",
+                        "_sFile100": "100-90_66918c060eb8b.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918c0631515.jpg",
+                        "_sFile100": "100-90_66918c0631515.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918c0673b96.jpg",
+                        "_sFile100": "100-90_66918c0673b96.jpg",
+                        "_hFile100": 54,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66918f1061f3d.jpg",
+                        "_sFile100": "100-90_66918f1061f3d.jpg",
+                        "_hFile100": 74,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "66dd9fc388a83.jpg",
+                        "_sFile100": "100-90_66dd9fc388a83.jpg",
+                        "_hFile100": 71,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 2242656,
+                "_sName": "Jesus.B",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/2242656",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/630e606f5f2e6.png",
+                "_sUpicUrl": "https:\/\/images.gamebanana.com\/img\/upic\/64373b8b8ac81.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Extra Slot Characters",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/19345",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/65a6a06364d9e.png"
+            },
+            "_sVersion": "v2.1",
+            "_tsDateUpdated": 1740664328,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 114,
+            "_nPostCount": 507,
+            "_bWasFeatured": true,
+            "_nViewCount": 143945,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 54229,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Megamix Movesets",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/54229",
+            "_tsDateAdded": 1593799089,
+            "_tsDateModified": 1608357834,
+            "_bHasFiles": true,
+            "_aTags": [
+                "Software Used: Visual Studio Code",
+                "Software Used: S3AIR Animation Editor",
+                "Software Used: Audacity",
+                "Software Used: GIMP",
+                "Software Used: Paint.NET",
+                "Development State: Stable",
+                "Development State: Final"
+            ],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Thumbnail",
+                        "_sFile": "5f16514fe451e.jpg",
+                        "_sFile530": "530-90_5f16514fe451e.jpg",
+                        "_sFile100": "100-90_5f16514fe451e.jpg",
+                        "_sFile220": "220-90_5f16514fe451e.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_hFile530": 298,
+                        "_wFile530": 530,
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Lots of options to choose from! (and more coming!)",
+                        "_sFile": "5f165659ecd39.jpg",
+                        "_sFile100": "100-90_5f165659ecd39.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Megamix themed SEGA splash screen",
+                        "_sFile": "5f095dd5bf7e7.jpg",
+                        "_sFile100": "100-90_5f095dd5bf7e7.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Megamix themed Title Screen",
+                        "_sFile": "5f095dd5e104b.jpg",
+                        "_sFile100": "100-90_5f095dd5e104b.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Sonic Air Dash",
+                        "_sFile": "5eff6f4349053.jpg",
+                        "_sFile100": "100-90_5eff6f4349053.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Sonic Light Speed Dash",
+                        "_sFile": "5eff6f479eb53.jpg",
+                        "_sFile100": "100-90_5eff6f479eb53.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Sonic Light Speed Dash (Megamix Mania Style)",
+                        "_sFile": "5f01bbcad30f1.jpg",
+                        "_sFile100": "100-90_5f01bbcad30f1.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Sonic",
+                        "_sFile": "5eff6f4435634.jpg",
+                        "_sFile100": "100-90_5eff6f4435634.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Sonic 8-Directional Air Dash",
+                        "_sFile": "5eff6f436997e.jpg",
+                        "_sFile100": "100-90_5eff6f436997e.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Sonic",
+                        "_sFile": "5eff6f4459ec8.jpg",
+                        "_sFile100": "100-90_5eff6f4459ec8.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Sonic Flight",
+                        "_sFile": "5eff6f4410f72.jpg",
+                        "_sFile100": "100-90_5eff6f4410f72.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Sonic Signpost",
+                        "_sFile": "5f095dd58e43b.jpg",
+                        "_sFile100": "100-90_5f095dd58e43b.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Tails Fast Flight",
+                        "_sFile": "5eff6f43acf6a.jpg",
+                        "_sFile100": "100-90_5eff6f43acf6a.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Tails Tail Whip",
+                        "_sFile": "5eff6f43aeacf.jpg",
+                        "_sFile100": "100-90_5eff6f43aeacf.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Tails",
+                        "_sFile": "5f00990682b64.jpg",
+                        "_sFile100": "100-90_5f00990682b64.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Tails Strong Propeller Flight",
+                        "_sFile": "5eff6f44b6f7d.jpg",
+                        "_sFile100": "100-90_5eff6f44b6f7d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Tails",
+                        "_sFile": "5eff6f453fcf4.jpg",
+                        "_sFile100": "100-90_5eff6f453fcf4.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Tails Unlimited Flight",
+                        "_sFile": "5eff6f4538404.jpg",
+                        "_sFile100": "100-90_5eff6f4538404.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Tails Signpost",
+                        "_sFile": "5f095dd5e97c3.jpg",
+                        "_sFile100": "100-90_5f095dd5e97c3.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Knuckles Uppercut",
+                        "_sFile": "5eff6f42a2b3e.jpg",
+                        "_sFile100": "100-90_5eff6f42a2b3e.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Knuckles Glide Flutter",
+                        "_sFile": "5eff6f439e76f.jpg",
+                        "_sFile100": "100-90_5eff6f439e76f.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Knuckles",
+                        "_sFile": "5eff6f466c784.jpg",
+                        "_sFile100": "100-90_5eff6f466c784.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Super Knuckles Strong Uppercut",
+                        "_sFile": "5eff6f46695d3.jpg",
+                        "_sFile100": "100-90_5eff6f46695d3.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Knuckles",
+                        "_sFile": "5eff6f461aca6.jpg",
+                        "_sFile100": "100-90_5eff6f461aca6.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hyper Knuckles Stronger Uppercut",
+                        "_sFile": "5eff6f46e59d3.jpg",
+                        "_sFile100": "100-90_5eff6f46e59d3.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Knuckles Signpost",
+                        "_sFile": "5f095dd5a7334.jpg",
+                        "_sFile100": "100-90_5f095dd5a7334.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1728886,
+                "_sName": "Ghost1728886",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1728886",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/static\/img\/defaults\/avatar.gif"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Script Mods",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+            },
+            "_aSubCategory": {
+                "_sName": "Abilities\/Movesets",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4821",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/5ec84ab84a9d5.png"
+            },
+            "_sVersion": "",
+            "_tsDateUpdated": 1598851923,
+            "_bIsObsolete": true,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 112,
+            "_nPostCount": 309,
+            "_bWasFeatured": true,
+            "_nViewCount": 326876,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 54230,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Modern Sonic Moveset",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/54230",
+            "_tsDateAdded": 1593888553,
+            "_tsDateModified": 1630670350,
+            "_bHasFiles": true,
+            "_aTags": [],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5f1dacdd6f811.jpg",
+                        "_sFile530": "530-90_5f1dacdd6f811.jpg",
+                        "_sFile100": "100-90_5f1dacdd6f811.jpg",
+                        "_sFile220": "220-90_5f1dacdd6f811.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_hFile530": 298,
+                        "_wFile530": 530,
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Boost bar",
+                        "_sFile": "5f00cdf8769f3.jpg",
+                        "_sFile100": "100-90_5f00cdf8769f3.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Boost",
+                        "_sFile": "5f00cdf89506f.jpg",
+                        "_sFile100": "100-90_5f00cdf89506f.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Boost",
+                        "_sFile": "5f00cdf8a4004.jpg",
+                        "_sFile100": "100-90_5f00cdf8a4004.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Boost",
+                        "_sFile": "5f00cdf8e353b.jpg",
+                        "_sFile100": "100-90_5f00cdf8e353b.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "You can boost down the mountain",
+                        "_sFile": "5f1c7d4f6a9de.jpg",
+                        "_sFile100": "100-90_5f1c7d4f6a9de.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Lightspeed dash",
+                        "_sFile": "5f00cdf82bd1d.jpg",
+                        "_sFile100": "100-90_5f00cdf82bd1d.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Somersault",
+                        "_sFile": "5f00cdf88a6ce.jpg",
+                        "_sFile100": "100-90_5f00cdf88a6ce.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Stomping",
+                        "_sFile": "5f1dad36a4d6d.jpg",
+                        "_sFile100": "100-90_5f1dad36a4d6d.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1734610,
+                "_sName": "Lave sIime",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1734610",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/5ee18910c744f.png",
+                "_sHdAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/609988581f925.png",
+                "_sUpicUrl": "https:\/\/images.gamebanana.com\/img\/upic\/6099d911005f9.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Script Mods",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+            },
+            "_aSubCategory": {
+                "_sName": "Abilities\/Movesets",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4821",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/5ec84ab84a9d5.png"
+            },
+            "_sVersion": "",
+            "_tsDateUpdated": 1595780672,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 62,
+            "_nPostCount": 175,
+            "_bWasFeatured": true,
+            "_nViewCount": 238330,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 54238,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Sonic Homing Attack",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/54238",
+            "_tsDateAdded": 1606157684,
+            "_tsDateModified": 1624660365,
+            "_bHasFiles": true,
+            "_aTags": [],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5fc5075735978.jpg",
+                        "_sFile530": "530-90_5fc5075735978.jpg",
+                        "_sFile100": "100-90_5fc5075735978.jpg",
+                        "_sFile220": "220-90_5fc5075735978.jpg",
+                        "_hFile220": 123,
+                        "_wFile220": 220,
+                        "_hFile530": 296,
+                        "_wFile530": 530,
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5fc5075722a65.jpg",
+                        "_sFile100": "100-90_5fc5075722a65.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "5fc5075777909.jpg",
+                        "_sFile100": "100-90_5fc5075777909.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1696780,
+                "_sName": "Ghost1696780",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1696780",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/banned.gif"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Script Mods",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+            },
+            "_aSubCategory": {
+                "_sName": "Abilities\/Movesets",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4821",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/5ec84ab84a9d5.png"
+            },
+            "_sVersion": "",
+            "_tsDateUpdated": 1607011726,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 77,
+            "_nPostCount": 33,
+            "_bWasFeatured": true,
+            "_nViewCount": 197051,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 414544,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "SAWNIC (Official Newtrogic Panic Sonic mod)",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/414544",
+            "_tsDateAdded": 1671832776,
+            "_tsDateModified": 1682519911,
+            "_bHasFiles": true,
+            "_aTags": [
+                "Legitimacy: Official"
+            ],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "6386345ba6ec4.jpg",
+                        "_sFile220": "220-90_6386345ba6ec4.jpg",
+                        "_hFile220": 317,
+                        "_wFile220": 220,
+                        "_sFile530": "530-90_6386345ba6ec4.jpg",
+                        "_hFile530": 763,
+                        "_wFile530": 530,
+                        "_sFile100": "100-90_6386345ba6ec4.jpg",
+                        "_hFile100": 144,
+                        "_wFile100": 100,
+                        "_sFile800": "800-90_6386345ba6ec4.jpg",
+                        "_hFile800": 1151,
+                        "_wFile800": 800
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9c8a54f5.jpg",
+                        "_sFile100": "100-90_63a5e9c8a54f5.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e96f6233f.jpg",
+                        "_sFile100": "100-90_63a5e96f6233f.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9ba55aef.jpg",
+                        "_sFile100": "100-90_63a5e9ba55aef.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9ba8b883.jpg",
+                        "_sFile100": "100-90_63a5e9ba8b883.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9bb83dc4.jpg",
+                        "_sFile100": "100-90_63a5e9bb83dc4.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9ad4386d.jpg",
+                        "_sFile100": "100-90_63a5e9ad4386d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9b7efd1a.jpg",
+                        "_sFile100": "100-90_63a5e9b7efd1a.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e996c2ec7.jpg",
+                        "_sFile100": "100-90_63a5e996c2ec7.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9bc49ea8.jpg",
+                        "_sFile100": "100-90_63a5e9bc49ea8.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9c482082.jpg",
+                        "_sFile100": "100-90_63a5e9c482082.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9c915fc6.jpg",
+                        "_sFile100": "100-90_63a5e9c915fc6.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63e7d60354e5e.jpg",
+                        "_sFile100": "100-90_63e7d60354e5e.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9cade0e8.jpg",
+                        "_sFile100": "100-90_63a5e9cade0e8.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9cb06b44.jpg",
+                        "_sFile100": "100-90_63a5e9cb06b44.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9cf07951.jpg",
+                        "_sFile100": "100-90_63a5e9cf07951.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9cf24a45.jpg",
+                        "_sFile100": "100-90_63a5e9cf24a45.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63e7d61ec471f.jpg",
+                        "_sFile100": "100-90_63e7d61ec471f.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9a8314a3.jpg",
+                        "_sFile100": "100-90_63a5e9a8314a3.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9cf3f813.jpg",
+                        "_sFile100": "100-90_63a5e9cf3f813.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63a5e9cfb69c1.jpg",
+                        "_sFile100": "100-90_63a5e9cfb69c1.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63e7d60362509.jpg",
+                        "_sFile100": "100-90_63e7d60362509.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "63e7d603e1a01.jpg",
+                        "_sFile100": "100-90_63e7d603e1a01.jpg",
+                        "_hFile100": 55,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 2356279,
+                "_sName": "blu32x",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/2356279",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/banned.gif"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Full Game Edit",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/13644",
+                "_sIconUrl": ""
+            },
+            "_sVersion": "v1.04",
+            "_tsDateUpdated": 1676138261,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 470,
+            "_nPostCount": 542,
+            "_bWasFeatured": true,
+            "_nViewCount": 284674,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 501853,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "WeatherMod v3",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/501853",
+            "_tsDateAdded": 1710856428,
+            "_tsDateModified": 1790369286,
+            "_bHasFiles": true,
+            "_aTags": [],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "67357d992ef8d.jpg",
+                        "_sFile220": "220-90_67357d992ef8d.jpg",
+                        "_hFile220": 124,
+                        "_wFile220": 220,
+                        "_sFile530": "530-90_67357d992ef8d.jpg",
+                        "_hFile530": 298,
+                        "_wFile530": 530,
+                        "_sFile100": "100-90_67357d992ef8d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "67357da24412c.jpg",
+                        "_sFile100": "100-90_67357da24412c.jpg",
+                        "_hFile100": 59,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "67357da76e406.jpg",
+                        "_sFile100": "100-90_67357da76e406.jpg",
+                        "_hFile100": 59,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "67357db1a62f6.jpg",
+                        "_sFile100": "100-90_67357db1a62f6.jpg",
+                        "_hFile100": 59,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "67357db822f56.jpg",
+                        "_sFile100": "100-90_67357db822f56.jpg",
+                        "_hFile100": 59,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sFile": "67357dbe93453.jpg",
+                        "_sFile100": "100-90_67357dbe93453.jpg",
+                        "_hFile100": 59,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 2830362,
+                "_sName": "Useott",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/2830362",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/690170d572bab.png",
+                "_sHdAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/6901710c1cdbb.png",
+                "_sUpicUrl": "https:\/\/images.gamebanana.com\/img\/upic\/690e962eaf9e8.png",
+                "_aSubjectShaper": {
+                    "_sBorderStyle": "Stroke",
+                    "_sFont": "Courier New",
+                    "_sTextColor": "#55c8ac",
+                    "_sTextHoverColor": "#c765ff",
+                    "_sBorderColor": "#6737a5",
+                    "_sBorderHoverColor": "#2f857f"
+                },
+                "_sSubjectShaperCssCode": "font-family:'Courier New';color:#55c8ac;"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "Script Mods",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4819",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/60b51f1546a32.png"
+            },
+            "_aSubCategory": {
+                "_sName": "Custom Graphics",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/4824",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/5ecba5e569731.png"
+            },
+            "_sVersion": "3.5.3",
+            "_tsDateUpdated": 1789321305,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 246,
+            "_nPostCount": 678,
+            "_bWasFeatured": true,
+            "_nViewCount": 163973,
+            "_bIsOwnedByAccessor": false
+        },
+        {
+            "_idRow": 500302,
+            "_sModelName": "Mod",
+            "_sSingularTitle": "Mod",
+            "_sIconClasses": "SubmissionType Mod",
+            "_sName": "Amy Galore || (MISCfit Amy)",
+            "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/500302",
+            "_tsDateAdded": 1710136519,
+            "_tsDateModified": 1793120909,
+            "_bHasFiles": true,
+            "_aTags": [],
+            "_aPreviewMedia": {
+                "_aImages": [
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Amy galore box art",
+                        "_sFile": "66d250cf29ae3.jpg",
+                        "_sFile220": "220-90_66d250cf29ae3.jpg",
+                        "_hFile220": 308,
+                        "_wFile220": 220,
+                        "_sFile530": "530-90_66d250cf29ae3.jpg",
+                        "_hFile530": 741,
+                        "_wFile530": 530,
+                        "_sFile100": "100-90_66d250cf29ae3.jpg",
+                        "_hFile100": 140,
+                        "_wFile100": 100,
+                        "_sFile800": "800-90_66d250cf29ae3.jpg",
+                        "_hFile800": 1119,
+                        "_wFile800": 800
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Amy galore box art Ca22",
+                        "_sFile": "66d250cfcda3b.jpg",
+                        "_sFile100": "100-90_66d250cfcda3b.jpg",
+                        "_hFile100": 140,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Amy galore box art S3",
+                        "_sFile": "66d250cfd483f.jpg",
+                        "_sFile100": "100-90_66d250cfd483f.jpg",
+                        "_hFile100": 140,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Normal Palette, Hammer Glide demo",
+                        "_sFile": "65ee968f21d1d.jpg",
+                        "_sFile100": "100-90_65ee968f21d1d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Normal Palette, Hammer Rush demo",
+                        "_sFile": "65ee95b6bf576.jpg",
+                        "_sFile100": "100-90_65ee95b6bf576.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Alternate Palette, Hammer Spin demo",
+                        "_sFile": "65ee957d2201e.jpg",
+                        "_sFile100": "100-90_65ee957d2201e.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Alternate Palette",
+                        "_sFile": "65ee96548027d.jpg",
+                        "_sFile100": "100-90_65ee96548027d.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hammer attack!",
+                        "_sFile": "6610078a041d4.jpg",
+                        "_sFile100": "100-90_6610078a041d4.jpg",
+                        "_hFile100": 67,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hop!",
+                        "_sFile": "661007a884c3b.jpg",
+                        "_sFile100": "100-90_661007a884c3b.jpg",
+                        "_hFile100": 81,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Ca22 face slide",
+                        "_sFile": "66d253f880676.jpg",
+                        "_sFile100": "100-90_66d253f880676.jpg",
+                        "_hFile100": 56,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hammer throw!",
+                        "_sFile": "66d2540b64459.jpg",
+                        "_sFile100": "100-90_66d2540b64459.jpg",
+                        "_hFile100": 71,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "BUY SONIC SUPERSTARS!",
+                        "_sFile": "66d2541b1be0d.jpg",
+                        "_sFile100": "100-90_66d2541b1be0d.jpg",
+                        "_hFile100": 75,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Hammer swing S3",
+                        "_sFile": "66d2542dd6981.jpg",
+                        "_sFile100": "100-90_66d2542dd6981.jpg",
+                        "_hFile100": 65,
+                        "_wFile100": 100
+                    },
+                    {
+                        "_sType": "screenshot",
+                        "_sBaseUrl": "https:\/\/images.gamebanana.com\/img\/ss\/mods",
+                        "_sCaption": "Custom palette, face slam",
+                        "_sFile": "66d25446673d3.jpg",
+                        "_sFile100": "100-90_66d25446673d3.jpg",
+                        "_hFile100": 92,
+                        "_wFile100": 100
+                    }
+                ]
+            },
+            "_aSubmitter": {
+                "_idRow": 1762461,
+                "_sName": "AtomicRey",
+                "_bIsOnline": false,
+                "_bHasRipe": false,
+                "_sProfileUrl": "https:\/\/gamebanana.com\/members\/1762461",
+                "_sAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/69061570727a1.png",
+                "_sHdAvatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/690615addde05.png",
+                "_sHovatarUrl": "https:\/\/images.gamebanana.com\/img\/av\/6906161dca6f0.png"
+            },
+            "_aGame": {
+                "_idRow": 6878,
+                "_sName": "Sonic 3 A.I.R.",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/games\/6878",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/games\/60416b88798e0.png"
+            },
+            "_aRootCategory": {
+                "_sName": "MISCfits (More Independant Save Characters)",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/42103",
+                "_sIconUrl": ""
+            },
+            "_aSubCategory": {
+                "_sName": "MISCfit Characters",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/mods\/cats\/50803",
+                "_sIconUrl": "https:\/\/images.gamebanana.com\/img\/ico\/ModCategory\/6ae0d26703a8e.png"
+            },
+            "_sVersion": "3.2.3",
+            "_tsDateUpdated": 1792970640,
+            "_bIsObsolete": false,
+            "_sInitialVisibility": "show",
+            "_bHasContentRatings": false,
+            "_nLikeCount": 314,
+            "_nPostCount": 903,
+            "_bWasFeatured": true,
+            "_aStudio": {
+                "_sName": "Team Galore!",
+                "_sBannerUrl": "https:\/\/images.gamebanana.com\/img\/banners\/studios\/6a45bbc04572d.png",
+                "_sProfileUrl": "https:\/\/gamebanana.com\/studios\/37565"
+            },
+            "_nViewCount": 221023,
+            "_bIsOwnedByAccessor": false
+        }
+    ]
+}

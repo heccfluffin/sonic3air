@@ -20,6 +20,7 @@ public:
 
 #if defined(PLATFORM_3DS)
 	bool mWifiRequested = false;		// "Install mods over Wi-Fi" was chosen
+	bool mGameBananaRequested = false;	// "Browse mods on GameBanana" was chosen
 #endif
 
 private:

@@ -252,7 +252,15 @@ your progress, until it's beaten. The notification light glows red when you beat
 
 ## Mods
 
-**The easiest way: over Wi-Fi.** In the game's **Mods** menu, choose **Install mods over Wi-Fi** (or press **SELECT** once
+**The easiest way: right from GameBanana.** In the game's **Mods** menu, choose **Browse mods on GameBanana** (or press
+**START** once you have mods). You get the Sonic 3 A.I.R. mods from [gamebanana.com](https://gamebanana.com/games/6878)
+with their preview pictures: **L / R** switch between Popular, Newest, Top rated and Search, **left / right** turn the
+pages, **Y** searches (with the 3DS keyboard), **A** shows a mod's description and files. Press **A** there to download
+and install it: it's unpacked to the SD card and turned on. Mods that come as `.rar` or `.7z` can't be unpacked on
+the 3DS. Unpack them on a PC and send them as `.zip` over Wi-Fi (below), or use the mod patcher. The 3DS needs an Internet connection
+set up in System Settings. The connection is encrypted and the server is checked, so the downloads really come from GameBanana.
+
+**From your phone or PC: over Wi-Fi.** In the game's **Mods** menu, choose **Install mods over Wi-Fi** (or press **SELECT** once
 you have mods). The 3DS shows its address, like `http://192.168.1.23/`, and a QR code for it. Open that on your phone or PC
 (in the same Wi-Fi) and pick a mod's `.zip`: it's sent straight to the SD card, unpacked and turned on - nothing to install
 anywhere. The page warns about things the 3DS can't do (custom shaders, very big images or music). The 3DS needs an Internet

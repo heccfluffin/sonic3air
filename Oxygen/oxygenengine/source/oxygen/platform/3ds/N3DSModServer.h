@@ -15,6 +15,7 @@
 #if defined(PLATFORM_3DS)
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,19 @@ namespace n3ds
 			std::string mLastMessage;		// What happened with the latest upload
 			std::vector<std::string> mLastWarnings;
 		};
+
+		struct InstallResult
+		{
+			bool mSuccess = false;
+			std::string mMessage;					// For the player
+			std::string mFolder;					// The mod's folder in the mods folder
+			std::vector<std::string> mWarnings;
+		};
+
+		// Unpacks a mod's .zip into the mods folder, with the checks described above (also used by the GameBanana browser).
+		// "tempDirectory" (ending with '/', on the same SD card) is where it's unpacked first; "progress" gets (files done, total).
+		// Blocks while the SD card works, so call it from a background thread.
+		InstallResult installZip(const std::string& zipPath, const std::string& nameHint, const std::string& modsDirectory, const std::string& tempDirectory, const std::function<void(int, int)>& progress);
 
 		// The mods folder, and a folder for the upload and unpacking (on the same SD card, so the result can be moved in place)
 		bool start(const std::string& modsDirectory, const std::string& workDirectory, uint32_t ipAddress);

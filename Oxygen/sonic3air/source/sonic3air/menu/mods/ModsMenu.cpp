@@ -294,16 +294,27 @@ void ModsMenu::update(float timeElapsed)
 			updateWifi(timeElapsed);
 			return;
 		}
+		if (mGameBanana.isOpen())
+		{
+			updateGameBanana(timeElapsed);
+			return;
+		}
 	#endif
 
 		if (mHasAnyMods)
 		{
 		#if defined(PLATFORM_3DS)
-			// SELECT: install more over Wi-Fi
+			// SELECT: install more over Wi-Fi, START: browse GameBanana
 			if (keys.Back.justPressed() && !mInMovementMode)
 			{
 				playMenuSound(0x63);
 				openWifi();
+				return;
+			}
+			if (keys.Start.justPressed() && !mInMovementMode)
+			{
+				playMenuSound(0x63);
+				openGameBanana();
 				return;
 			}
 		#endif
@@ -528,6 +539,11 @@ void ModsMenu::update(float timeElapsed)
 				mModsStartPage.mWifiRequested = false;
 				openWifi();
 			}
+			else if (mModsStartPage.mGameBananaRequested)
+			{
+				mModsStartPage.mGameBananaRequested = false;
+				openGameBanana();
+			}
 		#endif
 		}
 	}
@@ -634,6 +650,7 @@ void ModsMenu::render()
 		mModsStartPage.render(drawer, mVisibility);
 	#if defined(PLATFORM_3DS)
 		renderWifi(drawer);
+		mGameBanana.render(drawer);
 	#endif
 		return;
 	}
@@ -863,6 +880,7 @@ void ModsMenu::render()
 
 #if defined(PLATFORM_3DS)
 	renderWifi(drawer);
+	mGameBanana.render(drawer);
 #endif
 	drawer.performRendering();
 }
@@ -986,7 +1004,10 @@ void ModsMenu::refreshControlsDisplay()
 	}
 #if defined(PLATFORM_3DS)
 	if (!mInMovementMode && !keys.X.isPressed())
+	{
+		mGameMenuControlsDisplay.addControl("GameBanana", true, "@input_icon_button_start");
 		mGameMenuControlsDisplay.addControl("Wi-Fi install", true, "@input_icon_button_back");
+	}
 #endif
 
 	mGameMenuControlsDisplay.addControl("Back", true, "@input_icon_button_B");
@@ -1159,13 +1180,38 @@ void ModsMenu::updateWifi(float timeElapsed)
 		mWifiOpen = false;
 		playMenuSound(0xad);
 		if (mWifiInstalls > 0)
-		{
-			// The new mods into the lists
-			mModEntries.clear();
-			initialize();
-			refreshControlsDisplay();
-		}
+			reloadAfterInstalls();
 	}
+}
+
+void ModsMenu::reloadAfterInstalls()
+{
+	// The new mods into the lists
+	mModEntries.clear();
+	initialize();
+	refreshControlsDisplay();
+}
+
+void ModsMenu::openGameBanana()
+{
+	// Changes made in the list so far count first, so the list can be rebuilt with the new mods
+	applyModChanges();
+	mWifiInstalls = 0;
+	const std::string appData = WString(Configuration::instance().mAppDataPath).toStdString();
+	mGameBanana.open(WString(ModManager::instance().getModsBasePath()).toStdString(), appData);
+}
+
+void ModsMenu::updateGameBanana(float timeElapsed)
+{
+	mGameBanana.update(timeElapsed);
+
+	// Mods installed from there get turned on right away (like the PC mod patcher does)
+	std::string folder;
+	while (mGameBanana.takeInstalledMod(folder))
+		activateInstalledMod(folder);
+
+	if (!mGameBanana.isOpen() && mWifiInstalls > 0)
+		reloadAfterInstalls();
 }
 
 void ModsMenu::renderWifi(Drawer& drawer)

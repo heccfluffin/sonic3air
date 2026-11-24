@@ -26,19 +26,23 @@ with open(os.path.join(gen, 'embedded.c'), 'w') as c:
 		c.write(f'const uint32_t {name}_size = {len(data)};\n')
 PY
 
-FLAGS="-I$HERE/../../../../../framework/external/zlib/zlib/contrib/minizip -std=c++17 -O1 -g -Wall -Wno-unused-function -DPLATFORM_3DS -DN3DS_PROFILER -I$HERE/fake -I$HERE -I$SRC -I$OUT/gen"
+FLAGS="-I$HERE/../../../../../librmx/source/rmxbase/_jsoncpp -DN3DS_HOST_TEST -DHOSTTEST_DIR=\"$HERE\" -I$HERE/../../../../../framework/external/zlib/zlib/contrib/minizip -std=c++17 -O1 -g -Wall -Wno-unused-function -DPLATFORM_3DS -DN3DS_PROFILER -I$HERE/fake -I$HERE -I$SRC -I$OUT/gen"
 gcc -c -O1 "$OUT/gen/embedded.c" -o "$OUT/embedded.o"
 MINIZIP="$HERE/../../../../../framework/external/zlib/zlib/contrib/minizip"
 gcc -c -O1 -w -DUSE_FILE32API -I"$MINIZIP" "$MINIZIP/ioapi.c" -o "$OUT/ioapi.o"
 gcc -c -O1 -w -DUSE_FILE32API -I"$MINIZIP" "$MINIZIP/unzip.c" -o "$OUT/unzip.o"
+JSONCPP="$HERE/../../../../../librmx/source/rmxbase/_jsoncpp"
+for f in json_reader json_value json_writer; do g++ -c -O1 -w -std=c++17 -I"$JSONCPP" "$JSONCPP/$f.cpp" -o "$OUT/$f.o"; done
+ar rcs "$OUT/jsoncpp.a" "$OUT/json_reader.o" "$OUT/json_value.o" "$OUT/json_writer.o"
 g++ $FLAGS -include "$HERE/fake/3ds.h" \
 	"$SRC/oxygen/platform/3ds/N3DSBottomScreen.cpp" "$SRC/oxygen/platform/3ds/N3DSShop.cpp" "$SRC/oxygen/platform/3ds/N3DSProfile.cpp" \
 	"$SRC/oxygen/platform/3ds/N3DSFileWriter.cpp" "$SRC/oxygen/platform/3ds/N3DSJournal.cpp" "$SRC/oxygen/platform/3ds/N3DSChallenges.cpp" \
-	"$SRC/oxygen/platform/3ds/N3DSModServer.cpp" "$SRC/oxygen/platform/3ds/N3DSQRCode.cpp" "$OUT/ioapi.o" "$OUT/unzip.o" "$HERE/fake3ds.cpp" "$HERE/main.cpp" "$OUT/embedded.o" \
-	-Wl,--wrap=time -Wl,--wrap=write -lz -pthread -o "$OUT/hosttest"
+	"$SRC/oxygen/platform/3ds/N3DSModServer.cpp" "$SRC/oxygen/platform/3ds/N3DSQRCode.cpp" \
+	"$SRC/oxygen/platform/3ds/N3DSHttp.cpp" "$SRC/oxygen/platform/3ds/N3DSGameBanana.cpp" "$OUT/jsoncpp.a" "$OUT/ioapi.o" "$OUT/unzip.o" "$HERE/fake3ds.cpp" "$HERE/main.cpp" "$OUT/embedded.o" \
+	-Wl,--wrap=time -Wl,--wrap=write -lcurl -lturbojpeg -lz -pthread -o "$OUT/hosttest"
 
 FAILED=0
-for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload postcards postcardsall rewards rewardsreload challenges challengeslots challengetypes challengetypes2 challengetypes3 challengegeneration challengelights editedfiles modserver; do
+for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload postcards postcardsall rewards rewardsreload challenges challengeslots challengetypes challengetypes2 challengetypes3 challengegeneration challengelights editedfiles modserver gamebanana; do
 	echo "== $scenario"
 	mkdir -p "$OUT/sd_$scenario/sdmc:"		# The SD card itself, which always exists on the 3DS
 	(cd "$OUT/sd_$scenario" && "$OUT/hosttest" "$scenario" "$OUT/shots") || FAILED=1
