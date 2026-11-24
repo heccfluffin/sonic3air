@@ -216,16 +216,17 @@ earning an extra life, finding a bonus stage, scoring points, getting all three 
 through Hydrocity without running low on air, breaking monitors, using moves (spindashes, and the drop dash, Super
 Peel-Out, insta-shield or Knuckles' glide only if you have them switched on), going Super (once you've had all the
 emeralds), popping Carnival Night's balloons, or turning the lights back on in Sandopolis 2), in zones you've already reached.
-The hard one can also be **Outrun your shadow**: in that act a gray copy of you with a red trail runs your exact way 3
-seconds behind (he only sets off once you do, and waits during cutscenes and boss fights). His touch is a hit - and loses
-that try - but Sonic's insta-shield or shield moves, Knuckles' glide, invincibility or Super knock him back further
-behind. As Robotnik's Special he's only 2 seconds behind and his touch is the end. And now and then he turns up uninvited: the **Shadow
+The hard one can also be **Outrun your shadow**: in that act a gray copy of you with a red trail runs your exact way 2.5
+seconds behind, catching up to 1.5 seconds (he only sets off once you do, waits during cutscenes, fades away in boss fights and is gone for good once the boss is beaten). His
+touch is a hit - and loses that try - but Sonic's insta-shield or shield moves, Knuckles' glide, invincibility or Super
+knock him back further behind (hurt, like you losing rings), and then he catches up again. As Robotnik's Special he
+starts 2 seconds behind and his touch is the end. And now and then he turns up uninvited: the **Shadow
 Ambush** (on the Challenge tab: off, 1% of acts - the default -, 5%, 25% or every act). A WARNING with an alarm, then the
 Doomsday music, and he chases you for the rest of the act (not in bonus stages or Doomsday); giant rings and the bonus
 stage stars over checkpoints stay out of reach while he's there. Reach the end of the act for a Robotnik voucher. **Egg Robo
 Patrols** (also on the Challenge tab: off by default, rare, sometimes or often) send Sky Sanctuary's Egg Robos into the
 other zones: one flies in, takes a clear spot at your height, waits a moment, charges its laser gun (blinking) and fires
-when no wall is in between - three shots, then it flies off. Jump, roll or spindash into one to pop it like a badnik;
+when no wall is in between, aimed at where you're running to (a little up or down too) - three shots, then it flies off. Jump, roll or spindash into one to pop it like a badnik;
 an elemental shield bounces the laser off. Half of the time **Red Eye** (the Death Egg's first boss, as it is after breaking out of
 its pillar, in its own chrome colors) comes first, as a security camera: it hovers at the top of the screen sweeping towards
 you, its eye following you - let it get right above you and the alarm goes off, it flashes red with anger, its nozzle

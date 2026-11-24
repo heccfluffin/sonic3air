@@ -19,7 +19,7 @@ namespace n3ds
 {
 	namespace shadow
 	{
-		static const int START_DELAY = 180;			// Frames behind the character: 3 seconds
+		static const int START_DELAY = 150;			// Frames behind the character at first: 2.5 seconds (then he catches up to 1.5)
 		static const int DEADLY_DELAY = 120;		// 2 seconds in the Robotnik's Special version
 		static const int KNOCK_BACK_FRAMES = 90;	// Each knock-back puts him 1.5 seconds further behind...
 		static const int MAX_DELAY = 600;			// ...up to 10 seconds (then he's only stunned for a moment)

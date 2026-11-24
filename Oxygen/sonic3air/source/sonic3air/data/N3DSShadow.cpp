@@ -11,6 +11,7 @@
 #if defined(PLATFORM_3DS)
 
 #include "sonic3air/data/N3DSShadow.h"
+#include "sonic3air/data/N3DSBossFight.h"
 #include "sonic3air/audio/AudioOut.h"
 #include "sonic3air/helper/GameUtils.h"
 
@@ -32,6 +33,8 @@ namespace n3ds
 			const int BUFFER_SIZE = 1024;		// Recorded frames, more than the longest delay
 			const int FADE_FRAMES = 30;			// To appear (and to vanish when a boss comes)
 			const int REWIND_SPEED = 6;			// While knocked back, he flies back along the way five times as fast as it was run
+			const int CATCH_UP_DELAY = 90;		// Then he catches up again (and from the start), running a third faster, until this close
+			const int HURT_FRAMES = 40;			// Shown hurt after a knock-back, like the character losing rings
 			const int TRAIL_LENGTH = 3;			// Red afterimages...
 			const int TRAIL_SPACING = 3;		// ...at the places he was this many frames ago, and twice and three times that
 			const int HISTORY = TRAIL_LENGTH * TRAIL_SPACING + 1;
@@ -68,6 +71,8 @@ namespace n3ds
 			uint32 gRecorded = 0;			// Frames recorded since the last reset
 			int gDelay = START_DELAY;		// How far behind he is
 			int gTargetDelay = START_DELAY;	// Where a knock-back is taking him
+			int gHurt = 0;					// Frames left to show him hurt
+			int gBossFrames = 0;			// Of a boss fight in this act: after one, he's done
 			bool gStarted = false;			// The delay was set for this run
 			bool gWaitingForMove = true;	// He only starts following once the character set off (not while they stand at the start)
 			uint16 gStartX = 0;
@@ -137,9 +142,15 @@ namespace n3ds
 				}
 			}
 
-			void drawAt(EmulatorInterface& emulatorInterface, uint32 frameIndex, const Color& color, uint16 renderQueue, uint64 spriteTag)
+			void drawAt(EmulatorInterface& emulatorInterface, uint32 frameIndex, const Color& color, uint16 renderQueue, uint64 spriteTag, bool hurt = false)
 			{
-				const Frame& frame = gFrames[frameIndex % BUFFER_SIZE];
+				Frame frame = gFrames[frameIndex % BUFFER_SIZE];
+				if (hurt)
+				{
+					// The hurt pose from the characters' animation tables in the ROM (Sonic 0x8d, Tails 0x8a, Knuckles 0x8d)
+					frame.mSprite = (frame.mCharacter == 1) ? 0x8a : 0x8d;
+					frame.mRotation = 0;
+				}
 				const Frame& before = gFrames[(frameIndex + BUFFER_SIZE - 1) % BUFFER_SIZE];
 				const int px = (int)frame.mX - (int)emulatorInterface.readMemory16(0xffffee80);		// camera.position.x
 				const int py = (int)frame.mY - (int)emulatorInterface.readMemory16(0xffffee84);		// camera.position.y
@@ -176,7 +187,7 @@ namespace n3ds
 				}
 
 				// Himself
-				drawAt(emulatorInterface, gHistory[0], Color(1.0f, 1.0f, 1.0f, visibility), 0x9efc, 0x5ad0000000ull);
+				drawAt(emulatorInterface, gHistory[0], Color(1.0f, 1.0f, 1.0f, visibility), 0x9efc, 0x5ad0000000ull, gHurt > 0);
 				spriteManager.setCustomSpritePaletteOverride(nullptr, nullptr);
 			}
 
@@ -186,6 +197,7 @@ namespace n3ds
 				gTargetDelay = std::min(gDelay + KNOCK_BACK_FRAMES, MAX_DELAY);
 				gCooldown = (gTargetDelay > gDelay) ? 20 : KNOCK_BACK_FRAMES;
 				gStunned = (gTargetDelay <= gDelay);
+				gHurt = HURT_FRAMES;
 				RMX_LOG_INFO("Shadow: knocked back, now " << gTargetDelay << " frames behind");
 				AudioOut::instance().playAudioDirect(SFX_KNOCK_BACK, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
 			}
@@ -251,6 +263,8 @@ namespace n3ds
 			gFade = 0;
 			gCooldown = 0;
 			gStunned = false;
+			gHurt = 0;
+			gBossFrames = 0;
 			gHasFrameNumber = false;
 			gHistoryCount = 0;
 			gPending = Pending::NONE;
@@ -292,26 +306,26 @@ namespace n3ds
 			gHasFrameNumber = true;
 			gFrameNumber = frameNumber;
 
-			// A boss (or miniboss) fight: he fades away, and starts over once it's done
-			if (emulatorInterface.readMemory8(0xfffff7aa) != 0)		// level.boss_encounter
+			// In a cutscene the character can't be controlled: he waits too
+			const bool cutscene = ((int8)emulatorInterface.readMemory8(0xfffff7ca) != 0);		// player1.control_override
+
+			// A boss (or miniboss) fight: he fades away, and once it's beaten he's gone for the rest of the act (a fight is two
+			// seconds of boss music with the character in control, not a cutscene with Knuckles' theme)
+			const bool bossFight = n3ds::isBossFight();
+			if (bossFight && newFrame && !cutscene && gBossFrames < 120)
+				++gBossFrames;
+			if (bossFight || gBossFrames >= 120)
 			{
 				if (newFrame && gFade > 0)
 					gFade = std::max(gFade - 2, 0);
 				if (gFade > 0)
-				{
 					draw(emulatorInterface);
-				}
-				else if (gRecorded > 0)
-				{
-					reset();
-					gStarted = true;
-					gDelay = gTargetDelay = deadly ? DEADLY_DELAY : START_DELAY;
-				}
+				else if (!bossFight && gRecorded > 0)
+					RMX_LOG_INFO("Shadow: gone, the boss is beaten");
+				if (gFade == 0)
+					gRecorded = 0;
 				return;
 			}
-
-			// In a cutscene the character can't be controlled: he waits too
-			const bool cutscene = ((int8)emulatorInterface.readMemory8(0xfffff7ca) != 0);		// player1.control_override
 			if (newFrame && !cutscene && gWaitingForMove)
 			{
 				// Where the character stands when the act (or the life) starts: following begins once they got away from there
@@ -334,7 +348,17 @@ namespace n3ds
 			{
 				record(emulatorInterface);
 				if (gDelay < gTargetDelay)
+				{
 					gDelay = std::min(gDelay + REWIND_SPEED, gTargetDelay);
+				}
+				else if (gCooldown == 0 && gHurt == 0 && gDelay > CATCH_UP_DELAY && isVisible() && (gRecorded % 3) == 0)
+				{
+					// Catching up: skipping a recorded frame every third one
+					--gDelay;
+					gTargetDelay = gDelay;
+				}
+				if (gHurt > 0)
+					--gHurt;
 				if (gCooldown > 0)
 					--gCooldown;
 				if (gCooldown == 0)

@@ -15,6 +15,7 @@ namespace fake
 	void setBirthday(int month, int day);
 	void setTouch(bool touching, int x = 0, int y = 0);		// For the next "hidScanInput"
 	void setSDCardDelay(int ms);					// Extra time each write to the SD card takes
+	int getWriteCalls();							// write() calls on files so far
 
 	int getSwapCount();
 	uint32_t getTopScreenTint();				// As set by the night mode, 0xRRGGBB							// How often the bottom screen was presented

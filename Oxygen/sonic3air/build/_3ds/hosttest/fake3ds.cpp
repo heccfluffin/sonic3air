@@ -1,3 +1,4 @@
+#include <atomic>
 // Host test: the fake 3DS behind fake/3ds.h
 #include "fake/3ds.h"
 #include "fake/oxygen/pch.h"
@@ -26,6 +27,7 @@ namespace
 	bool gTouching = false, gWasTouching = false, gNextTouching = false;
 	int gTouchX = 0, gTouchY = 0;
 	int gSDCardDelayMs = 0;
+	std::atomic<int> gWriteCalls { 0 };
 	u16 gFramebuffer[240 * 320];
 	GSPGPU_FramebufferFormat gFormat = GSP_BGR8_OES;
 	int gSwapCount = 0;
@@ -58,6 +60,7 @@ namespace fake
 	void setBirthday(int month, int day)	{ gBirthdayMonth = month; gBirthdayDay = day; }
 	void setTouch(bool touching, int x, int y)	{ gNextTouching = touching; if (touching) { gTouchX = x; gTouchY = y; } }
 	void setSDCardDelay(int ms)			{ gSDCardDelayMs = ms; }
+	int getWriteCalls()					{ return gWriteCalls; }
 	int getSwapCount()					{ return gSwapCount; }
 	uint32_t getTopScreenTint()			{ return gTopTint; }
 
@@ -97,6 +100,8 @@ extern "C" time_t __wrap_time(time_t* out)
 extern "C" ssize_t __real_write(int fd, const void* buffer, size_t count);
 extern "C" ssize_t __wrap_write(int fd, const void* buffer, size_t count)
 {
+	if (fd > 2)
+		++gWriteCalls;
 	if (gSDCardDelayMs > 0)
 		std::this_thread::sleep_for(std::chrono::milliseconds(gSDCardDelayMs));
 	return __real_write(fd, buffer, count);
@@ -125,6 +130,13 @@ void LightEvent_Wait(LightEvent* event)
 	std::unique_lock<std::mutex> lock(event->mMutex);
 	event->mCondition.wait(lock, [event] { return event->mSignaled; });
 	event->mSignaled = false;
+}
+int LightEvent_WaitTimeout(LightEvent* event, int64_t timeout_ns)
+{
+	std::unique_lock<std::mutex> lock(event->mMutex);
+	const bool signaled = event->mCondition.wait_for(lock, std::chrono::nanoseconds(timeout_ns), [event] { return event->mSignaled; });
+	event->mSignaled = false;
+	return signaled ? 0 : 1;
 }
 void LightEvent_Signal(LightEvent* event)
 {

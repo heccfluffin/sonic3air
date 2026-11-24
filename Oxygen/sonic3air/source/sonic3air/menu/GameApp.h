@@ -62,6 +62,8 @@ private:
 	void gotoPhase(int phaseNumber);
 #if defined(PLATFORM_3DS)
 	void updateBottomScreen();
+	bool updateWebLink(float timeElapsed);
+	void renderWebLink(Drawer& drawer);
 #endif
 
 private:
@@ -80,6 +82,10 @@ private:
 
 	DrawerTexture mDisclaimerTexture;
 	float mDisclaimerVisibility = 0.0f;
+#if defined(PLATFORM_3DS)
+	std::string mWebLinkUrl;		// A website a menu wanted to open, shown instead (see "N3DSWebLink.h")
+	float mWebLinkTime = 0.0f;
+#endif
 
 	GameView* mGameView = nullptr;
 	GameMenuManager* mGameMenuManager = nullptr;

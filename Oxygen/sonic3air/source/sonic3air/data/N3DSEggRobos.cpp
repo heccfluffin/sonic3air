@@ -11,6 +11,7 @@
 #if defined(PLATFORM_3DS)
 
 #include "sonic3air/data/N3DSEggRobos.h"
+#include "sonic3air/data/N3DSBossFight.h"
 #include "sonic3air/audio/AudioOut.h"
 
 #include "oxygen/application/Application.h"
@@ -86,8 +87,10 @@ namespace n3ds
 			struct Laser
 			{
 				bool mActive = false;
-				int mX = 0;
-				int mY = 0;
+				float mX = 0.0f;
+				float mY = 0.0f;
+				float mVelocityX = 0.0f;	// Aimed at the character: mostly sideways, up to about 35 degrees up or down
+				float mVelocityY = 0.0f;
 				int mDirection = 1;
 			};
 
@@ -207,13 +210,13 @@ namespace n3ds
 				return true;
 			}
 
-			// Nothing solid between its gun and the character, at the gun's height
-			bool hasLineOfFire(int fromX, int toX, int y)
+			// Nothing solid on the straight line between its gun and the character
+			bool hasLineOfFire(int fromX, int fromY, int toX, int toY)
 			{
-				const int step = (toX >= fromX) ? 12 : -12;
-				for (int x = fromX; (step > 0) ? (x < toX) : (x > toX); x += step)
+				const int steps = std::max(std::abs(toX - fromX), std::abs(toY - fromY)) / 12;
+				for (int k = 0; k < steps; ++k)
 				{
-					if (isWall(x, y))
+					if (isWall(fromX + (toX - fromX) * k / steps, fromY + (toY - fromY) * k / steps))
 						return false;
 				}
 				return true;
@@ -415,14 +418,14 @@ namespace n3ds
 			{
 				// Like hitting a badnik: rolling or jumping, spindashing, the insta-shield, a shield move or gliding, invincible or Super
 				EmulatorInterface& emulatorInterface = emu();
-				const uint8 animation = emulatorInterface.readMemory8(0xffffb020);		// char.state: 0x02 rolling (and jumping)
+				const uint8 animation = emulatorInterface.readMemory8(0xffffb020);		// char.state: 0x02 or 0x03 rolling (and jumping)
 				const uint8 character = emulatorInterface.readMemory8(0xffffb038);
-				return animation == 0x02 || emulatorInterface.readMemory8(0xffffb03d) != 0 ||
+				return animation == 0x02 || animation == 0x03 || emulatorInterface.readMemory8(0xffffb03d) != 0 ||
 					   (emulatorInterface.readMemory8(0xffffb02f) == 1 && character != 1) ||
 					   (emulatorInterface.readMemory8(0xffffb02b) & 0x02) != 0 || emulatorInterface.readMemory8(0xfffffe19) != 0;
 			}
 
-			void fireLaser(const Robo& robo)
+			void fireLaser(const Robo& robo, int characterX, int characterY)
 			{
 				for (Laser& laser : gLasers)
 				{
@@ -430,8 +433,23 @@ namespace n3ds
 						continue;
 					laser.mActive = true;
 					laser.mDirection = robo.mFacing;
-					laser.mX = roundToInt(robo.mX) + robo.mFacing * 39;		// At the gun's muzzle
-					laser.mY = roundToInt(robo.mY) - 8;
+					laser.mX = (float)(roundToInt(robo.mX) + robo.mFacing * 39);		// At the gun's muzzle
+					laser.mY = (float)(roundToInt(robo.mY) - 8);
+
+					// Aimed at about where the character will be when it gets there: most of their speed sideways counts, up or down a little
+					// (jumps curve); never backwards or steeper than about 35 degrees
+					EmulatorInterface& emulatorInterface = emu();
+					const float speedX = (float)(int16)emulatorInterface.readMemory16(0xffffb018) / 256.0f;		// char.velocity.x
+					const float speedY = (float)(int16)emulatorInterface.readMemory16(0xffffb01a) / 256.0f;		// char.velocity.y
+					const float time = std::abs((float)characterX - laser.mX) / (float)LASER_SPEED;
+					float dx = (float)characterX + speedX * time * 0.75f - laser.mX;
+					const float dy = (float)characterY + clamp(speedY * time * 0.3f, -24.0f, 24.0f) - laser.mY;
+					if (dx * (float)robo.mFacing < 16.0f)
+						dx = (float)robo.mFacing * 16.0f;
+					const float slope = clamp(dy / std::abs(dx), -0.7f, 0.7f);
+					const float length = std::sqrt(1.0f + slope * slope);
+					laser.mVelocityX = (float)robo.mFacing * (float)LASER_SPEED / length;
+					laser.mVelocityY = slope * (float)LASER_SPEED / length;
 					AudioOut::instance().playAudioDirect(SFX_LASER, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
 					return;
 				}
@@ -534,10 +552,10 @@ namespace n3ds
 				const int gunY = roundToInt(robo.mY) - 8;
 				if (robo.mState == State::HOVER)
 				{
-					// The original aims when the character is no more than 8 pixels above or below it
-					const int dy = characterY - roundToInt(robo.mY);
-					if (robo.mCooldown == 0 && std::abs(dy) <= 10 && std::abs(characterX - robo.mX) < 256 &&
-						hasLineOfFire(roundToInt(robo.mX) + robo.mFacing * 39, characterX, gunY))
+					// Fires when the character is roughly at its height (it aims a little up or down) and nothing's in between
+					const int dy = characterY - gunY;
+					if (robo.mCooldown == 0 && std::abs(dy) <= 56 && std::abs(characterX - robo.mX) < 256 &&
+						hasLineOfFire(roundToInt(robo.mX) + robo.mFacing * 39, gunY, characterX, characterY))
 					{
 						robo.mState = State::CHARGE;
 						robo.mTimer = CHARGE_FRAMES;
@@ -548,7 +566,7 @@ namespace n3ds
 					--robo.mTimer;
 					if (robo.mTimer <= 0)
 					{
-						fireLaser(robo);
+						fireLaser(robo, characterX, characterY);
 						RMX_LOG_INFO("Egg Robo: fired (age " << robo.mAge << " frames)");
 						++robo.mShots;
 						robo.mCooldown = COOLDOWN_FRAMES;
@@ -707,8 +725,11 @@ namespace n3ds
 
 			void updateLaser(Laser& laser, int characterX, int characterY, int cameraX, int screenWidth)
 			{
-				laser.mX += laser.mDirection * LASER_SPEED;
-				if (laser.mX < cameraX - 64 || laser.mX > cameraX + screenWidth + 64 || isWall(laser.mX + laser.mDirection * 24, laser.mY))
+				laser.mX += laser.mVelocityX;
+				laser.mY += laser.mVelocityY;
+				const int tipX = roundToInt(laser.mX + laser.mVelocityX * 3.0f);
+				const int tipY = roundToInt(laser.mY + laser.mVelocityY * 3.0f);
+				if (laser.mX < cameraX - 64 || laser.mX > cameraX + screenWidth + 64 || isWall(tipX, tipY))
 				{
 					laser.mActive = false;
 					return;
@@ -730,11 +751,11 @@ namespace n3ds
 				}
 			}
 
-			void drawPart(int frame, int x, int y, bool flipX, uint16 renderQueue)
+			void drawPart(int frame, int x, int y, bool flipX, uint16 renderQueue, float angle = 0.0f)
 			{
 				if (gSpriteKeys[frame] == 0)
 					return;
-				RenderParts::instance().getSpriteManager().drawCustomSprite(gSpriteKeys[frame], Vec2i(x, y), 0, flipX ? 0x01 : 0x00, renderQueue);
+				RenderParts::instance().getSpriteManager().drawCustomSprite(gSpriteKeys[frame], Vec2i(x, y), 0, flipX ? 0x01 : 0x00, renderQueue, Color::WHITE, angle);
 			}
 		}
 
@@ -841,7 +862,7 @@ namespace n3ds
 			const int cameraY = emulatorInterface.readMemory16(0xffffee84);
 			const int screenWidth = VideoOut::instance().getScreenWidth();
 			const int screenHeight = VideoOut::instance().getScreenHeight();
-			const bool bossFight = (emulatorInterface.readMemory8(0xfffff7aa) != 0);		// level.boss_encounter
+			const bool bossFight = n3ds::isBossFight();
 
 			// Now and then, a new one (never in boss fights, nor in the first seconds of an act)
 			static const int MIN_SECONDS[4] = { 0, 90, 45, 20 };
@@ -932,7 +953,11 @@ namespace n3ds
 			for (const Laser& laser : gLasers)
 			{
 				if (laser.mActive)
-					drawPart(FRAME_LASER, laser.mX - cameraX, laser.mY - cameraY, laser.mDirection > 0, 0x9e03);
+				{
+					// Tilted the way it flies (the ROM's laser points left)
+					const float angle = (laser.mDirection > 0) ? std::atan2(laser.mVelocityY, laser.mVelocityX) : -std::atan2(laser.mVelocityY, -laser.mVelocityX);
+					drawPart(FRAME_LASER, roundToInt(laser.mX) - cameraX, roundToInt(laser.mY) - cameraY, laser.mDirection > 0, 0x9e03, angle);
+				}
 			}
 			spriteManager.setCustomSpritePaletteOverride(nullptr, nullptr);
 		}

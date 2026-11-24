@@ -46,6 +46,10 @@ public:
 	void updatePlayback(float timeElapsed);
 
 	bool isPlayingSfxId(uint64 sfxId, AudioReference* outAudioRef = nullptr) const;
+#if defined(PLATFORM_3DS)
+	// Like "isPlayingSfxId", but without claiming a sound kept from before loading a save state (for checks that aren't the game's)
+	bool isPlayingSfxIdQuietly(uint64 sfxId) const;
+#endif
 	bool getAudioRefByChannel(int channelId, AudioReference& outAudioRef) const;
 	bool getAudioRefByContext(int contextId, AudioReference& outAudioRef) const;
 	void changeSoundContext(AudioReference& audioRef, int contextId);

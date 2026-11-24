@@ -47,6 +47,9 @@
 	#include "oxygen/simulation/SaveStateSerializer.h"
 	#include <lemon/runtime/Runtime.h>
 	#include "sonic3air/data/N3DSAmbush.h"
+	#include "sonic3air/menu/GameMenuBase.h"
+	#include "sonic3air/menu/N3DSWebLinkQR.h"
+	#include "oxygen/platform/3ds/N3DSWebLink.h"
 	#include <3ds.h>
 	#include <memory>
 	#include <sys/stat.h>
@@ -132,6 +135,15 @@ void GameApp::keyboard(const rmx::KeyboardEvent& ev)
 
 void GameApp::update(float timeElapsed)
 {
+#if defined(PLATFORM_3DS)
+	// A website shown: the menus wait until it's closed
+	if (updateWebLink(timeElapsed))
+	{
+		updateBottomScreen();
+		return;
+	}
+#endif
+
 	GuiBase::update(timeElapsed);
 
 	// Update disclaimer fade-in / fade-out
@@ -238,8 +250,113 @@ void GameApp::render()
 		n3ds::ambush::render(drawer, (int)FTX::screenRect().width);
 		drawer.performRendering();
 	}
+
+	renderWebLink(drawer);
 #endif
 }
+
+#if defined(PLATFORM_3DS)
+bool GameApp::updateWebLink(float timeElapsed)
+{
+	std::string url;
+	if (n3ds::weblink::takeRequest(url))
+	{
+		mWebLinkUrl = url;
+		mWebLinkTime = 0.0f;
+	}
+	if (mWebLinkUrl.empty())
+		return false;
+
+	mWebLinkTime += timeElapsed;
+	const InputManager::ControllerScheme& keys = InputManager::instance().getController(0);
+	if (mWebLinkTime > 0.2f && (keys.A.justPressed() || keys.B.justPressed() || keys.Start.justPressed() || keys.Back.justPressed()))
+	{
+		mWebLinkUrl.clear();
+		GameMenuBase::playMenuSound(0xad);
+	}
+	return true;
+}
+
+void GameApp::renderWebLink(Drawer& drawer)
+{
+	if (mWebLinkUrl.empty())
+		return;
+
+	// The 3DS can't open websites (and its browser doesn't show PDFs like the manual): a QR code to scan with a phone, and the address
+	const Recti screen(0, 0, (int)FTX::screenRect().width, (int)FTX::screenRect().height);
+	const float alpha = std::min(mWebLinkTime / 0.15f, 1.0f);
+	drawer.drawRect(Rectf(screen), Color(0.0f, 0.0f, 0.0f, 0.6f * alpha));
+
+	const n3ds::weblinkqr::Code* code = nullptr;
+	for (const n3ds::weblinkqr::Code& candidate : n3ds::weblinkqr::CODES)
+	{
+		if (mWebLinkUrl == candidate.mUrl)
+			code = &candidate;
+	}
+
+	const int width = std::min(screen.width - 16, 340);
+	const int height = 150;
+	const Recti panel((screen.width - width) / 2, (screen.height - height) / 2, width, height);
+	drawer.drawRect(Rectf(panel), Color(0.07f, 0.10f, 0.22f, alpha));
+	drawer.drawRect(Rectf((float)panel.x, (float)panel.y, (float)panel.width, 2.0f), Color(0.4f, 0.6f, 1.0f, alpha));
+	drawer.drawRect(Rectf((float)panel.x, (float)(panel.y + panel.height - 2), (float)panel.width, 2.0f), Color(0.4f, 0.6f, 1.0f, alpha));
+
+	int textX = panel.x + 14;
+	if (nullptr != code)
+	{
+		// Dark modules in runs per row, on white with a quiet zone of two modules
+		const int module = 3;
+		const int quiet = 2 * module;
+		const int size = code->mSize * module + quiet * 2;
+		const int qx = panel.x + 12;
+		const int qy = panel.y + (panel.height - size) / 2;
+		drawer.drawRect(Rectf((float)qx, (float)qy, (float)size, (float)size), Color(1.0f, 1.0f, 1.0f, alpha));
+		for (int row = 0; row < code->mSize; ++row)
+		{
+			const char* line = code->mRows[row];
+			for (int column = 0; column < code->mSize; )
+			{
+				if (line[column] != '#')
+				{
+					++column;
+					continue;
+				}
+				const int start = column;
+				while (column < code->mSize && line[column] == '#')
+					++column;
+				drawer.drawRect(Rectf((float)(qx + quiet + start * module), (float)(qy + quiet + row * module), (float)((column - start) * module), (float)module), Color(0.0f, 0.0f, 0.0f, alpha));
+			}
+		}
+		textX = qx + size + 12;
+	}
+
+	const Color white(1.0f, 1.0f, 1.0f, alpha);
+	const Color blue(0.6f, 0.8f, 1.0f, alpha);
+	int y = panel.y + 26;
+	drawer.printText(global::mOxyfontRegular, Recti(textX, y, 0, 10), "Open this on your", 1, white);
+	drawer.printText(global::mOxyfontRegular, Recti(textX, y + 14, 0, 10), "phone or computer:", 1, white);
+	y += 40;
+	if (nullptr != code)
+	{
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y, 0, 10), "Scan the code, or go to", 1, blue);
+		y += 14;
+	}
+
+	// The address, in pieces if it's long (without "https://")
+	String address = mWebLinkUrl;
+	if (address.startsWith("https://"))
+		address.remove(0, 8);
+	const int maxChars = std::max((panel.x + panel.width - 10 - textX) / 6, 8);
+	for (int start = 0; start < address.length() && y < panel.y + panel.height - 30; start += maxChars)
+	{
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y, 0, 10), address.getSubString(start, maxChars), 1, Color(1.0f, 0.85f, 0.3f, alpha));
+		y += 12;
+	}
+
+	drawer.printText(global::mOxyfontTiny, Recti(panel.x + panel.width - 12, panel.y + panel.height - 16, 0, 10), "A / B: back", 3, Color(0.7f, 0.7f, 0.8f, alpha));
+	drawer.performRendering();
+}
+#endif
 
 void GameApp::onStartGame()
 {

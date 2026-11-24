@@ -28,6 +28,7 @@
 #endif
 #ifdef PLATFORM_3DS
 	#include "oxygen/platform/3ds/N3DSDialog.h"
+	#include "oxygen/platform/3ds/N3DSWebLink.h"
 #endif
 
 
@@ -588,7 +589,10 @@ void PlatformFunctions::openDirectoryExternal(const std::wstring& path)
 
 void PlatformFunctions::openURLExternal(const std::string& url)
 {
-#ifdef PLATFORM_WEB
+#if defined(PLATFORM_3DS)
+	// No way to open it here (the 3DS browser can't show PDFs like the manual): the game shows it, to open on a phone or PC
+	n3ds::weblink::request(url);
+#elif defined(PLATFORM_WEB)
 	std::string command = "window.location.href = \"" + url + "\"";
 	emscripten_run_script(command.c_str());
 #elif SDL_VERSION_ATLEAST(2, 0, 14)

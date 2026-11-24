@@ -39,6 +39,7 @@ enum ResetType { RESET_ONESHOT = 0, RESET_STICKY = 1, RESET_PULSE = 2 };
 struct LightEvent { std::mutex mMutex; std::condition_variable mCondition; bool mSignaled = false; };
 void LightEvent_Init(LightEvent* event, ResetType resetType);
 void LightEvent_Wait(LightEvent* event);
+int LightEvent_WaitTimeout(LightEvent* event, int64_t timeout_ns);
 void LightEvent_Signal(LightEvent* event);
 
 // Screen

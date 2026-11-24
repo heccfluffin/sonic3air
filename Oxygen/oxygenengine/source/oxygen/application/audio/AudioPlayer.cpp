@@ -284,6 +284,18 @@ bool AudioPlayer::isPlayingSfxId(uint64 sfxId, AudioReference* outAudioRef) cons
 	return false;
 }
 
+#if defined(PLATFORM_3DS)
+bool AudioPlayer::isPlayingSfxIdQuietly(uint64 sfxId) const
+{
+	for (const PlayingSound& playingSound : mPlayingSounds)
+	{
+		if (playingSound.mBaseSourceReg->mAudioDefinition->mKeyId == sfxId)
+			return true;
+	}
+	return false;
+}
+#endif
+
 bool AudioPlayer::getAudioRefByChannel(int channelId, AudioReference& outAudioRef) const
 {
 	for (const PlayingSound& playingSound : mPlayingSounds)

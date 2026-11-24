@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <fstream>
 #include <sys/stat.h>
+#include <thread>
 #include <map>
 #include <memory>
 #include <unistd.h>
@@ -421,6 +422,29 @@ namespace
 			n3ds::filewriter::writeFileIfOnSDCard(L"sdmc:/3ds/sonic3air/same.txt", changed);
 			n3ds::filewriter::waitUntilDone();
 			check(readFile("sdmc:/3ds/sonic3air/same.txt") == "new", "changed content: written");
+		}
+
+		// Quick changes to a small file (like options changed one after the other): one write a second later, with the newest
+		// content - and written over in place, no temporary file
+		{
+			std::vector<uint8_t> first = { '1' };
+			n3ds::filewriter::writeFileIfOnSDCard(L"sdmc:/3ds/sonic3air/quick.txt", first);
+			n3ds::filewriter::waitUntilDone();
+			const int callsBefore = fake::getWriteCalls();
+			for (char c : std::string("2345"))
+			{
+				std::vector<uint8_t> next = { (uint8_t)c, (uint8_t)c };
+				n3ds::filewriter::writeFileIfOnSDCard(L"sdmc:/3ds/sonic3air/quick.txt", next);
+				std::this_thread::sleep_for(std::chrono::milliseconds(150));
+			}
+			check(readFile("sdmc:/3ds/sonic3air/quick.txt") == "1", "quick changes to a small file wait a moment before being written");
+			for (int k = 0; k < 40 && fake::getWriteCalls() == callsBefore; ++k)
+				std::this_thread::sleep_for(std::chrono::milliseconds(50));
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			check(fake::getWriteCalls() - callsBefore == 1 && readFile("sdmc:/3ds/sonic3air/quick.txt") == "55",
+				  "... then they're one write, with the newest content (" + std::to_string(fake::getWriteCalls() - callsBefore) + " write, '" + readFile("sdmc:/3ds/sonic3air/quick.txt") + "')");
+			struct stat quickInfo;
+			check(stat("sdmc:/3ds/sonic3air/quick.txt.new", &quickInfo) != 0, "... written over in place (it was there already)");
 		}
 
 		// Written under another name first, then put in place; interrupted writes get sorted out at the next start

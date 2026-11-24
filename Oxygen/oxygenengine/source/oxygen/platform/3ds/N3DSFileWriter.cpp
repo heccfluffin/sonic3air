@@ -40,6 +40,7 @@ namespace n3ds
 				size_t mSize = 0;
 				bool mSuccess = false;
 				bool mReplaced = false;		// Never written, a newer write of the same file took its place
+				uint64_t mNotBefore = 0;	// System tick: a file waits a moment, so a few quick changes become one write
 				uint32_t mMs = 0;
 			};
 
@@ -52,6 +53,9 @@ namespace n3ds
 			std::deque<Job> gQueue;
 			std::vector<Job> gFinished;
 			bool gWriting = false;
+			bool gFlush = false;		// Write everything right away (when waiting for it)
+
+			const uint64_t WRITE_DELAY_TICKS = SYSCLOCK_ARM11;		// 1 second (for small files)
 
 			uint32_t ticksToMs(uint64_t ticks)
 			{
@@ -72,6 +76,26 @@ namespace n3ds
 
 			bool writeNow(const std::string& path, const std::vector<uint8_t>& data)
 			{
+				// A small file that's there already (like the challenges or the journal): written over in place. On a slow SD card
+				// each step on its directory takes long (creating a file, removing one, renaming); this way there's none of them,
+				// and it's still safe: no more than one sector (512 bytes) gets written, which happens all at once or not at all.
+				if (data.size() <= 512)
+				{
+					const int fd = open(path.c_str(), O_WRONLY);
+					if (fd >= 0)
+					{
+						const ssize_t result = data.empty() ? 0 : write(fd, data.data(), data.size());
+						bool success = (result == (ssize_t)data.size());
+						if (success && ftruncate(fd, (off_t)data.size()) != 0)
+							success = false;
+						if (close(fd) != 0)
+							success = false;
+						if (success)
+							return true;
+						// Otherwise the safe way below, which writes all of it again
+					}
+				}
+
 				// Written under another name first, then put in place: if the 3DS gets switched off or the game crashes while the
 				// SD card is still writing (which can take seconds), the old file stays complete instead of being cut off -
 				// for the game's save data, the journal or a save state, that would lose all of it
@@ -125,8 +149,28 @@ namespace n3ds
 							LightLock_Unlock(&gLock);
 							break;
 						}
-						Job job = std::move(gQueue.front());
-						gQueue.pop_front();
+
+						// The first one that's ready (a file a second after its latest change, background work right away)
+						const uint64_t now = svcGetSystemTick();
+						auto ready = gQueue.end();
+						uint64_t nextReady = UINT64_MAX;
+						for (auto it = gQueue.begin(); it != gQueue.end(); ++it)
+						{
+							if (gFlush || it->mNotBefore <= now)
+							{
+								ready = it;
+								break;
+							}
+							nextReady = std::min(nextReady, it->mNotBefore);
+						}
+						if (ready == gQueue.end())
+						{
+							LightLock_Unlock(&gLock);
+							LightEvent_WaitTimeout(&gWakeEvent, (int64_t)((nextReady - now) * 1000000000ull / SYSCLOCK_ARM11) + 1000000);
+							continue;
+						}
+						Job job = std::move(*ready);
+						gQueue.erase(ready);
 						gWriting = true;
 						LightLock_Unlock(&gLock);
 
@@ -248,6 +292,8 @@ namespace n3ds
 					queued.mPath = path;
 					queued.mData = std::move(data);
 					queued.mOnDone = std::move(onDone);
+					if (queued.mData.size() <= 0x4000)
+						queued.mNotBefore = svcGetSystemTick() + WRITE_DELAY_TICKS;
 					LightLock_Unlock(&gLock);
 					LightEvent_Signal(&gWakeEvent);
 					return;
@@ -257,6 +303,8 @@ namespace n3ds
 			job.mPath = path;
 			job.mData = std::move(data);
 			job.mOnDone = std::move(onDone);
+			if (job.mData.size() <= 0x4000)
+				job.mNotBefore = svcGetSystemTick() + WRITE_DELAY_TICKS;		// Small files (settings, challenges...), not save states
 			LightLock_Unlock(&gLock);
 			LightEvent_Signal(&gWakeEvent);
 		}
@@ -320,10 +368,17 @@ namespace n3ds
 			if (isBusy())
 			{
 				const uint64_t startTicks = svcGetSystemTick();
+				LightLock_Lock(&gLock);
+				gFlush = true;
+				LightLock_Unlock(&gLock);
+				LightEvent_Signal(&gWakeEvent);
 				while (isBusy())
 				{
 					svcSleepThread(5 * 1000 * 1000);		// 5 ms
 				}
+				LightLock_Lock(&gLock);
+				gFlush = false;
+				LightLock_Unlock(&gLock);
 				RMX_LOG_INFO("File writer: waited " << ticksToMs(svcGetSystemTick() - startTicks) << " ms for files to be written");
 			}
 			update();
