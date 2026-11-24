@@ -381,7 +381,7 @@ namespace n3ds
 			}
 		}
 
-		bool draw(const RomSprite& sprite, bool flipX, Bitmap& outBitmap)
+		bool draw(const RomSprite& sprite, bool flipX, Bitmap& outBitmap, Vec2i* outOrigin)
 		{
 			Rom rom;
 			if (!getRom(rom))
@@ -444,6 +444,8 @@ namespace n3ds
 				{ return (a.priority != b.priority) ? (a.priority > b.priority) : (a.order > b.order); });
 
 			outBitmap.create(x1 - x0, y1 - y0, 0);
+			if (nullptr != outOrigin)
+				*outOrigin = Vec2i(-x0, -y0);
 			for (const Placed& entry : placed)
 			{
 				const Piece& piece = entry.piece;

@@ -224,8 +224,12 @@ namespace
 		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0c, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0c, 0, 0, 0x100 } } },
 		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0d, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0d, 0, 0, 0x100 } } },
 		{ { { ArtLoad::Type::CHARACTER_FRAME, 0x018ee2, 0x0e, 0x18a604 } }, 0x0a8a3c, { { 0x018df4, 0x0000, 0x0e, 0, 0, 0x100 } } },
+		// Doctor Robotnik on foot, the other two frames of his mad animation (0x070419: frames 0, 1, 2, 1, his mustache flaring)
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 0, 0, 0, 0x200 } } },
+		{ { { ArtLoad::Type::PATTERN_LOADING_CUE, 0x76, 0 } }, 0x069e80, { { 0x06847c, 0x8466, 1, 0, 0, 0x200 } } },
 	};
 	const int DUST_ROM_SPRITE = 12;		// The first of the four dust frames
+	const int ROBOTNIK_MAD_ROM_SPRITES[3] = { 16, 17, 10 };		// His mad animation's frames 0, 1 and 2
 	const float ROBOTNIK_SWITCH_TIME = 0.5f;		// Seconds for jumping out of the Egg Mobile, or back in
 	const float ROBOTNIK_LETTERS_PER_SECOND = 30.0f;	// How fast his words appear
 	const int ROBOTNIK_ROM_SPRITE = 6;		// The first of his sprites, see "N3DSMenu::mRobotnik"
@@ -2407,6 +2411,8 @@ void N3DSMenu::render()
 					int offsetY = roundToInt(std::sin(time * 2.2f) * 3.0f);		// Hovering
 					bool dust = false;
 					int dustFrame = 0;
+					int squashWidth = 0;		// Stomping: stretched a little going up, squashed when his feet hit the floor
+					int squashHeight = 0;
 					float laughTime = -1.0f;		// Seconds into his laugh, if he's laughing
 
 					// Out of the Egg Mobile (or back in): a jump of half a second whenever that changes
@@ -2425,23 +2431,37 @@ void N3DSMenu::render()
 					}
 					else if (onFoot)
 					{
-						// Stomping (once he's landed): up for a moment, then down with a thud and a shake, every 0.6 seconds for the first few stomps
+						// Stomping (once he's landed), every 0.6 seconds for the first few stomps: a little hop up (stretching), down fast, and
+						// a thud - squashed for a moment, shaking, dust bursting out at his feet. His mustache keeps flaring all the while.
 						sprite = ROBOTNIK_MAD;
 						offsetY = 0;
-						const float stompTime = switchAge - ROBOTNIK_SWITCH_TIME + 0.22f;		// Landing from the jump is the first thud
+						const float stompTime = switchAge - ROBOTNIK_SWITCH_TIME + 0.19f;		// Landing from the jump is the first thud
 						if (stompTime >= 0.0f && stompTime < 2.4f)
 						{
 							const float phase = std::fmod(stompTime, 0.6f);
-							if (phase < 0.15f)
-								offsetY = -roundToInt(std::sin(phase / 0.15f * 1.5708f) * 4.0f);
-							else if (phase < 0.22f)
-								offsetY = -roundToInt(std::cos((phase - 0.15f) / 0.07f * 1.5708f) * 4.0f);
-							else if (phase < 0.32f)
+							if (phase < 0.14f)
+							{
+								offsetY = -roundToInt(std::sin(phase / 0.14f * 1.5708f) * 2.0f);
+								squashHeight = 1;
+								squashWidth = -1;
+							}
+							else if (phase < 0.19f)
+							{
+								offsetY = -roundToInt(std::cos((phase - 0.14f) / 0.05f * 1.5708f) * 2.0f);
+								squashHeight = 1;
+								squashWidth = -1;
+							}
+							else if (phase < 0.27f)
+							{
+								squashHeight = -2;
+								squashWidth = 3;
+							}
+							if (phase >= 0.19f && phase < 0.29f)
 								offsetX = ((int)(time * 40.0f) % 2) ? 1 : -1;
-							if (phase >= 0.22f && phase < 0.46f)
+							if (phase >= 0.19f && phase < 0.43f)
 							{
 								dust = true;
-								dustFrame = std::min((int)((phase - 0.22f) / 0.06f), 3);
+								dustFrame = std::min((int)((phase - 0.19f) / 0.06f), 3);
 							}
 						}
 					}
@@ -2503,20 +2523,43 @@ void N3DSMenu::render()
 							}
 							offsetX += ((int)(time * 24.0f) % 2) ? 1 : -1;
 						}
-						const int x = boxX + (CARD_BOX_WIDTH - width) / 2 + offsetX;
-						const int bottom = (sprite == ROBOTNIK_MAD) ? (py + 92 - 6) : (py + (92 + texture.getHeight()) / 2);		// On foot: standing on the box's floor
-						drawer.drawRect(Recti(x, bottom - height + offsetY, width, height), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						const int floorY = py + 92 - 6;		// On foot: standing on the box's floor
+						if (sprite == ROBOTNIK_MAD && mHasRobotnikMad)
+						{
+							// His mad animation, frames 0, 1, 2, 1 at the game's speed (6 frames each), all lined up by their origins
+							// like in the game: frame 2 stands centered on the floor, the others go where their origins put them
+							static const int MAD_SEQUENCE[4] = { 0, 1, 2, 1 };
+							const int frame = MAD_SEQUENCE[(int)(time * 10.0f) % 4];
+							DrawerTexture& reference = mRobotnikMad[2];
+							const int originX = boxX + (CARD_BOX_WIDTH - reference.getWidth()) / 2 + mRobotnikMadOrigin[2].x;
+							const int originY = floorY - reference.getHeight() + mRobotnikMadOrigin[2].y;
+							DrawerTexture& madTexture = mRobotnikMad[frame];
+							const int left = originX - mRobotnikMadOrigin[frame].x;
+							const int top = originY - mRobotnikMadOrigin[frame].y;
+							const int frameWidth = madTexture.getWidth();
+							const int frameHeight = madTexture.getHeight();
+							// Squash and stretch with his feet staying on the floor
+							const int frameBottom = top + frameHeight;
+							drawer.drawRect(Recti(left - squashWidth / 2 + offsetX, frameBottom - (frameHeight + squashHeight) + offsetY, frameWidth + squashWidth, frameHeight + squashHeight),
+											madTexture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						}
+						else
+						{
+							const int x = boxX + (CARD_BOX_WIDTH - width) / 2 + offsetX;
+							const int bottom = (sprite == ROBOTNIK_MAD) ? floorY : (py + (92 + texture.getHeight()) / 2);
+							drawer.drawRect(Recti(x, bottom - height + offsetY, width, height), texture, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+						}
 						if (dust && mHasDust)
 						{
-							// The game's spin dash dust bursting out at his feet: its thick end at his feet, trailing outward on both sides
-							// (the frame as it is goes to the right, mirrored to the left)
+							// The game's spin dash dust bursting out at his feet: its thick end right by his feet, trailing outward on both
+							// sides, sitting on the floor he stands on (the frame as it is has its thick end on the right, so it goes left of him)
 							const int feetX = boxX + CARD_BOX_WIDTH / 2;
 							for (int k = 0; k < 2; ++k)
 							{
 								const bool left = (k == 0);
-								DrawerTexture& puff = mDust[dustFrame + (left ? 4 : 0)];
-								const int x = left ? (feetX - 3 - puff.getWidth()) : (feetX + 3);
-								drawer.drawRect(Recti(x, py + 92 - 3 - puff.getHeight(), puff.getWidth(), puff.getHeight()), puff, Color(1.0f, 1.0f, 1.0f, tabAlpha));
+								DrawerTexture& puff = mDust[dustFrame + (left ? 0 : 4)];
+								const int x = left ? (feetX - 2 - puff.getWidth()) : (feetX + 2);
+								drawer.drawRect(Recti(x, floorY + 1 - puff.getHeight(), puff.getWidth(), puff.getHeight()), puff, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 							}
 						}
 					}
@@ -3042,6 +3085,12 @@ void N3DSMenu::createRobotnik()
 	{
 		mHasRobotnik = n3ds::romsprites::draw(ROM_SPRITES[ROBOTNIK_ROM_SPRITE + k], true, mRobotnik[k].accessBitmap());		// Facing right, to his speech bubble
 		mRobotnik[k].bitmapUpdated();
+	}
+	mHasRobotnikMad = mHasRobotnik;
+	for (int k = 0; k < 3 && mHasRobotnikMad; ++k)
+	{
+		mHasRobotnikMad = n3ds::romsprites::draw(ROM_SPRITES[ROBOTNIK_MAD_ROM_SPRITES[k]], true, mRobotnikMad[k].accessBitmap(), &mRobotnikMadOrigin[k]);
+		mRobotnikMad[k].bitmapUpdated();
 	}
 	mHasDust = true;
 	for (int k = 0; k < 4 && mHasDust; ++k)

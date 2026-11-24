@@ -171,6 +171,9 @@ private:
 	float mRobotnikSwitchTime = -10.0f;	// When he last jumped out of it or back in
 	DrawerTexture mRobotnik[NUM_ROBOTNIK_SPRITES];
 	DrawerTexture mDust[8];				// The game's spin dash dust, 4 frames, then mirrored
+	DrawerTexture mRobotnikMad[3];		// On foot, his mad animation (mustache flaring), lined up by their origins
+	Vec2i mRobotnikMadOrigin[3];
+	bool mHasRobotnikMad = false;
 	bool mHasDust = false;
 	bool mRobotnikCreated = false;
 	bool mHasRobotnik = false;

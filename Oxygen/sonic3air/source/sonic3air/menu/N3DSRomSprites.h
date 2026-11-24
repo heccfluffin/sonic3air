@@ -47,7 +47,8 @@ namespace n3ds
 		};
 
 		// Draws the whole sprite into the bitmap (sized to fit it, see-through around it); false if the ROM data doesn't look right
-		bool draw(const RomSprite& sprite, bool flipX, Bitmap& outBitmap);
+		// "outOrigin" (optional) gets where the sprite's own origin is in the bitmap, for lining up frames of different sizes
+		bool draw(const RomSprite& sprite, bool flipX, Bitmap& outBitmap, Vec2i* outOrigin = nullptr);
 
 		// A view into a level: its background layer and (optionally) the foreground on top, each at its own position
 		struct LevelView
