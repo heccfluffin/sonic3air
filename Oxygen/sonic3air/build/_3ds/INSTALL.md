@@ -25,11 +25,12 @@ your own copy of the game's ROM, and the data files from the official A.I.R. PC 
 
 ## The easy way: let the mod patcher do steps 2 to 4
 
-The mod patcher (`s3air_3ds_modpatcher.py`, needs [Python 3](https://www.python.org/downloads/) on your PC) can set up the
-game files for you:
+The mod patcher can set up the game files for you. On Windows it's `s3air_3ds_modpatcher.exe`: nothing to install, just
+double-click it (Windows may warn about an unknown program the first time: **More info** -> **Run anyway**). On macOS or
+Linux use `s3air_3ds_modpatcher.py`, which needs [Python 3](https://www.python.org/downloads/). Both are on the release page.
 
 1. Download Sonic 3 A.I.R. **26.03.28.0** for Windows from [sonic3air.org](https://sonic3air.org) (just the .zip, no need to unpack it).
-2. Put the 3DS SD card into your PC and double-click `s3air_3ds_modpatcher.py`.
+2. Put the 3DS SD card into your PC and double-click `s3air_3ds_modpatcher.exe` (or `s3air_3ds_modpatcher.py`).
 3. Select the SD card at the top, then click **Set up game files...** and follow the two questions:
    - pick the downloaded A.I.R. .zip: it checks the version and copies the `data` folder
    - it looks for your Sonic 3 & Knuckles ROM in your Steam library (or you pick the file): it checks that it's the
@@ -246,7 +247,7 @@ your progress, until it's beaten. The notification light glows red when you beat
 
 ## Mods
 
-Use the mod patcher (`s3air_3ds_modpatcher.py`, see its README) with the SD card in your PC.
+Use the mod patcher (`s3air_3ds_modpatcher.exe` on Windows, or `s3air_3ds_modpatcher.py`, see its README) with the SD card in your PC.
 It copies mods to the right folder, unpacks zip files, and turns them on.
 You can also copy mod folders to `sdmc:/3ds/sonic3air/savedata/mods/` yourself and enable them in the game's Mods menu.
 

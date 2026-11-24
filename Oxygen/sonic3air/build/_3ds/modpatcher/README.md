@@ -1,12 +1,14 @@
 # Sonic 3 A.I.R. 3DS Mod Patcher
 
 A small tool for installing and managing Sonic 3 A.I.R. mods on your 3DS SD card.
-It needs Python 3.8 or newer and nothing else.
+On Windows, use `s3air_3ds_modpatcher.exe` from the release page: it has Python built in, nothing to install (Windows may
+warn about an unknown program the first time: **More info** -> **Run anyway**). Elsewhere, `s3air_3ds_modpatcher.py`
+needs Python 3.8 or newer and nothing else.
 
 ## Using the window
 
 1. Put your 3DS SD card in your computer.
-2. Double-click `s3air_3ds_modpatcher.py` (or run `python3 s3air_3ds_modpatcher.py`).
+2. Double-click `s3air_3ds_modpatcher.exe` (or `s3air_3ds_modpatcher.py`, or run `python3 s3air_3ds_modpatcher.py`).
 3. The SD card is detected automatically. If not, click **Browse...** and pick it.
 4. Click **Add mod (.zip)...** or **Add mod folder...** to install mods.
 5. Use **Enable / Disable**, **Move up** and **Move down** to choose which mods are on.

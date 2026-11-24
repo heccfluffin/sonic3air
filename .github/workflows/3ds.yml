@@ -97,9 +97,36 @@ jobs:
             Oxygen/sonic3air/build/_3ds/how-to-build.md
           if-no-files-found: error
 
+  # The mod patcher as a Windows program, with Python built in: no need to install Python to use it
+  modpatcher-exe:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build s3air_3ds_modpatcher.exe
+        working-directory: Oxygen/sonic3air/build/_3ds/modpatcher
+        run: |
+          python -m pip install --upgrade pyinstaller==6.11.1 pillow
+          python -m PyInstaller --onefile --windowed --name s3air_3ds_modpatcher --icon ../icon.png s3air_3ds_modpatcher.py
+
+      - name: Upload the program
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonic3air-3ds-modpatcher-exe
+          path: Oxygen/sonic3air/build/_3ds/modpatcher/dist/s3air_3ds_modpatcher.exe
+          if-no-files-found: error
+
   # Publishes a GitHub Release for version tags. Universal-Updater installs from the latest release.
   release:
-    needs: build-3ds
+    needs: [ build-3ds, modpatcher-exe ]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -141,19 +168,21 @@ jobs:
 
           - \`sonic3air.cia\`: install with FBI (recommended)
           - \`sonic3air.3dsx\`: for the Homebrew Launcher
+          - \`s3air_3ds_modpatcher.exe\`: sets up the game files and installs mods with the SD card in a Windows PC
+            (no Python needed; \`s3air_3ds_modpatcher.py\` is the same for macOS / Linux with Python 3)
           - \`sonic3air-3ds.unistore\`: Universal-Updater store, add it via
             https://github.com/$GITHUB_REPOSITORY/releases/latest/download/sonic3air-3ds.unistore
           EOF
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --title "Sonic 3 A.I.R. for New 3DS $GITHUB_REF_NAME" --notes-file notes.md \
             dist/sonic3air.cia dist/sonic3air.3dsx dist/build/sonic3air-3ds.t3x \
-            dist/sonic3air-3ds.unistore dist/INSTALL.md dist/modpatcher/s3air_3ds_modpatcher.py
+            dist/sonic3air-3ds.unistore dist/INSTALL.md dist/modpatcher/s3air_3ds_modpatcher.py dist/s3air_3ds_modpatcher.exe
 
   # Publishes every build of the development branch as the rolling "test-build" pre-release (replacing the previous one),
   # with its own Universal-Updater store at a fixed URL:
   #   https://github.com/<repo>/releases/download/test-build/sonic3air-3ds-test.unistore
   test-release:
-    needs: build-3ds
+    needs: [ build-3ds, modpatcher-exe ]
     if: github.ref == 'refs/heads/3ds-gpu-drawer'
     runs-on: ubuntu-latest
     permissions:
@@ -201,4 +230,4 @@ jobs:
           gh release create test-build --repo "$GITHUB_REPOSITORY" --prerelease --target "$GITHUB_SHA" \
             --title "Test build $LABEL" --notes-file notes.md \
             dist/sonic3air.cia dist/sonic3air.3dsx dist/build/sonic3air-3ds.t3x \
-            dist/sonic3air-3ds-test.unistore dist/INSTALL.md dist/modpatcher/s3air_3ds_modpatcher.py
+            dist/sonic3air-3ds-test.unistore dist/INSTALL.md dist/modpatcher/s3air_3ds_modpatcher.py dist/s3air_3ds_modpatcher.exe
