@@ -160,6 +160,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > notes.md <<EOF
+          > [!WARNING]
+          > **This project is coded by Claude (an AI).** If you do not support projects that are coded by AI, this isn't for you.
+
           Unofficial New 3DS / New 2DS XL port of Sonic 3 - Angel Island Revisited.
 
           **Before playing**, see INSTALL.md below: you need the \`data\` folder of A.I.R. **26.03.28.0** from sonic3air.org
@@ -218,6 +221,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > notes.md <<EOF
+          > [!WARNING]
+          > **This project is coded by Claude (an AI).** If you do not support projects that are coded by AI, this isn't for you.
+
           **Test build $LABEL** of the unofficial New 3DS port of Sonic 3 A.I.R. (development branch, may be unstable).
           Replaced automatically with every new build.
 
