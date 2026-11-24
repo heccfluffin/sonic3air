@@ -1,5 +1,8 @@
 # Sonic 3 A.I.R. for New Nintendo 3DS (unofficial port)
 
+> [!WARNING]
+> **This project is coded by Claude (an AI).** If you do not support projects that are coded by AI, this isn't for you.
+
 **[Download the latest build](https://github.com/heccfluffin/sonic3air/releases/tag/test-build)** &nbsp;·&nbsp;
 **[Install guide](https://github.com/heccfluffin/sonic3air/blob/3ds-gpu-drawer/Oxygen/sonic3air/build/_3ds/INSTALL.md)** &nbsp;·&nbsp;
 [Install and update with Universal-Updater](https://github.com/heccfluffin/sonic3air/blob/3ds-gpu-drawer/Oxygen/sonic3air/build/_3ds/INSTALL.md#step-5-install-and-start)
