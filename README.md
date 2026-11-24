@@ -4,6 +4,12 @@
 **[Install guide](https://github.com/heccfluffin/sonic3air/blob/3ds-gpu-drawer/Oxygen/sonic3air/build/_3ds/INSTALL.md)** &nbsp;·&nbsp;
 [Install and update with Universal-Updater](https://github.com/heccfluffin/sonic3air/blob/3ds-gpu-drawer/Oxygen/sonic3air/build/_3ds/INSTALL.md#step-5-install-and-start)
 
+<img src="https://github.com/heccfluffin/sonic3air/raw/3ds-gpu-drawer/Oxygen/sonic3air/build/_3ds/universal-updater/test-store-qr.png" width="160" align="right" alt="QR code of the Universal-Updater store">
+
+**Universal-Updater:** in Universal-Updater on the 3DS, add a new UniStore and scan the QR code on the right
+(or enter `https://github.com/heccfluffin/sonic3air/releases/download/test-build/sonic3air-3ds-test.unistore`).
+Then install **sonic3air.cia** from the store "Sonic 3 A.I.R. for New 3DS by heccfluffin (test builds)", and get updates there too.
+
 This fork is an unofficial port of Sonic 3 A.I.R. to the **New 3DS, New 3DS XL and New 2DS XL**.
 It doesn't run on the original 3DS / 2DS.
 
