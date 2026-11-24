@@ -215,7 +215,7 @@ like collecting rings in a zone, destroying badniks, finishing an act in time, w
 earning an extra life, finding a bonus stage, scoring points, getting all three elemental shields in one act, getting
 through Hydrocity without running low on air, breaking monitors, using moves (spindashes, and the drop dash, Super
 Peel-Out, insta-shield or Knuckles' glide only if you have them switched on), going Super (once you've had all the
-emeralds), popping Carnival Night's balloons, or clearing Sandopolis 2 without a ghost), in zones you've already reached.
+emeralds), popping Carnival Night's balloons, or turning the lights back on in Sandopolis 2), in zones you've already reached.
 The hard one can also be **Outrun your shadow**: in that act a gray copy of you with a red trail runs your exact way 3
 seconds behind (he only sets off once you do, and waits during cutscenes and boss fights). His touch is a hit - and loses
 that try - but Sonic's insta-shield or shield moves, Knuckles' glide, invincibility or Super knock him back further

@@ -252,7 +252,7 @@ namespace n3ds
 					else if (index == 1)
 					{
 						// Medium
-						const uint32_t mediumKind = next(11);
+						const uint32_t mediumKind = next(12);
 						if (mediumKind == 8)
 						{
 							challenge.mType = Type::MONITORS;
@@ -261,6 +261,14 @@ namespace n3ds
 						else if (mediumKind == 9 && gEmeraldsSeen >= 7)
 						{
 							challenge.mType = Type::GO_SUPER;		// Only with all the emeralds, and then 50 rings and a jump
+						}
+						else if (mediumKind == 11 && isZoneAvailable(8))
+						{
+							// Sandopolis 2's light switches, before the ghosts come out
+							challenge.mType = Type::LIGHT_SWITCHES;
+							challenge.mZone = 8;
+							challenge.mAct = 1;
+							challenge.mTarget = 3;
 						}
 						else if (mediumKind == 10 && isZoneAvailable(3))
 						{
@@ -306,17 +314,10 @@ namespace n3ds
 					else
 					{
 						// Hard
-						const uint32_t hardKind = next(8);
-						if (hardKind == 6 || (hardKind == 7 && !isZoneAvailable(8)))
+						const uint32_t hardKind = next(7);
+						if (hardKind == 6)
 						{
 							pickShadowAct(challenge);
-						}
-						else if (hardKind == 7)
-						{
-							// Sandopolis 2 with the lights kept on: hit the light switches before it gets dark enough for the ghosts
-							challenge.mType = Type::NO_GHOSTS;
-							challenge.mZone = 8;
-							challenge.mAct = 1;
 						}
 						else if (hardKind == 5)
 						{
@@ -614,6 +615,7 @@ namespace n3ds
 					case Type::MONITORS:
 					case Type::BALLOONS:
 					case Type::MOVES:
+					case Type::LIGHT_SWITCHES:
 					{
 						uint32_t count = 0;
 						uint32_t target = challenge.mTarget;
@@ -621,6 +623,8 @@ namespace n3ds
 							count = frame.mMonitorsBroken;
 						else if (challenge.mType == Type::BALLOONS)
 							count = (frame.mZone == challenge.mZone) ? frame.mBalloonsPopped : 0;
+						else if (challenge.mType == Type::LIGHT_SWITCHES)
+							count = (frame.mZone == challenge.mZone) ? frame.mLightsTurnedOn : 0;
 						else
 						{
 							count = frame.mMovesUsed[(int)getMove(challenge)];
@@ -845,6 +849,7 @@ namespace n3ds
 				case Type::GO_SUPER:			snprintf(text, sizeof(text), "Go Super");  break;
 				case Type::BALLOONS:			snprintf(text, sizeof(text), "Pop %u balloons in %s", (unsigned)challenge.mTarget, zone);  break;
 				case Type::NO_GHOSTS:			snprintf(text, sizeof(text), "Clear %s %d without a ghost", zone, challenge.mAct + 1);  break;
+				case Type::LIGHT_SWITCHES:		snprintf(text, sizeof(text), "Turn the lights on %u times in %s %d", (unsigned)challenge.mTarget, zone, challenge.mAct + 1);  break;
 				case Type::MOVES:
 				{
 					const Move move = getMove(challenge);
@@ -894,6 +899,9 @@ namespace n3ds
 					break;
 				case Type::BALLOONS:
 					snprintf(text, sizeof(text), "%u / %u balloons", (unsigned)std::min(challenge.mProgress, challenge.mTarget), (unsigned)challenge.mTarget);
+					break;
+				case Type::LIGHT_SWITCHES:
+					snprintf(text, sizeof(text), "%u / %u times", (unsigned)std::min(challenge.mProgress, challenge.mTarget), (unsigned)challenge.mTarget);
 					break;
 				case Type::MOVES:
 					snprintf(text, sizeof(text), "%u / %u", (unsigned)std::min(challenge.mProgress, getMoveCount(challenge)), (unsigned)getMoveCount(challenge));
@@ -964,6 +972,7 @@ namespace n3ds
 				case Type::GO_SUPER:			return "Super, are you? Enjoy it while your rings last. Hohoho!";
 				case Type::BALLOONS:			return "Those balloons are for MY carnival! Don't you dare pop them!";
 				case Type::NO_GHOSTS:			return "The ghosts of Sandopolis love the dark. Sweet dreams! Hohoho!";
+				case Type::LIGHT_SWITCHES:		return "Lights out in Sandopolis! My ghosts can't wait to meet you. Hohoho!";
 				case Type::FAST_NO_HIT:			return (index == 4) ? "My very own special! Fast AND flawless. Nobody can do that! Nobody!"
 																	: "Fast AND without a scratch? You'll trip over your own shoes!";
 				default:						return "";

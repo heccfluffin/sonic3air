@@ -1244,7 +1244,10 @@ void Game::updateLevelTracking()
 	const uint16 zoneAct = emulatorInterface.readMemory16(0xfffffe10);
 	const bool bonusStage = ((zoneAct >> 8) >= 0x13 && (zoneAct >> 8) <= 0x15);
 	if (emulatorInterface.readMemory8(0xfffff600) != 0x0c || ((int8)emulatorInterface.readMemory8(0xfffff711) == 0 && !bonusStage))		// global.level_started
+	{
+		mLastLightState = 0;		// A reloaded level (after losing a life) starts bright again: that's no light switch
 		return;
+	}
 
 	// Running on the ground (not rolling or in the air)
 	uint32 groundSubpixels = 0;
@@ -1279,9 +1282,22 @@ void Game::updateLevelTracking()
 	mLastBonusCounter = bonusCounter;
 	mLastScore = score;
 
-	// Sandopolis 2: the game counts the ghosts it lets out as the lights go down
-	if (zoneAct == 0x0801 && emulatorInterface.readMemory8(0xfffffaad) != 0)
-		mChallengeGhostsWoken = true;
+	// Sandopolis 2: the game counts the ghosts it lets out as the lights go down; the light state goes from 0 (bright) to 5 (dark),
+	// a step every 15 seconds, and back to 0 with a light switch
+	uint8 lightsTurnedOn = 0;
+	if (zoneAct == 0x0801)
+	{
+		if (emulatorInterface.readMemory8(0xfffffaad) != 0)
+			mChallengeGhostsWoken = true;
+		const uint8 lightState = emulatorInterface.readMemory8(0xfffff7c3);
+		if (mLastLightState > 0 && mLastLightState <= 5 && lightState == 0)
+			lightsTurnedOn = 1;
+		mLastLightState = lightState;
+	}
+	else
+	{
+		mLastLightState = 0;
+	}
 
 	// Moves, from how the character's state changes
 	uint8 movesUsed[(int)n3ds::challenges::Move::_NUM] = { 0 };
@@ -1352,6 +1368,7 @@ void Game::updateLevelTracking()
 	frame.mBadniksDestroyed = badniks;
 	frame.mMonitorsBroken = monitorsBroken;
 	frame.mBalloonsPopped = balloonsPopped;
+	frame.mLightsTurnedOn = lightsTurnedOn;
 	for (int k = 0; k < (int)n3ds::challenges::Move::_NUM; ++k)
 		frame.mMovesUsed[k] = movesUsed[k];
 	frame.mSuper = (emulatorInterface.readMemory8(0xfffffe19) != 0 || emulatorInterface.readMemory8(0xfffff667) != 0);		// super.active, super.active.tails

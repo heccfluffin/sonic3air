@@ -168,6 +168,7 @@ private:
 	uint32 mLastScore = 0;
 	bool mChallengeShadowTouched = false;	// The shadow touched the character in this life
 	bool mChallengeGhostsWoken = false;		// Sandopolis 2: a ghost came out
+	uint8 mLastLightState = 0;				// Sandopolis 2: how dark it was last frame
 	uint8 mLastMoveCharacter = 0xff;		// For counting moves: what the character's state was last frame
 	uint8 mLastSpindash = 0;
 	uint8 mLastDropDash = 0;

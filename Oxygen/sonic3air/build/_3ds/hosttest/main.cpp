@@ -790,7 +790,7 @@ namespace
 		check(!data.mChallenges[4].mDone, "a ghost came out: not beaten");
 		result.mGhostsWoken = false;
 		onActCompleted(result);
-		check(data.mChallenges[4].mDone, "Sandopolis 2 without a ghost: beaten");
+		check(data.mChallenges[4].mDone, "Sandopolis 2 without a ghost (saved before): still beaten");
 
 		check(getAmbushChance() == 1, "the shadow ambush is on at 1% by default");
 		setAmbushChance(25);
@@ -798,6 +798,26 @@ namespace
 		n3ds::filewriter::waitUntilDone();
 		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt");
 		check(saved.find("ambush=25\n") != std::string::npos && saved.find("ambushes_survived=1\n") != std::string::npos, "its chance and the ambushes outrun are saved");
+	}
+
+	void challengeLights()
+	{
+		using namespace n3ds::challenges;
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+		fake::setTime(2026, 11, 24, 18, 0);
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20261124\nxp=0\nbeaten=0\nperfect_days=0\nzones=16777215\n"
+			"challenge=21 8 1 3 0 0\nchallenge=8 0 0 10 0 0\nchallenge=6 0 0 0 0 0\n";
+		const Data& data = get(0xffffff);
+		check(describe(data.mChallenges[0]) == "Turn the lights on 3 times in Sandopolis 2", "the light switches are described: " + describe(data.mChallenges[0]));
+		Frame frame;
+		frame.mZone = 8;
+		frame.mAct = 1;
+		frame.mLightsTurnedOn = 1;
+		onFrame(frame);
+		onFrame(frame);
+		check(data.mChallenges[0].mProgress == 2 && !data.mChallenges[0].mDone && describeProgress(data.mChallenges[0]) == "2 / 3 times", "the lights turned on twice");
+		onFrame(frame);
+		check(data.mChallenges[0].mDone, "three times: beaten");
 	}
 
 	uint32_t onlySpindash()  { return 1u << (int)n3ds::challenges::Move::SPINDASH; }
@@ -840,9 +860,9 @@ namespace
 		check(!goSuper, "no Go Super without the emeralds");
 		check(!angelIsland1, "no act challenge in Angel Island 1");
 		check(!deadlyOutsideSpecial && !normalShadowInSpecial, "the deadly shadow only as Robotnik's Special");
-		check(counts[(int)Type::SHADOW_RUN] > 0 && counts[(int)Type::MONITORS] > 0 && counts[(int)Type::MOVES] > 0 && counts[(int)Type::BALLOONS] > 0 && counts[(int)Type::NO_GHOSTS] > 0,
+		check(counts[(int)Type::SHADOW_RUN] > 0 && counts[(int)Type::MONITORS] > 0 && counts[(int)Type::MOVES] > 0 && counts[(int)Type::BALLOONS] > 0 && counts[(int)Type::LIGHT_SWITCHES] > 0 && counts[(int)Type::NO_GHOSTS] == 0,
 			  "the new challenges come up: shadow " + std::to_string(counts[(int)Type::SHADOW_RUN]) + ", monitors " + std::to_string(counts[(int)Type::MONITORS]) +
-			  ", moves " + std::to_string(counts[(int)Type::MOVES]) + ", balloons " + std::to_string(counts[(int)Type::BALLOONS]) + ", ghosts " + std::to_string(counts[(int)Type::NO_GHOSTS]));
+			  ", moves " + std::to_string(counts[(int)Type::MOVES]) + ", balloons " + std::to_string(counts[(int)Type::BALLOONS]) + ", light switches " + std::to_string(counts[(int)Type::LIGHT_SWITCHES]) + ", no ghost challenges any more");
 
 		// With all the emeralds seen once, "Go Super" can come up
 		Frame frame;
@@ -918,7 +938,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

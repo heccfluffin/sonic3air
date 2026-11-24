@@ -47,7 +47,8 @@ namespace n3ds
 			MOVES,					// Use a move "mTarget" times today: the count, plus the move (as in "Move") times MOVE_FACTOR (easy, medium)
 			GO_SUPER,				// Turn Super (medium; only once all seven emeralds were seen in a game)
 			BALLOONS,				// Pop "mTarget" balloons in Carnival Night (medium)
-			NO_GHOSTS,				// Finish Sandopolis 2 without a ghost coming out of the dark (hard)
+			NO_GHOSTS,				// Finish Sandopolis 2 without a ghost coming out of the dark (no longer chosen: far too hard)
+			LIGHT_SWITCHES,			// Turn the lights back on "mTarget" times in Sandopolis 2, with its light switches (medium)
 			_NUM
 		};
 
@@ -117,6 +118,7 @@ namespace n3ds
 			uint8_t mBadniksDestroyed = 0;		// This frame
 			uint8_t mMonitorsBroken = 0;		// This frame
 			uint8_t mBalloonsPopped = 0;		// This frame
+			uint8_t mLightsTurnedOn = 0;		// This frame: Sandopolis 2's lights back on after getting darker
 			uint8_t mMovesUsed[(int)Move::_NUM] = { 0 };	// This frame
 			bool mSuper = false;				// The character is Super (or Hyper) right now
 			uint8_t mEmeralds = 0;				// The most Chaos or Super Emeralds of the game played
