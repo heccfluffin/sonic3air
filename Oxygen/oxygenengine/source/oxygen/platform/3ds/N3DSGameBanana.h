@@ -131,6 +131,16 @@ namespace n3ds
 			std::vector<uint32_t> mPixels;	// RGBA, one byte each, R in the lowest one (like rmx::Bitmap)
 		};
 
+		// A mod installed from here: noted in a little file in its folder ("3ds_gamebanana.txt"), so the browser can tell it's there
+		// and whether GameBanana has a newer version
+		struct InstalledMod
+		{
+			uint32_t mModId = 0;
+			uint32_t mFileId = 0;
+			int64_t mModUpdated = 0;		// The mod's "updated" date on GameBanana when it was installed
+			std::string mFolder;
+		};
+
 		// The mods folder and a folder for temporary files (both ending with '/'), then the thread waits for requests
 		void start(const std::string& modsDirectory, const std::string& workDirectory);
 		void stop();		// Cancels what's running, waits for the thread to end
@@ -143,7 +153,8 @@ namespace n3ds
 		void clearThumbnailRequests();
 		bool takeThumbnail(Thumbnail& outThumbnail);
 
-		void requestInstall(const FileInfo& file, const std::string& modName);
+		void requestInstall(const FileInfo& file, const std::string& modName, uint32_t modId = 0, int64_t modUpdated = 0);
+		bool getInstalledMod(uint32_t modId, InstalledMod& outMod);		// Once the thread has looked at the mods folder
 		void cancelInstall();
 		void acknowledgeInstall();
 		bool takeInstalledMod(std::string& outFolder);		// Once for each successful install, for the game to turn it on
@@ -158,6 +169,8 @@ namespace n3ds
 		std::string toDisplayText(const std::string& utf8);		// Only characters the game's fonts have
 		const char* getFileProblem(const FileInfo& file);		// Why the 3DS can't install this file (like a .rar), or nullptr
 		bool decodeJpeg(const std::string& data, int maxWidth, Thumbnail& outThumbnail);
+		bool readInstalledNote(const std::string& modFolderPath, InstalledMod& outMod);
+		bool writeInstalledNote(const std::string& modFolderPath, const InstalledMod& mod);
 	}
 }
 

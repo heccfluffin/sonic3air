@@ -1305,7 +1305,7 @@ void gameBanana()
 	if (!detailed.second.mDetails.mFiles.empty())
 	{
 		t0 = std::chrono::steady_clock::now();
-		gamebanana::requestInstall(detailed.second.mDetails.mFiles[0], detailed.second.mDetails.mName);
+		gamebanana::requestInstall(detailed.second.mDetails.mFiles[0], detailed.second.mDetails.mName, detailed.second.mDetails.mId, detailed.second.mDetails.mDateUpdated);
 		auto installed = waitFor([](const gamebanana::State& s) { return s.mInstall == gamebanana::Install::DONE; }, 60);
 		check(installed.second.mInstallSuccess, "online install: " + installed.second.mInstallMessage + " (" + seconds() + ")");
 		std::string folder;
@@ -1313,6 +1313,21 @@ void gameBanana()
 		check(told && exists(modsDir + folder + "/mod.json") && exists(modsDir + folder + "/scripts/main.lemon"), "... in the mods folder: " + folder);
 		check(!exists(workDir + "gamebanana_download.bin") && !exists(workDir + "gamebanana_install"), "... and the download is cleaned up");
 		gamebanana::acknowledgeInstall();
+
+		// Noted as installed from GameBanana, also after the browser is opened again
+		gamebanana::InstalledMod note;
+		const bool noted = gamebanana::getInstalledMod(743095, note);
+		check(noted && note.mFileId == detailed.second.mDetails.mFiles[0].mId && note.mFolder == folder && exists(modsDir + folder + "/3ds_gamebanana.txt"),
+			  "noted as installed: mod " + std::to_string(note.mModId) + ", file " + std::to_string(note.mFileId) + ", in " + note.mFolder);
+		gamebanana::stop();
+		gamebanana::start(modsDir, workDir);
+		bool foundAgain = false;
+		for (int k = 0; k < 100 && !foundAgain; ++k)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(20));
+			foundAgain = gamebanana::getInstalledMod(743095, note);
+		}
+		check(foundAgain && note.mModUpdated == detailed.second.mDetails.mDateUpdated, "... found again when the browser opens: " + std::to_string(note.mModUpdated));
 	}
 
 	// A .rar (RAR5) and a .7z mod, unpacked with libarchive

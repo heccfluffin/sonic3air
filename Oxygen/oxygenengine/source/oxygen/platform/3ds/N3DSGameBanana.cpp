@@ -19,6 +19,8 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <dirent.h>
+#include <map>
 #include <memory>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -69,7 +71,10 @@ namespace n3ds
 				std::deque<Thumbnail> mThumbnails;
 				bool mHasInstallRequest = false;
 				FileInfo mInstallFile;
+				uint32_t mInstallModId = 0;
+				int64_t mInstallModUpdated = 0;
 				std::deque<std::string> mInstalled;
+				std::map<uint32_t, InstalledMod> mInstalledMods;		// By GameBanana mod ID
 			};
 			Shared gShared;
 			bool gSharedReady = false;
@@ -231,6 +236,35 @@ namespace n3ds
 				gShared.mState.mFilesTotal = total;
 			}
 
+			const char* const INSTALLED_NOTE = "3ds_gamebanana.txt";
+
+			// Which mods in the mods folder came from GameBanana (a note in each of their folders)
+			void scanInstalledMods()
+			{
+				std::map<uint32_t, InstalledMod> found;
+				if (DIR* dir = opendir(gModsDirectory.substr(0, gModsDirectory.size() - 1).c_str()))
+				{
+					std::vector<std::string> folders;
+					while (const dirent* entry = readdir(dir))
+					{
+						if (entry->d_name[0] != '.')
+							folders.emplace_back(entry->d_name);
+					}
+					closedir(dir);
+					for (const std::string& folder : folders)
+					{
+						InstalledMod mod;
+						if (readInstalledNote(gModsDirectory + folder, mod))
+						{
+							mod.mFolder = folder;
+							found[mod.mModId] = mod;
+						}
+					}
+				}
+				Locked lock;
+				gShared.mInstalledMods.swap(found);
+			}
+
 			void finishInstall(bool success, const std::string& message, const std::vector<std::string>& warnings, const std::string& folder)
 			{
 				RMX_LOG_INFO("GameBanana: " << message);
@@ -244,7 +278,7 @@ namespace n3ds
 					gShared.mInstalled.push_back(folder);
 			}
 
-			void doInstall(const FileInfo& file, const std::string& modName)
+			void doInstall(const FileInfo& file, const std::string& modName, uint32_t modId, int64_t modUpdated)
 			{
 				if (const char* problem = getFileProblem(file))
 				{
@@ -272,17 +306,34 @@ namespace n3ds
 				}
 				const modserver::InstallResult installed = modserver::installZip(zipPath, file.mName, gModsDirectory, gWorkDirectory + "gamebanana_install/", &setInstallProgress);
 				unlink(zipPath.c_str());
+				if (installed.mSuccess && modId != 0)
+				{
+					// Noted in its folder, for "installed" and "update available" in the browser
+					InstalledMod note;
+					note.mModId = modId;
+					note.mFileId = file.mId;
+					note.mModUpdated = modUpdated;
+					note.mFolder = installed.mFolder;
+					writeInstalledNote(gModsDirectory + installed.mFolder, note);
+					Locked lock;
+					for (auto it = gShared.mInstalledMods.begin(); it != gShared.mInstalledMods.end(); )
+						it = (it->second.mFolder == note.mFolder) ? gShared.mInstalledMods.erase(it) : std::next(it);		// Replaced
+					gShared.mInstalledMods[modId] = note;
+				}
 				finishInstall(installed.mSuccess, installed.mMessage, installed.mWarnings, installed.mFolder);
 			}
 
 			void threadFunc(void*)
 			{
+				scanInstalledMods();
 				while (!gStopRequested)
 				{
 					// Most important first: installing, then details, then the list, then pictures
 					bool hasInstall = false;
 					FileInfo installFile;
 					std::string installName;
+					uint32_t installModId = 0;
+					int64_t installModUpdated = 0;
 					uint32_t detailsId = 0;
 					bool hasList = false;
 					ListRequest listRequest;
@@ -295,6 +346,8 @@ namespace n3ds
 							hasInstall = true;
 							installFile = gShared.mInstallFile;
 							installName = gShared.mState.mInstallName;
+							installModId = gShared.mInstallModId;
+							installModUpdated = gShared.mInstallModUpdated;
 							gShared.mHasInstallRequest = false;
 						}
 						else if (gShared.mDetailsRequest != 0)
@@ -317,7 +370,7 @@ namespace n3ds
 					}
 
 					if (hasInstall)
-						doInstall(installFile, installName);
+						doInstall(installFile, installName, installModId, installModUpdated);
 					else if (detailsId != 0)
 						doDetails(detailsId);
 					else if (hasList)
@@ -510,7 +563,7 @@ namespace n3ds
 			return true;
 		}
 
-		void requestInstall(const FileInfo& file, const std::string& modName)
+		void requestInstall(const FileInfo& file, const std::string& modName, uint32_t modId, int64_t modUpdated)
 		{
 			initShared();
 			{
@@ -518,6 +571,8 @@ namespace n3ds
 				if (gShared.mState.mInstall == Install::DOWNLOADING || gShared.mState.mInstall == Install::UNPACKING)
 					return;
 				gShared.mInstallFile = file;
+				gShared.mInstallModId = modId;
+				gShared.mInstallModUpdated = modUpdated;
 				gShared.mHasInstallRequest = true;
 				State& state = gShared.mState;
 				state.mInstall = Install::DOWNLOADING;
@@ -559,6 +614,50 @@ namespace n3ds
 			outFolder = gShared.mInstalled.front();
 			gShared.mInstalled.pop_front();
 			return true;
+		}
+
+		bool getInstalledMod(uint32_t modId, InstalledMod& outMod)
+		{
+			if (!gSharedReady || modId == 0)
+				return false;
+			Locked lock;
+			const auto it = gShared.mInstalledMods.find(modId);
+			if (it == gShared.mInstalledMods.end())
+				return false;
+			outMod = it->second;
+			return true;
+		}
+
+		bool readInstalledNote(const std::string& modFolderPath, InstalledMod& outMod)
+		{
+			FILE* file = fopen((modFolderPath + "/" + INSTALLED_NOTE).c_str(), "rb");
+			if (nullptr == file)
+				return false;
+			char line[128];
+			InstalledMod mod;
+			while (fgets(line, sizeof(line), file))
+			{
+				unsigned int value = 0;
+				long long date = 0;
+				if (sscanf(line, "mod=%u", &value) == 1)			mod.mModId = value;
+				else if (sscanf(line, "file=%u", &value) == 1)		mod.mFileId = value;
+				else if (sscanf(line, "updated=%lld", &date) == 1)	mod.mModUpdated = date;
+			}
+			fclose(file);
+			if (mod.mModId == 0)
+				return false;
+			outMod = mod;
+			return true;
+		}
+
+		bool writeInstalledNote(const std::string& modFolderPath, const InstalledMod& mod)
+		{
+			FILE* file = fopen((modFolderPath + "/" + INSTALLED_NOTE).c_str(), "wb");
+			if (nullptr == file)
+				return false;
+			fprintf(file, "# Installed from GameBanana by the 3DS port's mod browser (https://gamebanana.com/mods/%u)\nmod=%u\nfile=%u\nupdated=%lld\n",
+					(unsigned)mod.mModId, (unsigned)mod.mModId, (unsigned)mod.mFileId, (long long)mod.mModUpdated);
+			return (fclose(file) == 0);
 		}
 
 		void setBaseUrl(const std::string& baseUrl)

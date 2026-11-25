@@ -90,6 +90,8 @@ private:
 	std::vector<std::wstring> mDescriptionLines;
 	uint32_t mWrappedFor = 0;
 	bool mConfirmFlagged = false;					// Asked once more for a file GameBanana's check didn't call clean
+	int mPictureIndex = 0;							// Which of the mod's preview pictures is shown
+	float mPictureTime = 0.0f;
 
 	std::map<std::string, std::unique_ptr<Picture>> mPictures;
 };

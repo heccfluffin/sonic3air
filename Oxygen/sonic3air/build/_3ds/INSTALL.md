@@ -273,7 +273,8 @@ Saved in `savedata/3ds_challenges.txt`.
 **The easiest way: right from GameBanana.** In the game's **Mods** menu, choose **Browse mods on GameBanana** (or press
 **START** once you have mods). You get the Sonic 3 A.I.R. mods from [gamebanana.com](https://gamebanana.com/games/6878)
 with their preview pictures: **L / R** switch between Popular, Newest, Top rated and Search, **left / right** turn the
-pages, **Y** searches (with the 3DS keyboard), **A** shows a mod's description and files. Press **A** there to download
+pages, **Y** searches (with the 3DS keyboard), **A** shows a mod's description, its preview pictures (**L / R** for the
+others) and its files. Mods you installed from there show **INSTALLED**, or **UPDATE!** once there's a newer version. Press **A** there to download
 and install it: it's unpacked to the SD card and turned on. Mods come as `.zip`, `.rar` or `.7z`, and the 3DS unpacks
 all three (`.rar` and `.7z` take longer and need more memory; a really big one may be too much, then unpack it on a PC). The 3DS needs an Internet connection
 set up in System Settings. The connection is encrypted and the server is checked, so the downloads really come from GameBanana.

@@ -334,6 +334,8 @@ void GameBananaBrowser::openDetails(const ModSummary& mod)
 	mView = View::DETAILS;
 	mSelectedFile = 0;
 	mDescriptionScroll = 0;
+	mPictureIndex = 0;
+	mPictureTime = 0.0f;
 	mDescriptionLines.clear();
 	mWrappedFor = 0;
 	mConfirmFlagged = false;
@@ -364,8 +366,27 @@ void GameBananaBrowser::updateDetails(float timeElapsed)
 
 	wrapDescription();
 	const ModDetails& details = mState.mDetails;
-	if (!details.mImageUrls.empty())
-		getPicture(details.mImageUrls[0], 160);
+
+	// The preview pictures: one after another every few seconds, or with L / R
+	const int pictures = (int)details.mImageUrls.size();
+	if (pictures > 0)
+	{
+		mPictureTime += timeElapsed;
+		if (pictures > 1 && (keys.L.justPressed() || keys.R.justPressed()))
+		{
+			mPictureIndex = (mPictureIndex + (keys.R.justPressed() ? 1 : pictures - 1)) % pictures;
+			mPictureTime = 0.0f;
+			GameMenuBase::playMenuSound(0x5b);
+		}
+		else if (pictures > 1 && mPictureTime >= 4.0f)
+		{
+			mPictureIndex = (mPictureIndex + 1) % pictures;
+			mPictureTime = 0.0f;
+		}
+		mPictureIndex = std::min(mPictureIndex, pictures - 1);
+		getPicture(details.mImageUrls[mPictureIndex], 160);
+		getPicture(details.mImageUrls[(mPictureIndex + 1) % pictures], 160);		// The next one, so it's there in time
+	}
 
 	// Up / down: the description, left / right: which file
 	const int maxScroll = std::max(0, (int)mDescriptionLines.size() - 6);
@@ -407,7 +428,7 @@ void GameBananaBrowser::startInstall()
 	const ModDetails& details = mState.mDetails;
 	if (mSelectedFile < 0 || mSelectedFile >= (int)details.mFiles.size())
 		return;
-	requestInstall(details.mFiles[mSelectedFile], details.mName);
+	requestInstall(details.mFiles[mSelectedFile], details.mName, details.mId, details.mDateUpdated);
 	mState = getState();
 }
 
@@ -650,8 +671,17 @@ void GameBananaBrowser::renderList(Drawer& drawer, float alpha)
 			if (!mod.mCategory.empty())
 				info += "  -  " + mod.mCategory;
 			drawer.printText(global::mOxyfontSmall, Recti(textX, y + 19, 0, 10), fitText(global::mOxyfontSmall, info, 300 - textX), 1, gray);
+			// Already there? Then whether GameBanana has a newer version than the one installed
+			InstalledMod installed;
 			std::string note = mod.mObsolete ? "outdated" : !mod.mHasFiles ? "no download here" : formatCount(mod.mViews) + " views";
-			drawer.printText(global::mOxyfontSmall, Recti(392 - global::mOxyfontSmall.getWidth(note), y + 19, 0, 10), note, 1, mod.mObsolete || !mod.mHasFiles ? Color(1.0f, 0.6f, 0.4f, alpha) : gray);
+			Color noteColor = mod.mObsolete || !mod.mHasFiles ? Color(1.0f, 0.6f, 0.4f, alpha) : gray;
+			if (getInstalledMod(mod.mId, installed))
+			{
+				const bool update = (mod.mDateUpdated > installed.mModUpdated + 60);
+				note = update ? "UPDATE!" : "INSTALLED";
+				noteColor = update ? Color(1.0f, 0.85f, 0.2f, alpha) : Color(0.5f, 1.0f, 0.55f, alpha);
+			}
+			drawer.printText(global::mOxyfontSmall, Recti(392 - global::mOxyfontSmall.getWidth(note), y + 19, 0, 10), note, 1, noteColor);
 		}
 
 		// Scroll indicator
@@ -681,8 +711,17 @@ void GameBananaBrowser::renderDetails(Drawer& drawer, float alpha)
 	const ModDetails& details = mState.mDetails;
 
 	// Top: picture, name, numbers
-	const std::string pictureUrl = (ready && !details.mImageUrls.empty()) ? details.mImageUrls[0] : std::string();
+	const int pictures = ready ? (int)details.mImageUrls.size() : 0;
+	const std::string pictureUrl = (pictures > 0) ? details.mImageUrls[std::min(mPictureIndex, pictures - 1)] : std::string();
 	renderPicture(drawer, ready ? pictureUrl : mDetailsMod.mThumbnailUrl, 8, 8, 144, 81, alpha);
+	if (pictures > 1)
+	{
+		// Which picture, and that L / R show the others
+		const std::string counter = "L " + std::to_string(std::min(mPictureIndex, pictures - 1) + 1) + "/" + std::to_string(pictures) + " R";
+		const int width = global::mOxyfontTiny.getWidth(counter) + 6;
+		drawer.drawRect(Rectf((float)(152 - width), 79.0f, (float)width, 10.0f), Color(0.0f, 0.0f, 0.0f, 0.6f * alpha));
+		drawer.printText(global::mOxyfontTiny, Recti(152 - width, 79, width, 10), counter, 5, Color(1.0f, 1.0f, 1.0f, alpha));
+	}
 
 	const std::string& name = ready ? details.mName : mDetailsMod.mName;
 	std::vector<std::wstring> nameLines;
@@ -718,7 +757,14 @@ void GameBananaBrowser::renderDetails(Drawer& drawer, float alpha)
 	y += 13;
 	drawer.printText(global::mOxyfontSmall, Recti(160, y, 0, 10), formatCount(details.mLikes) + " likes   " + formatCount(details.mDownloads) + " downloads   " + formatCount(details.mViews) + " views", 1, Color(1.0f, 0.62f, 0.7f, alpha));
 	y += 13;
-	drawer.printText(global::mOxyfontSmall, Recti(160, y, 0, 10), "Updated " + formatDate(details.mDateUpdated), 1, gray);
+	InstalledMod installed;
+	const bool isInstalled = getInstalledMod(details.mId, installed);
+	if (isInstalled && details.mDateUpdated > installed.mModUpdated + 60)
+		drawer.printText(global::mOxyfontSmall, Recti(160, y, 0, 10), "Update available! (" + formatDate(details.mDateUpdated) + ")", 1, Color(1.0f, 0.85f, 0.2f, alpha));
+	else if (isInstalled)
+		drawer.printText(global::mOxyfontSmall, Recti(160, y, 0, 10), "Installed - updated " + formatDate(details.mDateUpdated), 1, Color(0.5f, 1.0f, 0.55f, alpha));
+	else
+		drawer.printText(global::mOxyfontSmall, Recti(160, y, 0, 10), "Updated " + formatDate(details.mDateUpdated), 1, gray);
 	if (details.mObsolete)
 		drawer.printText(global::mOxyfontSmall, Recti(392, y, 0, 10), "marked outdated", 3, Color(1.0f, 0.6f, 0.4f, alpha));
 
@@ -746,7 +792,8 @@ void GameBananaBrowser::renderDetails(Drawer& drawer, float alpha)
 	}
 	const FileInfo& file = details.mFiles[std::clamp(mSelectedFile, 0, (int)details.mFiles.size() - 1)];
 	std::string fileLabel = (details.mFiles.size() > 1) ? "File " + std::to_string(mSelectedFile + 1) + " of " + std::to_string(details.mFiles.size()) + ": " : std::string("File: ");
-	fileLabel += file.mName + "  (" + formatSize(file.mSize) + ((mSelectedFile == 0 && details.mFiles.size() > 1) ? ", newest" : "") + ")";
+	fileLabel += file.mName + "  (" + formatSize(file.mSize) + ((mSelectedFile == 0 && details.mFiles.size() > 1) ? ", newest" : "") +
+				 ((isInstalled && installed.mFileId == file.mId) ? ", installed" : "") + ")";
 	drawer.printText(global::mOxyfontSmall, Recti(12, fileTop + 5, 0, 10), fitText(global::mOxyfontSmall, fileLabel, 376), 1, white);
 
 	const char* problem = getFileProblem(file);
@@ -774,7 +821,7 @@ void GameBananaBrowser::renderDetails(Drawer& drawer, float alpha)
 			drawer.printText(global::mOxyfontSmall, Recti(12, fileTop + 18 + (int)i * 11, 0, 10), WString(lines[i]), 1, statusColor);
 	}
 
-	std::string controls = (nullptr == problem) ? "A: install   " : "";
+	std::string controls = (nullptr == problem) ? ((isInstalled && installed.mFileId == file.mId) ? "A: install again   " : isInstalled ? "A: update   " : "A: install   ") : "";
 	if (details.mFiles.size() > 1)
 		controls += "Left / right: file   ";
 	controls += "B: back";
