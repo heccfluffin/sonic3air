@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include <deque>
+#include <set>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -152,6 +153,33 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 					mkdir(path.substr(0, pos).c_str(), 0777);
 			}
 
+			// Like "createDirectories", but each folder only once per unpacking: on a slow SD card every call takes a while,
+			// and a mod with hundreds of files would otherwise ask for the same few folders over and over
+			void createDirectoriesOnce(const std::string& path, std::set<std::string>& created)
+			{
+				const size_t start = path.find(":/");
+				for (size_t pos = path.find('/', (start == std::string::npos) ? 1 : start + 2); pos != std::string::npos; pos = path.find('/', pos + 1))
+				{
+					std::string folder = path.substr(0, pos);
+					if (created.insert(folder).second)
+						mkdir(folder.c_str(), 0777);
+				}
+			}
+
+			// The zip is read with a big buffer: minizip asks for a few bytes at a time, each a request to the SD card otherwise
+			voidpf ZCALLBACK openZipBuffered(voidpf, const void* filename, int)
+			{
+				FILE* file = fopen((const char*)filename, "rb");
+				if (nullptr != file)
+					setvbuf(file, nullptr, _IOFBF, 32 * 1024);
+				return file;
+			}
+
+			uint32_t msSince(uint64_t startTicks)
+			{
+				return (uint32_t)((svcGetSystemTick() - startTicks) * 1000 / SYSCLOCK_ARM11);
+			}
+
 			void removeRecursively(const std::string& path)
 			{
 				struct stat info;
@@ -234,7 +262,11 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 			InstallResult unpack(const std::string& zipPath, const std::string& uploadName, const std::string& modsDirectory, const std::string& installDir, const std::function<void(int, int)>& progress)
 			{
 				InstallResult result;
-				unzFile zip = unzOpen64(zipPath.c_str());
+				const uint64_t startTicks = svcGetSystemTick();
+				zlib_filefunc64_def fileFunctions;
+				fill_fopen64_filefunc(&fileFunctions);
+				fileFunctions.zopen64_file = &openZipBuffered;
+				unzFile zip = unzOpen2_64(zipPath.c_str(), &fileFunctions);
 				if (nullptr == zip)
 				{
 					result.mMessage = "This isn't a zip file the 3DS can read (or it got cut off on the way).";
@@ -290,7 +322,10 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 
 				// Unpack into a folder of its own first ("installDir", ending with '/'); only a complete mod takes the place of an older version
 				removeRecursively(installDir.substr(0, installDir.size() - 1));
-				createDirectories(installDir);
+				std::set<std::string> createdFolders;
+				const uint32_t readMs = msSince(startTicks);
+				const uint64_t writeTicks = svcGetSystemTick();
+				createDirectoriesOnce(installDir, createdFolders);
 
 				int total = 0;
 				for (const std::string& entry : entries)
@@ -319,7 +354,7 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 						continue;
 					const std::string relative = path.substr(root.size());
 					const std::string target = installDir + relative;
-					createDirectories(target);
+					createDirectoriesOnce(target, createdFolders);
 
 					if (unzOpenCurrentFile(zip) != UNZ_OK)
 					{
@@ -328,6 +363,8 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 						break;
 					}
 					FILE* out = fopen(target.c_str(), "wb");
+					if (nullptr != out)
+						setvbuf(out, nullptr, _IOFBF, 32 * 1024);
 					if (nullptr == out)
 					{
 						unzCloseCurrentFile(zip);
@@ -395,6 +432,9 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 					return result;
 				}
 
+				const uint32_t writeMs = msSince(writeTicks);
+				const uint64_t moveTicks = svcGetSystemTick();
+
 				// In place: an older version of the same mod goes
 				const std::string destination = modsDirectory + folderName;
 				struct stat existing;
@@ -410,6 +450,13 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				}
 
 				const std::string modName = readModName(destination + "/mod.json", folderName);
+				const uint32_t totalMs = msSince(startTicks);
+				if (totalMs >= 1000)
+				{
+					// To see where a slow unpacking spends its time (the SD card, or the system core the work runs on)
+					RMX_LOG_INFO("Unpacking took " << totalMs << " ms: reading the zip " << readMs << " ms, " << done << " files and " << createdFolders.size() <<
+								 " folders " << writeMs << " ms, moving into place " << msSince(moveTicks) << " ms");
+				}
 				result.mSuccess = true;
 				result.mFolder = folderName;
 				result.mMessage = std::string(replaced ? "Updated " : "Installed ") + "\"" + modName + "\" and turned it on. (" +
