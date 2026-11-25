@@ -123,7 +123,7 @@ void ModsStartPage::render(Drawer& drawer, float visibility)
 #if defined(PLATFORM_3DS)
 	drawer.printText(global::mOxyfontSmall, rect, "Browse the mods on GameBanana and install them right here,", 1, color);
 	rect.y += 14;
-	drawer.printText(global::mOxyfontSmall, rect, "or send a mod's .zip from your phone or PC over Wi-Fi.", 1, color);
+	drawer.printText(global::mOxyfontSmall, rect, "or send a mod from your phone or PC over Wi-Fi.", 1, color);
 	rect.y += 18;
 	drawer.printText(global::mOxyfontSmall, rect, "The mod patcher on your PC works too, with the SD card", 1, color);
 	rect.y += 14;

@@ -1046,6 +1046,21 @@ void modServer()
 		}
 	}
 
+	// A .7z made right here (with the 7z tool, if it's there), and a file that's no archive at all
+	if (run("command -v 7z").find("7z") != std::string::npos)
+	{
+		mkdir("sdmc:/3ds", 0777);
+		mkdir("sdmc:/3ds/sonic3air", 0777);
+		const std::string folder = "sevenzip_src/Seven Mod/";
+		run("mkdir -p '" + folder + "sprites' && printf '{\\\"Metadata\\\":{\\\"Name\\\":\\\"Seven Mod\\\"}}' > '" + folder + "mod.json' && head -c 70000 /dev/urandom > '" + folder + "sprites/big.bin'");
+		run("cd sevenzip_src && 7z a -bd -y ../seven.7z 'Seven Mod' >/dev/null");
+		const modserver::InstallResult result = modserver::installZip("seven.7z", "seven.7z", "sdmc:/3ds/sonic3air/mods7z/", "sdmc:/3ds/sonic3air/seven_install/", nullptr);
+		check(result.mSuccess && result.mFolder == "Seven Mod" && exists("sdmc:/3ds/sonic3air/mods7z/Seven Mod/sprites/big.bin"), "a .7z mod unpacks: " + result.mMessage);
+		run("head -c 1000 /dev/urandom > notanarchive.zip");
+		const modserver::InstallResult bad = modserver::installZip("notanarchive.zip", "notanarchive.zip", "sdmc:/3ds/sonic3air/mods7z/", "sdmc:/3ds/sonic3air/seven_install/", nullptr);
+		check(!bad.mSuccess && bad.mMessage.find(".rar or .7z") != std::string::npos, "a file that's no archive: " + bad.mMessage);
+	}
+
 	// The server
 	mkdir("sdmc:/3ds", 0777);
 	const std::string modsDir = "sdmc:/3ds/sonic3air/savedata/mods/";
@@ -1085,7 +1100,7 @@ void modServer()
 	check(told && installed == "Super Mod", "the game gets told the new mod's folder ('" + installed + "')");
 	check(exists(modsDir + "Super Mod/mod.json") && exists(modsDir + "Super Mod/sprites/big.png") && exists(modsDir + "Super Mod/data/xxxxxxxxxx.bin"),
 		  "its files are in the mods folder, without the extra folder");
-	check(!exists(workDir + "wifi_upload.zip") && !exists(workDir + "wifi_install"), "nothing left over");
+	check(!exists(workDir + "wifi_upload.bin") && !exists(workDir + "wifi_install"), "nothing left over");
 	check(status.mLastWarnings.size() == 2, "warnings for the shader and the big image (" + std::to_string(status.mLastWarnings.size()) + ")");
 	check(status.mLastMessage.find("Super Test Mod") != std::string::npos, "the message names the mod by its name in mod.json");
 	const std::string statusJson = run("curl -s " + base + "status");
@@ -1184,7 +1199,11 @@ void gameBanana()
 		const bool parsedRar = gamebanana::parseModDetails(readFile(fixtures + "gb_details_rar.json"), rar, error);
 		check(parsedRar && !rar.mFiles.empty(), "a mod with .rar files: " + std::to_string(rar.mFiles.size()) + " files");
 		const char* problem = rar.mFiles.empty() ? nullptr : gamebanana::getFileProblem(rar.mFiles[0]);
-		check(nullptr != problem && std::string(problem).find(".rar") != std::string::npos, std::string("... can't be installed on the 3DS: ") + (problem ? problem : "(no reason)"));
+		check(nullptr == problem, std::string("... can be installed on the 3DS now") + (problem ? std::string(": no, ") + problem : std::string()));
+		gamebanana::FileInfo exe;
+		exe.mName = "tool.exe";
+		problem = gamebanana::getFileProblem(exe);
+		check(nullptr != problem, std::string("a file that's no archive can't: ") + (problem ? problem : "(no reason)"));
 	}
 
 	// Text
@@ -1292,18 +1311,23 @@ void gameBanana()
 		std::string folder;
 		const bool told = gamebanana::takeInstalledMod(folder);
 		check(told && exists(modsDir + folder + "/mod.json") && exists(modsDir + folder + "/scripts/main.lemon"), "... in the mods folder: " + folder);
-		check(!exists(workDir + "gamebanana_download.zip") && !exists(workDir + "gamebanana_install"), "... and the download is cleaned up");
+		check(!exists(workDir + "gamebanana_download.bin") && !exists(workDir + "gamebanana_install"), "... and the download is cleaned up");
 		gamebanana::acknowledgeInstall();
 	}
 
-	// A .rar: told right away, nothing downloaded
+	// A .rar (RAR5) and a .7z mod, unpacked with libarchive
+	for (const auto& test : { std::make_pair(std::string("shadow_the_hedgehog.rar"), std::string("https://gamebanana.com/dl/434763")),
+							  std::make_pair(std::string("custom_super_knuckles_sprites.7z"), std::string("https://gamebanana.com/dl/483644")) })
 	{
-		gamebanana::FileInfo rar;
-		rar.mName = "dreamcast_sonic.rar";
-		rar.mUrl = "https://gamebanana.com/dl/0";
-		gamebanana::requestInstall(rar, "Dreamcast sonic");
-		auto refused = waitFor([](const gamebanana::State& s) { return s.mInstall == gamebanana::Install::DONE; }, 10);
-		check(!refused.second.mInstallSuccess && refused.second.mInstallMessage.find(".rar") != std::string::npos, "online .rar: " + refused.second.mInstallMessage);
+		gamebanana::FileInfo file;
+		file.mName = test.first;
+		file.mUrl = test.second;
+		t0 = std::chrono::steady_clock::now();
+		gamebanana::requestInstall(file, test.first);
+		auto installed = waitFor([](const gamebanana::State& s) { return s.mInstall == gamebanana::Install::DONE; }, 60);
+		std::string folder;
+		const bool told = installed.second.mInstallSuccess && gamebanana::takeInstalledMod(folder);
+		check(told && exists(modsDir + folder + "/mod.json"), "online " + test.first + ": " + installed.second.mInstallMessage + " -> " + folder + " (" + seconds() + ")");
 		gamebanana::acknowledgeInstall();
 	}
 
@@ -1317,7 +1341,7 @@ void gameBanana()
 		waitFor([](const gamebanana::State& s) { return s.mBytes > 0; }, 20);
 		gamebanana::cancelInstall();
 		auto cancelled = waitFor([](const gamebanana::State& s) { return s.mInstall == gamebanana::Install::DONE; }, 20);
-		check(!cancelled.second.mInstallSuccess && cancelled.second.mInstallMessage == "Download cancelled." && !exists(workDir + "gamebanana_download.zip"),
+		check(!cancelled.second.mInstallSuccess && cancelled.second.mInstallMessage == "Download cancelled." && !exists(workDir + "gamebanana_download.bin"),
 			  "online cancel: '" + cancelled.second.mInstallMessage + "', nothing left behind");
 		gamebanana::acknowledgeInstall();
 	}

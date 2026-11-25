@@ -171,6 +171,8 @@ target_link_libraries(oxygen s3air_3ds_bottom_screen_clock_data)
 # and Mozilla's root certificates for checking the servers (net/cacert.pem, from https://curl.se/docs/caextract.html)
 dkp_add_embedded_binary_library(s3air_3ds_cacert_data ${CMAKE_CURRENT_SOURCE_DIR}/net/cacert.pem)
 target_link_libraries(oxygen s3air_3ds_cacert_data curl mbedtls mbedx509 mbedcrypto turbojpeg ZLIB::ZLIB)
+# Mods as .rar and .7z (GameBanana and the Wi-Fi install): libarchive and what it decompresses with (devkitPro portlibs)
+target_link_libraries(oxygen archive bz2 lzma lz4 zstd ZLIB::ZLIB)
 # For tests in the emulator only (it has no Wi-Fi of its own): a local stand-in for gamebanana.com, like "http://127.0.0.1:8000"
 set(S3AIR_3DS_GAMEBANANA_TEST_URL "" CACHE STRING "Test builds only: address of a local GameBanana stand-in")
 if (S3AIR_3DS_GAMEBANANA_TEST_URL)

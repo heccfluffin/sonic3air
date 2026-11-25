@@ -253,7 +253,7 @@ namespace n3ds
 				}
 
 				RMX_LOG_INFO("GameBanana: downloading " << file.mName << " (" << file.mSize << " bytes) for \"" << modName << "\"");
-				const std::string zipPath = gWorkDirectory + "gamebanana_download.zip";
+				const std::string zipPath = gWorkDirectory + "gamebanana_download.bin";		// .zip, .rar or .7z: told by its first bytes
 				mkdir(gWorkDirectory.substr(0, gWorkDirectory.size() - 1).c_str(), 0777);
 				gDownloadProgress.mBytes = 0;
 				gDownloadProgress.mTotalBytes = file.mSize;
@@ -822,12 +822,8 @@ namespace n3ds
 		const char* getFileProblem(const FileInfo& file)
 		{
 			const std::string& name = file.mName;
-			if (endsWithLower(name, ".rar"))
-				return "It's a .rar, and the 3DS can only unpack .zip. Unpack it on a PC and send it as .zip with the Wi-Fi install, or use the PC mod patcher.";
-			if (endsWithLower(name, ".7z"))
-				return "It's a .7z, and the 3DS can only unpack .zip. Unpack it on a PC and send it as .zip with the Wi-Fi install, or use the PC mod patcher.";
-			if (!endsWithLower(name, ".zip"))
-				return "This file isn't a .zip, so it's not a mod the 3DS can install.";
+			if (!endsWithLower(name, ".zip") && !endsWithLower(name, ".rar") && !endsWithLower(name, ".7z"))
+				return "This file isn't a .zip, .rar or .7z, so it's not a mod the 3DS can install.";
 			if (file.mSize > MAX_DOWNLOAD_SIZE)
 				return "This file is too big for the 3DS (over 400 MB).";
 			return nullptr;

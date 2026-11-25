@@ -30,6 +30,9 @@
 #include <poll.h>
 
 #include "unzip.h"
+#include <archive.h>
+#include <archive_entry.h>
+#include <memory>
 
 
 namespace n3ds
@@ -66,9 +69,9 @@ li { padding: 8px 12px; background: #18244a; border-radius: 8px; margin-bottom: 
 .tag { font-size: 13px; color: #8fe08f; white-space: nowrap; } .tag.off { color: #8090b0; }
 </style></head><body><main>
 <h1>Sonic 3 A.I.R. for New 3DS</h1>
-<p>Install a mod: pick its <b>.zip</b> (the download from GameBanana or wherever it's from). It goes straight to the 3DS's SD card, gets unpacked and turned on.</p>
-<div id="drop"><p>Drop a mod's .zip here, or</p><p><button id="pick">Choose a .zip...</button></p>
-<input id="file" type="file" accept=".zip,application/zip" hidden>
+<p>Install a mod: pick its <b>.zip</b>, <b>.rar</b> or <b>.7z</b> (the download from GameBanana or wherever it's from). It goes straight to the 3DS's SD card, gets unpacked and turned on.</p>
+<div id="drop"><p>Drop a mod's .zip, .rar or .7z here, or</p><p><button id="pick">Choose a file...</button></p>
+<input id="file" type="file" accept=".zip,.rar,.7z,application/zip,application/x-rar-compressed,application/vnd.rar,application/x-7z-compressed" hidden>
 <div id="bar"><div id="fill"></div></div><div id="msg"></div></div>
 <h2>Mods on the 3DS</h2><ul id="mods"><li>...</li></ul>
 <p>Turn mods on and off and change their order in the game's Mods menu. The highest one wins when two change the same thing.</p>
@@ -85,7 +88,7 @@ async function loadMods() {
 }
 function upload(file) {
   if (busy || !file) return;
-  if (!/\.zip$/i.test(file.name)) { msg('That\'s not a .zip file. Mods for the 3DS have to be uploaded as .zip.', 'bad'); return; }
+  if (!/\.(zip|rar|7z)$/i.test(file.name)) { msg('That\'s not a .zip, .rar or .7z file, which is what mods come as.', 'bad'); return; }
   busy = true; $('pick').disabled = true; $('bar').style.display = 'block'; $('fill').style.width = '0';
   msg('Sending ' + esc(file.name) + '...');
   const xhr = new XMLHttpRequest();
@@ -259,38 +262,215 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				gShared.mStatus.mFilesTotal = total;
 			}
 
+			// Reads an archive's entries one after another: .zip with minizip, .rar and .7z with libarchive
+			class ArchiveReader
+			{
+			public:
+				virtual ~ArchiveReader() {}
+				virtual bool open(const std::string& path) = 0;
+				virtual bool nextEntry(std::string& outPath, bool& outIsFile, bool& outIsOther) = 0;		// false at the end, or on an error
+				virtual int read(uint8_t* buffer, size_t size) = 0;		// From the current entry: 0 at its end, < 0 on an error
+				virtual bool closeEntry() = 0;			// false if the data was damaged
+				std::string mError;						// What went wrong, if anything
+			};
+
+			class ZipReader : public ArchiveReader
+			{
+			public:
+				~ZipReader() override  { if (nullptr != mZip) unzClose(mZip); }
+
+				bool open(const std::string& path) override
+				{
+					zlib_filefunc64_def fileFunctions;
+					fill_fopen64_filefunc(&fileFunctions);
+					fileFunctions.zopen64_file = &openZipBuffered;
+					mZip = unzOpen2_64(path.c_str(), &fileFunctions);
+					return (nullptr != mZip);
+				}
+
+				bool nextEntry(std::string& outPath, bool& outIsFile, bool& outIsOther) override
+				{
+					closeEntry();
+					const int status = mStarted ? unzGoToNextFile(mZip) : unzGoToFirstFile(mZip);
+					mStarted = true;
+					if (status != UNZ_OK)
+						return false;
+					char name[512];
+					unz_file_info64 info;
+					if (unzGetCurrentFileInfo64(mZip, &info, name, sizeof(name), nullptr, 0, nullptr, 0) != UNZ_OK)
+					{
+						mError = "Couldn't read the list of files in it.";
+						return false;
+					}
+					outPath = name;
+					outIsFile = !outPath.empty() && outPath.back() != '/' && outPath.back() != '\\';
+					outIsOther = false;
+					return true;
+				}
+
+				int read(uint8_t* buffer, size_t size) override
+				{
+					if (!mEntryOpen)
+					{
+						if (unzOpenCurrentFile(mZip) != UNZ_OK)
+							return -1;
+						mEntryOpen = true;
+					}
+					return unzReadCurrentFile(mZip, buffer, (unsigned)size);
+				}
+
+				bool closeEntry() override
+				{
+					if (!mEntryOpen)
+						return true;
+					mEntryOpen = false;
+					return (unzCloseCurrentFile(mZip) == UNZ_OK);		// Checks the CRC
+				}
+
+			private:
+				unzFile mZip = nullptr;
+				bool mStarted = false;
+				bool mEntryOpen = false;
+			};
+
+			class LibarchiveReader : public ArchiveReader
+			{
+			public:
+				~LibarchiveReader() override  { if (nullptr != mArchive) archive_read_free(mArchive); }
+
+				bool open(const std::string& path) override
+				{
+					mArchive = archive_read_new();
+					if (nullptr == mArchive)
+						return false;
+					archive_read_support_format_7zip(mArchive);
+					archive_read_support_format_rar(mArchive);
+					archive_read_support_format_rar5(mArchive);
+					archive_read_support_filter_all(mArchive);
+					if (archive_read_open_filename(mArchive, path.c_str(), 64 * 1024) != ARCHIVE_OK)
+					{
+						takeError();
+						return false;
+					}
+					return true;
+				}
+
+				bool nextEntry(std::string& outPath, bool& outIsFile, bool& outIsOther) override
+				{
+					archive_entry* entry = nullptr;
+					const int status = archive_read_next_header(mArchive, &entry);
+					if (status == ARCHIVE_EOF)
+						return false;
+					if (status != ARCHIVE_OK && status != ARCHIVE_WARN)
+					{
+						takeError();
+						return false;
+					}
+					const char* name = archive_entry_pathname_utf8(entry);
+					if (nullptr == name)
+						name = archive_entry_pathname(entry);
+					outPath = (nullptr != name) ? name : "";
+					const mode_t type = archive_entry_filetype(entry);
+					outIsFile = (type == AE_IFREG);
+					outIsOther = (type != AE_IFREG && type != AE_IFDIR);		// Links and such: not in a mod
+					if (type == AE_IFDIR && !outPath.empty() && outPath.back() != '/')
+						outPath += '/';
+					return true;
+				}
+
+				int read(uint8_t* buffer, size_t size) override
+				{
+					const la_ssize_t bytes = archive_read_data(mArchive, buffer, size);
+					if (bytes < 0)
+						takeError();
+					return (int)bytes;
+				}
+
+				bool closeEntry() override  { return true; }		// libarchive checks the data while reading
+
+			private:
+				void takeError()
+				{
+					const char* text = (nullptr != mArchive) ? archive_error_string(mArchive) : nullptr;
+					mError = (nullptr != text) ? text : "unknown error";
+				}
+
+				archive* mArchive = nullptr;
+			};
+
+			enum class ArchiveType { UNKNOWN, ZIP, RAR, SEVENZIP };
+
+			// By the first bytes of the file, not its name
+			ArchiveType getArchiveType(const std::string& path)
+			{
+				uint8_t magic[8] = { 0 };
+				FILE* file = fopen(path.c_str(), "rb");
+				if (nullptr == file)
+					return ArchiveType::UNKNOWN;
+				const size_t bytes = fread(magic, 1, sizeof(magic), file);
+				fclose(file);
+				if (bytes >= 4 && magic[0] == 'P' && magic[1] == 'K' && (magic[2] == 3 || magic[2] == 5) && (magic[3] == 4 || magic[3] == 6))
+					return ArchiveType::ZIP;
+				if (bytes >= 6 && memcmp(magic, "Rar!\x1a\x07", 6) == 0)
+					return ArchiveType::RAR;
+				if (bytes >= 6 && memcmp(magic, "7z\xbc\xaf\x27\x1c", 6) == 0)
+					return ArchiveType::SEVENZIP;
+				return ArchiveType::UNKNOWN;
+			}
+
+			std::unique_ptr<ArchiveReader> createReader(ArchiveType type)
+			{
+				if (type == ArchiveType::ZIP)
+					return std::make_unique<ZipReader>();
+				return std::make_unique<LibarchiveReader>();
+			}
+
 			InstallResult unpack(const std::string& zipPath, const std::string& uploadName, const std::string& modsDirectory, const std::string& installDir, const std::function<void(int, int)>& progress)
 			{
 				InstallResult result;
 				const uint64_t startTicks = svcGetSystemTick();
-				zlib_filefunc64_def fileFunctions;
-				fill_fopen64_filefunc(&fileFunctions);
-				fileFunctions.zopen64_file = &openZipBuffered;
-				unzFile zip = unzOpen2_64(zipPath.c_str(), &fileFunctions);
-				if (nullptr == zip)
+				const ArchiveType type = getArchiveType(zipPath);
+				if (type == ArchiveType::UNKNOWN)
 				{
-					result.mMessage = "This isn't a zip file the 3DS can read (or it got cut off on the way).";
+					result.mMessage = "This isn't a .zip, .rar or .7z file the 3DS can read (or it got cut off on the way).";
 					return result;
 				}
+				const char* kind = (type == ArchiveType::ZIP) ? "zip" : (type == ArchiveType::RAR) ? "rar" : "7z";
+				const std::string memoryHint = (type == ArchiveType::ZIP) ? std::string() : std::string(" If it's big, the 3DS may not have the memory for unpacking it: unpack it on a PC and send it as .zip instead.");
 
 				// All entries first: where's mod.json?
 				std::vector<std::string> entries;
-				char name[512];
-				unz_file_info64 info;
-				for (int status = unzGoToFirstFile(zip); status == UNZ_OK; status = unzGoToNextFile(zip))
 				{
-					if (unzGetCurrentFileInfo64(zip, &info, name, sizeof(name), nullptr, 0, nullptr, 0) != UNZ_OK)
-						continue;
-					std::string path = name;
-					std::replace(path.begin(), path.end(), '\\', '/');
-					entries.push_back(path);
+					std::unique_ptr<ArchiveReader> reader = createReader(type);
+					if (!reader->open(zipPath))
+					{
+						result.mMessage = std::string("Couldn't open the ") + kind + " file" + (reader->mError.empty() ? "" : " (" + reader->mError + ")") + "." + memoryHint;
+						return result;
+					}
+					std::string path;
+					bool isFile = false;
+					bool isOther = false;
+					while (reader->nextEntry(path, isFile, isOther))
+					{
+						std::replace(path.begin(), path.end(), '\\', '/');
+						if (isOther)
+						{
+							result.mMessage = "Refused: the " + std::string(kind) + " file has a link or something else that isn't a file in it (" + path + ").";
+							return result;
+						}
+						entries.push_back(path);
+					}
+					if (!reader->mError.empty())
+					{
+						result.mMessage = "Couldn't read the list of files in the " + std::string(kind) + " file (" + reader->mError + ")." + memoryHint;
+						return result;
+					}
 				}
 
 				std::string root;
 				std::string error;
 				if (!findModRoot(entries, root, error))
 				{
-					unzClose(zip);
 					result.mMessage = error;
 					return result;
 				}
@@ -298,13 +478,12 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				{
 					if (!isSafeZipPath(entry))
 					{
-						unzClose(zip);
-						result.mMessage = "Refused: the zip has an unsafe path in it (" + entry + ").";
+						result.mMessage = "Refused: the " + std::string(kind) + " file has an unsafe path in it (" + entry + ").";
 						return result;
 					}
 				}
 
-				// The folder name: the mod's own folder if it has one, else the zip's name
+				// The folder name: the mod's own folder if it has one, else the archive's name
 				std::string folderName;
 				if (!root.empty())
 				{
@@ -315,8 +494,11 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				else
 				{
 					folderName = uploadName;
-					if (endsWith(lowercase(folderName), ".zip"))
+					const std::string lower = lowercase(folderName);
+					if (endsWith(lower, ".zip") || endsWith(lower, ".rar"))
 						folderName.resize(folderName.size() - 4);
+					else if (endsWith(lower, ".7z"))
+						folderName.resize(folderName.size() - 3);
 				}
 				folderName = cleanFolderName(folderName);
 
@@ -344,39 +526,38 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				std::vector<std::string> bigImages;
 				int done = 0;
 				bool success = true;
-				for (int status = unzGoToFirstFile(zip); status == UNZ_OK && success; status = unzGoToNextFile(zip))
+				std::unique_ptr<ArchiveReader> reader = createReader(type);
+				if (!reader->open(zipPath))
 				{
-					if (unzGetCurrentFileInfo64(zip, &info, name, sizeof(name), nullptr, 0, nullptr, 0) != UNZ_OK)
-						continue;
-					std::string path = name;
+					result.mMessage = std::string("Couldn't open the ") + kind + " file again.";
+					success = false;
+				}
+				std::string path;
+				bool isFile = false;
+				bool isOther = false;
+				while (success && reader->nextEntry(path, isFile, isOther))
+				{
 					std::replace(path.begin(), path.end(), '\\', '/');
-					if (path.compare(0, root.size(), root) != 0 || path.size() <= root.size() || path.back() == '/')
+					if (!isFile || path.compare(0, root.size(), root) != 0 || path.size() <= root.size())
 						continue;
 					const std::string relative = path.substr(root.size());
 					const std::string target = installDir + relative;
 					createDirectoriesOnce(target, createdFolders);
 
-					if (unzOpenCurrentFile(zip) != UNZ_OK)
-					{
-						result.mMessage = "Couldn't read " + relative + " in the zip.";
-						success = false;
-						break;
-					}
 					FILE* out = fopen(target.c_str(), "wb");
-					if (nullptr != out)
-						setvbuf(out, nullptr, _IOFBF, 32 * 1024);
 					if (nullptr == out)
 					{
-						unzCloseCurrentFile(zip);
 						result.mMessage = "Couldn't write " + relative + " to the SD card.";
 						success = false;
 						break;
 					}
+					setvbuf(out, nullptr, _IOFBF, 32 * 1024);
 					uint8_t header[24] = { 0 };
 					size_t headerBytes = 0;
 					uint64_t size = 0;
 					int bytes;
-					while ((bytes = unzReadCurrentFile(zip, buffer.data(), (unsigned)buffer.size())) > 0)
+					bool writeFailed = false;
+					while ((bytes = reader->read(buffer.data(), buffer.size())) > 0)
 					{
 						if (headerBytes < sizeof(header))
 						{
@@ -386,16 +567,17 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 						}
 						if (fwrite(buffer.data(), 1, (size_t)bytes, out) != (size_t)bytes)
 						{
-							bytes = -1;
+							writeFailed = true;
 							break;
 						}
 						size += (uint64_t)bytes;
 					}
 					const bool closedOut = (fclose(out) == 0);
-					const bool crcOk = (unzCloseCurrentFile(zip) == UNZ_OK);
-					if (bytes < 0 || !closedOut || !crcOk)
+					const bool dataOk = reader->closeEntry() && (bytes >= 0);
+					if (writeFailed || !closedOut || !dataOk)
 					{
-						result.mMessage = (bytes < 0 && crcOk) ? "Writing " + relative + " failed - is the SD card full?" : relative + " in the zip is damaged.";
+						result.mMessage = (writeFailed || !closedOut) ? "Writing " + relative + " failed - is the SD card full?" :
+										  relative + " in the " + kind + " file is damaged" + (reader->mError.empty() ? "" : " (" + reader->mError + ")") + "." + memoryHint;
 						success = false;
 						break;
 					}
@@ -424,7 +606,12 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 					if (progress)
 						progress(done, total);
 				}
-				unzClose(zip);
+				if (success && !reader->mError.empty())
+				{
+					result.mMessage = "Unpacking the " + std::string(kind) + " file failed (" + reader->mError + ")." + memoryHint;
+					success = false;
+				}
+				reader.reset();
 
 				if (!success)
 				{
@@ -454,7 +641,7 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				if (totalMs >= 1000)
 				{
 					// To see where a slow unpacking spends its time (the SD card, or the system core the work runs on)
-					RMX_LOG_INFO("Unpacking took " << totalMs << " ms: reading the zip " << readMs << " ms, " << done << " files and " << createdFolders.size() <<
+					RMX_LOG_INFO("Unpacking took " << totalMs << " ms: reading the " << kind << " file " << readMs << " ms, " << done << " files and " << createdFolders.size() <<
 								 " folders " << writeMs << " ms, moving into place " << msSince(moveTicks) << " ms");
 				}
 				result.mSuccess = true;
@@ -585,7 +772,7 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				};
 
 				// Straight to the SD card, so even big mods don't need much memory
-				const std::string zipPath = gWorkDirectory + "wifi_upload.zip";
+				const std::string zipPath = gWorkDirectory + "wifi_upload.bin";		// The kind of archive is told by its first bytes
 				createDirectories(zipPath);
 				FILE* file = fopen(zipPath.c_str(), "wb");
 				if (nullptr == file)
@@ -756,8 +943,8 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 						sendJson(socket, 400, "{\"message\":\"Nothing was sent.\"}");
 					else if (contentLength > MAX_UPLOAD_SIZE)
 						sendJson(socket, 413, "{\"message\":\"That's bigger than 1 GB - too big for a 3DS mod.\"}");
-					else if (!endsWith(lowercase(fileName), ".zip"))
-						sendJson(socket, 400, "{\"message\":\"Only .zip files, please.\"}");
+					else if (!endsWith(lowercase(fileName), ".zip") && !endsWith(lowercase(fileName), ".rar") && !endsWith(lowercase(fileName), ".7z"))
+						sendJson(socket, 400, "{\"message\":\"Only .zip, .rar or .7z files, please.\"}");
 					else
 					{
 						if (expectContinue)

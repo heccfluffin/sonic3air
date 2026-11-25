@@ -39,7 +39,7 @@ g++ $FLAGS -include "$HERE/fake/3ds.h" \
 	"$SRC/oxygen/platform/3ds/N3DSFileWriter.cpp" "$SRC/oxygen/platform/3ds/N3DSJournal.cpp" "$SRC/oxygen/platform/3ds/N3DSChallenges.cpp" \
 	"$SRC/oxygen/platform/3ds/N3DSModServer.cpp" "$SRC/oxygen/platform/3ds/N3DSQRCode.cpp" \
 	"$SRC/oxygen/platform/3ds/N3DSHttp.cpp" "$SRC/oxygen/platform/3ds/N3DSGameBanana.cpp" "$OUT/jsoncpp.a" "$OUT/ioapi.o" "$OUT/unzip.o" "$HERE/fake3ds.cpp" "$HERE/main.cpp" "$OUT/embedded.o" \
-	-Wl,--wrap=time -Wl,--wrap=write -lcurl -lturbojpeg -lz -pthread -o "$OUT/hosttest"
+	-Wl,--wrap=time -Wl,--wrap=write -lcurl -lturbojpeg -larchive -lz -pthread -o "$OUT/hosttest"
 
 FAILED=0
 for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload postcards postcardsall rewards rewardsreload challenges challengeslots challengetypes challengetypes2 challengetypes3 challengegeneration challengelights editedfiles modserver gamebanana; do

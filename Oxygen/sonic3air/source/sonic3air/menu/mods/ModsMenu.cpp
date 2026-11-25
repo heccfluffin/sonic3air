@@ -1273,7 +1273,7 @@ void ModsMenu::renderWifi(Drawer& drawer)
 		drawer.printText(global::mOxyfontSmall, Recti(textX, y, 0, 10), "On your phone or PC, in the same", 1, white);
 		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 13, 0, 10), "Wi-Fi, scan the code or open:", 1, white);
 		drawer.printText(global::mOxyfontRegular, Recti(textX, y + 32, 0, 10), String(status.mAddress), 1, yellow);
-		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 52, 0, 10), "Then pick a mod's .zip there. It's", 1, gray);
+		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 52, 0, 10), "Then pick a mod's .zip/.rar/.7z. It's", 1, gray);
 		drawer.printText(global::mOxyfontSmall, Recti(textX, y + 65, 0, 10), "unpacked and turned on right away.", 1, gray);
 
 		// What's going on
