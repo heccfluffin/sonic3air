@@ -40,6 +40,9 @@ Linux use `s3air_3ds_modpatcher.py`, which needs [Python 3](https://www.python.o
      right ROM, exactly like the game does, and copies it **under the right name automatically**
 4. It then shows a checklist of everything on the SD card. Step 1 (sound firmware) still has to be done on the 3DS.
 
+A progress window shows how far the copying is. Leave the SD card in until it's done; if it gets cut off anyway, nothing
+half-copied is left looking finished, and **Check SD card** spots damaged data files.
+
 Command line alternative: `python3 s3air_3ds_modpatcher.py setup --air <A.I.R. zip> [--rom <your ROM>]`
 
 The manual steps below do the same by hand.
@@ -286,7 +289,8 @@ nothing to install anywhere. The page warns about things the 3DS can't do (custo
 connection set up in System Settings, and the Wi-Fi screen has to stay open while you upload.
 
 Or use the mod patcher (`s3air_3ds_modpatcher.exe` on Windows, or `s3air_3ds_modpatcher.py`, see its README) with the SD card in your PC.
-It copies mods to the right folder, unpacks zip files, and turns them on.
+It copies mods to the right folder, unpacks zip files, and turns them on. When it updates a mod, the old version stays
+in place until the new one is completely copied.
 You can also copy mod folders to `sdmc:/3ds/sonic3air/savedata/mods/` yourself and enable them in the game's Mods menu.
 
 Prefer unpacked mod folders over `.zip` files on the 3DS: the game keeps everything it reads from a zip in RAM,

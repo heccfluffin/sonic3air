@@ -1116,6 +1116,7 @@ void modServer()
 	}
 	status = modserver::getStatus();
 	check(status.mInstalls == 2 && exists(modsDir + "Super Mod/new.txt") && !exists(modsDir + "Super Mod/sprites"), "uploading it again replaces the old version (" + status.mLastMessage + ")");
+	check(!exists(workDir + "wifi_install_replaced") && !exists(workDir + "wifi_install"), "... and the old version that was moved aside is gone");
 
 	// Not a mod
 	run("python3 -c \"import zipfile; z = zipfile.ZipFile('upload_test3.zip', 'w'); z.writestr('readme.txt', 'hi'); z.close()\"");

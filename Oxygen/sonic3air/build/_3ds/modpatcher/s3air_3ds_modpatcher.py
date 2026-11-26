@@ -45,7 +45,17 @@ ACTIVE_MODS_FILE = "active-mods.json"
 ROM_NAME = "Sonic_Knuckles_wSonic3.bin"
 REQUIRED_DATA_FILES = ["gamedata.bin", "enginedata.bin", "audiodata.bin", "scripts.bin", "metadata.json"]
 REQUIRED_AIR_VERSION = "26.03.28.0"      # The A.I.R. version the port is built from: its data files must match exactly
+AIR_DOWNLOAD_URL = "https://github.com/Eukaryot/sonic3air/releases/download/v26.03.28.0-stable/sonic3air_game.zip"
+AIR_DATA_SIZES = {"gamedata.bin": 3705612, "enginedata.bin": 508007, "audiodata.bin": 2289447, "scripts.bin": 783815}   # Of that version
 DSP_FIRMWARE = Path("3ds") / "dspfirm.cdc"
+
+# Copies to the SD card go to a "<name>.s3air3ds-part" file first and get their real name only once they're complete, so a
+# copy that's cut off (card full, card pulled out, window closed) never looks like a finished file.
+# Mods are copied next to the mods folder first, and only a complete copy takes the place of the old version.
+PART_SUFFIX = ".s3air3ds-part"
+MODS_INCOMING_DIR = GAME_DIR / "savedata" / "mods_incoming"     # New mod versions while they're copied
+MODS_REPLACED_DIR = GAME_DIR / "savedata" / "mods_replaced"     # Old versions for the moment of the swap
+SPACE_MARGIN = 2 * 1024 * 1024
 
 # ROM check, same as the game's (see ConfigurationImpl.cpp and ResourcesCache.cpp)
 ROM_SIZE = 0x400000
@@ -85,6 +95,128 @@ def find_sd_cards() -> List[Path]:
 	return found
 
 
+class Progress:
+	"""What a long copy is doing, for the progress bar (read by the window while the copy runs in a thread of its own)."""
+	def __init__(self, callback=None):
+		self.text = ""
+		self.done = 0
+		self.total = 0
+		self.callback = callback
+
+	def start(self, text: str, total: int):
+		self.text, self.done, self.total = text, 0, total
+		self._report()
+
+	def add(self, amount: int):
+		self.done += amount
+		self._report()
+
+	def _report(self):
+		if self.callback:
+			self.callback(self)
+
+
+def _free_space(path: Path) -> Optional[int]:
+	"""Free bytes on the drive of a path (the path doesn't need to exist yet)."""
+	for candidate in [path] + list(path.parents):
+		if candidate.exists():
+			try:
+				return shutil.disk_usage(candidate).free
+			except OSError:
+				return None
+	return None
+
+
+def _check_space(target: Path, needed: int):
+	free = _free_space(target)
+	if free is not None and free < needed + SPACE_MARGIN:
+		mb = 1024 * 1024
+		raise PatcherError(f"Not enough space on the SD card: this needs {needed / mb:.1f} MB, but only {free / mb:.1f} MB are free.\n"
+						   "Nothing was changed. Make some room (old mods, screenshots, other games) and try again.")
+
+
+def _copy_file(src: Path, dst: Path, progress: Optional[Progress] = None):
+	"""Copy a file so that it only gets its real name once it's complete and has the right size."""
+	part = dst.with_name(dst.name + PART_SUFFIX)
+	size = src.stat().st_size
+	dst.parent.mkdir(parents=True, exist_ok=True)
+	try:
+		with open(src, "rb") as fin, open(part, "wb") as fout:
+			while True:
+				chunk = fin.read(1024 * 1024)
+				if not chunk:
+					break
+				fout.write(chunk)
+				if progress:
+					progress.add(len(chunk))
+		written = part.stat().st_size
+		if written != size:
+			raise PatcherError(f"Copying {src.name} stopped after {written} of {size} bytes. Is the SD card full, or was it removed?")
+		os.replace(part, dst)
+	except BaseException:
+		try:
+			part.unlink()
+		except OSError:
+			pass
+		raise
+
+
+def _tree_files(folder: Path) -> List[Path]:
+	return [p for p in folder.rglob("*") if p.is_file()]
+
+
+def _copy_tree(src: Path, dst: Path, progress: Optional[Progress] = None, text: str = "Copying"):
+	"""Copy a folder file by file (with the size check of _copy_file), then check that every file arrived."""
+	files = _tree_files(src)
+	if progress:
+		progress.start(text, sum(p.stat().st_size for p in files))
+	for file in files:
+		_copy_file(file, dst / file.relative_to(src), progress)
+	for file in files:
+		copy = dst / file.relative_to(src)
+		if not copy.is_file() or copy.stat().st_size != file.stat().st_size:
+			raise PatcherError(f"{file.relative_to(src).as_posix()} didn't arrive complete on the SD card.")
+
+
+def recover_interrupted(sd_root: Path) -> List[str]:
+	"""Clean up after a copy that was cut off earlier: put back an old mod version that was in the middle of being replaced,
+	delete half-copied files and folders. Returns what was done, for telling the user."""
+	messages = []
+	restored = set()
+	replaced = sd_root / MODS_REPLACED_DIR
+	mods_dir = sd_root / MODS_DIR
+	if replaced.is_dir():
+		for old in sorted(replaced.iterdir()):
+			if not old.is_dir():
+				continue
+			if (mods_dir / old.name).exists():
+				shutil.rmtree(old, ignore_errors=True)      # The swap had finished, only the clean-up was missing
+			else:
+				mods_dir.mkdir(parents=True, exist_ok=True)
+				os.replace(old, mods_dir / old.name)
+				restored.add(old.name)
+				messages.append(f"Updating '{old.name}' was cut off earlier. Its previous version is back in place; install the update again.")
+		shutil.rmtree(replaced, ignore_errors=True)
+	incoming = sd_root / MODS_INCOMING_DIR
+	if incoming.is_dir():
+		for half in sorted(p for p in incoming.iterdir() if p.name not in restored):
+			messages.append(f"Removed a half-copied mod '{half.name}' from an install that was cut off. Install it again.")
+		shutil.rmtree(incoming, ignore_errors=True)
+	game = sd_root / GAME_DIR
+	for folder in [game, game / "data"]:
+		try:
+			parts = [p for p in folder.iterdir() if p.name.endswith(PART_SUFFIX)]
+		except OSError:
+			continue
+		for part in parts:
+			try:
+				part.unlink()
+			except OSError:
+				continue
+			messages.append(f"Removed a half-copied file '{part.name[:-len(PART_SUFFIX)]}' from a copy that was cut off.")
+	return messages
+
+
 @dataclass
 class SetupReport:
 	ok: bool
@@ -102,13 +234,25 @@ def check_sd(sd_root: Path) -> SetupReport:
 		ok = ok and good
 		lines.append(("[OK]   " if good else "[MISS] ") + text + ("" if good or not fix else f"\n         -> {fix}"))
 
-	for name in REQUIRED_DATA_FILES:
-		item((game / "data" / name).is_file(), f"data/{name}",
-			 f"Use 'Set up game files' with the official Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download (sonic3air.org)")
 	version = read_air_version(game / "data")
+	for name in REQUIRED_DATA_FILES:
+		path = game / "data" / name
+		if not path.is_file():
+			item(False, f"data/{name}", f"Use 'Set up game files' with the official Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download:\n"
+										f"         {AIR_DOWNLOAD_URL}")
+			continue
+		expected = AIR_DATA_SIZES.get(name) if version == REQUIRED_AIR_VERSION else None
+		size = path.stat().st_size
+		item(expected is None or size == expected, f"data/{name}" + ("" if expected is None or size == expected else
+			 f" (incomplete or damaged: {size} bytes instead of {expected})"),
+			 "Use 'Set up game files' again, it copies the data folder fresh")
 	if version is not None:
 		item(version == REQUIRED_AIR_VERSION, f"A.I.R. data version {version}",
-			 f"The port needs the data of version {REQUIRED_AIR_VERSION} exactly, otherwise the scripts fail to load")
+			 f"The port needs the data of version {REQUIRED_AIR_VERSION} exactly, otherwise the scripts fail to load.\n"
+			 f"         That version: {AIR_DOWNLOAD_URL}")
+	leftovers = [p.name for folder in [game, game / "data"] if folder.is_dir() for p in folder.iterdir() if p.name.endswith(PART_SUFFIX)]
+	if leftovers or (sd_root / MODS_INCOMING_DIR).is_dir() or (sd_root / MODS_REPLACED_DIR).is_dir():
+		lines.append("[INFO] A copy was cut off earlier; the next install or 'Set up game files' cleans it up")
 
 	rom_paths = [game / ROM_NAME, game / "savedata" / ROM_NAME]
 	rom = next((p for p in rom_paths if p.is_file()), None)
@@ -226,18 +370,30 @@ def _find_air_data_dir(directory: Path) -> Optional[Path]:
 	return None
 
 
-def install_rom(rom: Path, sd_root: Path) -> Path:
+def install_rom(rom: Path, sd_root: Path, progress: Optional[Progress] = None) -> Path:
 	good, reason = check_rom(rom)
 	if not good:
 		raise PatcherError(f"{rom.name}: {reason}.\nSonic 3 A.I.R. only accepts the ROM from the Steam release of Sonic 3 & Knuckles.")
 	target = sd_root / GAME_DIR / ROM_NAME
-	target.parent.mkdir(parents=True, exist_ok=True)
-	shutil.copyfile(rom, target)
+	_check_space(target.parent, ROM_SIZE)      # The new copy sits next to an old one until it's complete
+	if progress:
+		progress.start("Copying the ROM", ROM_SIZE)
+	_copy_file(rom, target, progress)
+	good, reason = check_rom(target)
+	if not good:
+		raise PatcherError(f"The ROM copy on the SD card doesn't check out ({reason}). Try again, or try another SD card reader.")
 	return target
 
 
-def install_air_data(source: Path, sd_root: Path) -> str:
+def version_hint(version: Optional[str]) -> str:
+	return (f"This is Sonic 3 A.I.R. version {version}, but the 3DS port needs version {REQUIRED_AIR_VERSION}.\n"
+			"The data files must match the port exactly, otherwise the game can't load its scripts.\n\n"
+			f"That exact version is still available here:\n{AIR_DOWNLOAD_URL}")
+
+
+def install_air_data(source: Path, sd_root: Path, progress: Optional[Progress] = None) -> str:
 	"""Copy the 'data' folder of the official A.I.R. download (zip or folder) to the SD card. Returns the version."""
+	recover_interrupted(sd_root)
 	with tempfile.TemporaryDirectory() as tmp:
 		if source.is_file() and zipfile.is_zipfile(source):
 			_safe_extract(source, Path(tmp))
@@ -250,17 +406,25 @@ def install_air_data(source: Path, sd_root: Path) -> str:
 							   "Use the Windows download of Sonic 3 A.I.R. from sonic3air.org.")
 		version = read_air_version(data_dir)
 		if version != REQUIRED_AIR_VERSION:
-			raise PatcherError(f"This is Sonic 3 A.I.R. version {version}, but the 3DS port needs version {REQUIRED_AIR_VERSION}.\n"
-							   "The data files must match the port exactly, otherwise the game can't load its scripts.")
+			raise PatcherError(version_hint(version))
 		missing = [name for name in REQUIRED_DATA_FILES if not (data_dir / name).is_file()]
 		if missing:
 			raise PatcherError("The A.I.R. data folder is incomplete, missing: " + ", ".join(missing))
+		damaged = [name for name, size in AIR_DATA_SIZES.items() if (data_dir / name).stat().st_size != size]
+		if damaged:
+			raise PatcherError("The A.I.R. download looks damaged (" + ", ".join(damaged) + " has the wrong size). Download it again:\n" + AIR_DOWNLOAD_URL)
 
 		target = sd_root / GAME_DIR / "data"
-		target.mkdir(parents=True, exist_ok=True)
-		for file in data_dir.iterdir():
-			if file.is_file():
-				shutil.copyfile(file, target / file.name)
+		files = [f for f in data_dir.iterdir() if f.is_file()]
+		# One file at a time sits next to its old version until it's complete
+		sizes = [f.stat().st_size for f in files]
+		existing = sum((target / f.name).stat().st_size for f in files if (target / f.name).is_file())
+		_check_space(target, max(0, sum(sizes) - existing) + max(sizes, default=0))
+		if progress:
+			progress.start("Copying the game data", sum(f.stat().st_size for f in files))
+		# metadata.json (with the version) goes last: as long as it's missing, the data counts as not set up
+		for file in sorted(files, key=lambda f: f.name == "metadata.json"):
+			_copy_file(file, target / file.name, progress)
 	(sd_root / MODS_DIR).mkdir(parents=True, exist_ok=True)
 	return version
 
@@ -291,10 +455,56 @@ class ModInfo:
 	others: List[OtherModRef] = field(default_factory=list)
 
 
+def _relaxed_json(text: str) -> str:
+	"""Turn JSON as the game reads it into strict JSON: the game's reader (jsoncpp with its default settings) accepts // and
+	/* */ comments and trailing commas, and lots of mods have them."""
+	out = []
+	i, n = 0, len(text)
+	in_string = False
+	while i < n:
+		c = text[i]
+		if in_string:
+			out.append(c)
+			if c == "\\" and i + 1 < n:
+				out.append(text[i + 1])
+				i += 1
+			elif c == '"':
+				in_string = False
+		elif c == '"':
+			in_string = True
+			out.append(c)
+		elif text.startswith("//", i):
+			while i < n and text[i] not in "\r\n":
+				i += 1
+			continue
+		elif text.startswith("/*", i):
+			end = text.find("*/", i + 2)
+			i = n if end < 0 else end + 2
+			out.append(" ")
+			continue
+		elif c in "}]":
+			# Drop a comma right before the closing bracket (with only whitespace between them)
+			j = len(out) - 1
+			while j >= 0 and out[j] in " \t\r\n":
+				j -= 1
+			if j >= 0 and out[j] == ",":
+				del out[j]
+			out.append(c)
+		else:
+			out.append(c)
+		i += 1
+	return "".join(out)
+
+
 def load_mod_json(path: Path) -> dict:
-	# Mod authors sometimes save with a UTF-8 BOM or trailing commas; be lenient with the BOM at least
+	"""Read a mod.json as leniently as the game does: UTF-8 BOM, comments, trailing commas, and anything after the end."""
 	text = path.read_text(encoding="utf-8-sig", errors="replace")
-	return json.loads(text)
+	try:
+		return json.loads(text)
+	except ValueError:
+		pass
+	value, _ = json.JSONDecoder().raw_decode(_relaxed_json(text).strip())
+	return value
 
 
 def mod_info_from_json(folder: str, data: dict) -> ModInfo:
@@ -475,17 +685,37 @@ class InstallResult:
 	replaced: bool
 
 
-def install_mod(source: Path, sd_root: Path, enable: bool = True, allow_errors: bool = False) -> InstallResult:
+def _archive_kind(path: Path) -> Optional[str]:
+	try:
+		with open(path, "rb") as f:
+			head = f.read(8)
+	except OSError:
+		return None
+	if head.startswith(b"Rar!\x1a\x07"):
+		return "RAR"
+	if head.startswith(b"7z\xbc\xaf\x27\x1c"):
+		return "7z"
+	return None
+
+
+def install_mod(source: Path, sd_root: Path, enable: bool = True, allow_errors: bool = False, progress: Optional[Progress] = None) -> InstallResult:
 	mods_dir = sd_root / MODS_DIR
 	source = Path(source)
+	recover_interrupted(sd_root)
 	with tempfile.TemporaryDirectory(prefix="s3air3ds_") as tmp:
 		if source.is_file() and zipfile.is_zipfile(source):
+			if progress:
+				progress.start(f"Unpacking {source.name}", 0)
 			_safe_extract(source, Path(tmp))
 			root = _find_mod_root(Path(tmp))
 			fallback_name = source.stem
 		elif source.is_dir():
 			root = _find_mod_root(source)
 			fallback_name = source.name
+		elif source.is_file() and _archive_kind(source):
+			raise PatcherError(f"{source.name} is a {_archive_kind(source)} archive, which this tool can't unpack.\n"
+							   "Unpack it on your computer first (with 7-Zip, for example) and use 'Add mod folder...', "
+							   "or install it on the 3DS itself: the game's Mods menu can unpack .rar and .7z (GameBanana or Wi-Fi).")
 		else:
 			raise PatcherError(f"Not a mod .zip or folder: {source}")
 		if root is None:
@@ -500,10 +730,38 @@ def install_mod(source: Path, sd_root: Path, enable: bool = True, allow_errors: 
 		folder = _clean_folder_name(name)
 		dest = mods_dir / folder
 		replaced = dest.exists()
-		if replaced:
-			shutil.rmtree(dest)
+
+		# Copy the whole mod next to the mods folder first (the old version stays as it is), and only swap once it's complete
+		_check_space(mods_dir, sum(p.stat().st_size for p in _tree_files(root)))
+		incoming = sd_root / MODS_INCOMING_DIR / folder
+		if incoming.exists():
+			shutil.rmtree(incoming)
+		try:
+			_copy_tree(root, incoming, progress, f"Copying {folder}")
+		except BaseException:
+			shutil.rmtree(sd_root / MODS_INCOMING_DIR, ignore_errors=True)
+			raise
 		mods_dir.mkdir(parents=True, exist_ok=True)
-		shutil.copytree(root, dest)
+		if replaced:
+			old = sd_root / MODS_REPLACED_DIR / folder
+			if old.exists():
+				shutil.rmtree(old)
+			old.parent.mkdir(parents=True, exist_ok=True)
+			try:
+				os.replace(dest, old)
+			except OSError as e:
+				shutil.rmtree(sd_root / MODS_INCOMING_DIR, ignore_errors=True)
+				raise PatcherError(f"Couldn't replace the old version of '{folder}' ({e.strerror}). Is one of its files open in another program?\n"
+								   "The old version is still there, unchanged.")
+			try:
+				os.replace(incoming, dest)
+			except OSError:
+				os.replace(old, dest)       # Put the old version back
+				raise
+			shutil.rmtree(sd_root / MODS_REPLACED_DIR, ignore_errors=True)
+		else:
+			os.replace(incoming, dest)
+		shutil.rmtree(sd_root / MODS_INCOMING_DIR, ignore_errors=True)
 
 	info = mod_info_from_json(folder, load_mod_json(dest / "mod.json"))
 	if enable:
@@ -708,6 +966,26 @@ def _handle_conflicts_cli(sd: Path, folder: str, disable_others: bool):
 		print("  -> Disable the other mod with 'disable <folder>', or install/enable again with --disable-conflicting")
 
 
+def _cli_progress() -> Optional[Progress]:
+	"""A percentage on one line while copying, when running in a terminal."""
+	if not sys.stderr.isatty():
+		return None
+	shown = [None]
+
+	def show(p: Progress):
+		state = (p.text, int(p.done * 100 / p.total) if p.total else None)
+		if state != shown[0]:
+			shown[0] = state
+			print(f"\r{p.text}..." + (f" {state[1]}%" if state[1] is not None else "") + " " * 10, end="", file=sys.stderr, flush=True)
+	return Progress(show)
+
+
+def _cli_progress_done(progress: Optional[Progress]):
+	if progress and progress.text:
+		print("\r" + " " * (len(progress.text) + 20) + "\r", end="", file=sys.stderr, flush=True)
+		progress.text = ""
+
+
 def main_cli(argv: List[str]) -> int:
 	ap = argparse.ArgumentParser(description="Install and manage Sonic 3 A.I.R. mods on a 3DS SD card.")
 	ap.add_argument("--sd", help="SD card root (auto-detected if omitted)")
@@ -749,9 +1027,13 @@ def main_cli(argv: List[str]) -> int:
 				return 1 if check.errors else 0
 
 		sd = _resolve_sd(args.sd)
+		for message in recover_interrupted(sd):
+			print(message)
+		progress = _cli_progress()
 		if args.cmd == "setup":
 			if args.air:
-				version = install_air_data(Path(args.air), sd)
+				version = install_air_data(Path(args.air), sd, progress)
+				_cli_progress_done(progress)
 				print(f"Copied the A.I.R. {version} data folder to {(GAME_DIR / 'data').as_posix()}/")
 			if args.rom:
 				rom = Path(args.rom)
@@ -761,7 +1043,9 @@ def main_cli(argv: List[str]) -> int:
 				if rom is None and not (sd / GAME_DIR / ROM_NAME).is_file():
 					print("No Steam ROM found automatically, pass it with --rom")
 			if rom is not None:
-				print(f"Copied ROM {rom}  ->  {(GAME_DIR / ROM_NAME).as_posix()}  ({install_rom(rom, sd)})")
+				target = install_rom(rom, sd, progress)
+				_cli_progress_done(progress)
+				print(f"Copied ROM {rom}  ->  {(GAME_DIR / ROM_NAME).as_posix()}  ({target})")
 			report = check_sd(sd)
 			print("\n".join(report.lines))
 			return 0 if report.ok else 1
@@ -790,7 +1074,8 @@ def main_cli(argv: List[str]) -> int:
 			return 1 if any(p.severity == "error" for p in problems) else 0
 		elif args.cmd == "install":
 			for path in args.paths:
-				r = install_mod(Path(path), sd, enable=not args.disabled)
+				r = install_mod(Path(path), sd, enable=not args.disabled, progress=progress)
+				_cli_progress_done(progress)
 				print(f"{'Updated' if r.replaced else 'Installed'}: {r.mod.name}  ->  {(MODS_DIR / r.mod.folder).as_posix()}")
 				_print_check(r.check)
 				if not args.disabled:
@@ -806,8 +1091,11 @@ def main_cli(argv: List[str]) -> int:
 			move_priority(sd, args.folder, +1)
 		elif args.cmd == "down":
 			move_priority(sd, args.folder, -1)
+	except KeyboardInterrupt:
+		print("\nStopped. Whatever was being copied wasn't finished, so the old files are still in place.", file=sys.stderr)
+		return 1
 	except (PatcherError, OSError, zipfile.BadZipFile) as e:
-		print(f"Error: {e}", file=sys.stderr)
+		print(f"\nError: {e}", file=sys.stderr)
 		return 1
 	return 0
 
@@ -817,7 +1105,9 @@ def main_cli(argv: List[str]) -> int:
 # ---------------------------------------------------------------------------
 
 def main_gui() -> int:
+	import threading
 	import tkinter as tk
+	import webbrowser
 	from tkinter import filedialog, messagebox, ttk
 
 	root = tk.Tk()
@@ -830,12 +1120,101 @@ def main_gui() -> int:
 	if cards:
 		sd_var.set(str(cards[0]))
 	status_var = tk.StringVar(value="Pick your 3DS SD card. First time? Click 'Set up game files...'. Then add mods.")
+	MB = 1024 * 1024
 
-	# Top: SD card selection
+	# Top: SD card selection (a drop-down when more than one card is plugged in)
 	top = ttk.Frame(root, padding=8)
 	top.pack(fill="x")
 	ttk.Label(top, text="3DS SD card:").pack(side="left")
-	ttk.Entry(top, textvariable=sd_var).pack(side="left", fill="x", expand=True, padx=6)
+	sd_box = ttk.Combobox(top, textvariable=sd_var, values=[str(c) for c in cards])
+	sd_box.pack(side="left", fill="x", expand=True, padx=6)
+	sd_box.bind("<<ComboboxSelected>>", lambda e: refresh())
+
+	# Long copies run in a thread of their own, with a progress window, so the window never shows "Not Responding"
+	busy = {"running": False}
+
+	def run_job(title: str, work, finished):
+		"""work(progress) runs in the background; finished(result, error) then runs in the window's thread."""
+		dialog = tk.Toplevel(root)
+		dialog.title(title)
+		dialog.transient(root)
+		dialog.resizable(False, False)
+		text_var = tk.StringVar(value="Starting...")
+		ttk.Label(dialog, textvariable=text_var, padding=(14, 14, 14, 6), width=64).pack(fill="x")
+		bar = ttk.Progressbar(dialog, length=440, mode="determinate", maximum=1000)
+		bar.pack(padx=14, pady=(0, 8))
+		ttk.Label(dialog, text="Please don't remove the SD card or close the patcher until this is done.",
+				  padding=(14, 0, 14, 14)).pack()
+		dialog.protocol("WM_DELETE_WINDOW", lambda: None)
+		dialog.grab_set()
+
+		lock = threading.Lock()
+		state = {"text": "", "done": 0, "total": 0, "finished": False, "result": None, "error": None}
+
+		def report(p: Progress):
+			with lock:
+				state.update(text=p.text, done=p.done, total=p.total)
+
+		def worker():
+			try:
+				result = work(Progress(report))
+				with lock:
+					state["result"] = result
+			except BaseException as e:      # Shown in the window's thread
+				with lock:
+					state["error"] = e
+			with lock:
+				state["finished"] = True
+
+		def poll():
+			with lock:
+				text, done, total, over = state["text"], state["done"], state["total"], state["finished"]
+			if total:
+				bar.configure(mode="determinate")
+				bar["value"] = 1000 * done / total
+				text_var.set(f"{text}...  {done * 100 // total}%  ({done / MB:.1f} of {total / MB:.1f} MB)")
+			else:
+				bar.configure(mode="indeterminate")
+				bar.step(20)
+				text_var.set(f"{text}..." if text else "Working...")
+			if not over:
+				root.after(100, poll)
+				return
+			busy["running"] = False
+			dialog.grab_release()
+			dialog.destroy()
+			finished(state["result"], state["error"])
+
+		busy["running"] = True
+		threading.Thread(target=worker, daemon=True).start()
+		poll()
+
+	def show_error(title: str, error: BaseException):
+		text = str(error)
+		if AIR_DOWNLOAD_URL in text:
+			if messagebox.askyesno(title, text + "\n\nOpen that download in your browser?", icon="warning"):
+				webbrowser.open(AIR_DOWNLOAD_URL)
+		elif isinstance(error, (PatcherError, OSError, zipfile.BadZipFile)):
+			messagebox.showerror(title, text)
+		else:
+			messagebox.showerror(title, f"Something unexpected went wrong: {type(error).__name__}: {text}")
+
+	def on_close():
+		if busy["running"] and not messagebox.askyesno("Still copying",
+				"A copy to the SD card is still running.\n\nIf you close now, it won't be finished: the old files stay as they were, "
+				"but the new ones won't be there. Close anyway?", icon="warning"):
+			return
+		root.destroy()
+	root.protocol("WM_DELETE_WINDOW", on_close)
+
+	def show_recovery(card: Path):
+		try:
+			messages = recover_interrupted(card)
+		except OSError:
+			return
+		if messages:
+			messagebox.showinfo("Cleaned up", "\n\n".join(messages))
+			refresh()
 
 	def browse_sd():
 		path = filedialog.askdirectory(title="Select the root of your 3DS SD card")
@@ -856,47 +1235,58 @@ def main_gui() -> int:
 			messagebox.showwarning("No SD card", "Select your 3DS SD card first.")
 			return
 		card = Path(sd_var.get())
-		done = []
-		try:
-			# A.I.R. data
-			if messagebox.askyesno("Set up game files (1/2)",
-								   f"Copy the game data from the official Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download?\n\n"
-								   "Download the Windows version from sonic3air.org first. Then pick the downloaded .zip "
-								   "(or choose 'No' here if the data is already on the SD card)."):
-				path = filedialog.askopenfilename(title=f"Select the Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download (.zip)",
-												  filetypes=[("Zip archives", "*.zip"), ("All files", "*.*")])
-				if not path:
-					path = filedialog.askdirectory(title="Or select the unpacked Sonic 3 A.I.R. folder")
-				if path:
-					root.config(cursor="watch"); root.update()
-					version = install_air_data(Path(path), card)
-					done.append(f"Copied the A.I.R. {version} data.")
+		show_recovery(card)
 
-			# ROM
-			root.config(cursor="watch"); root.update()
-			roms = [r for r in find_steam_roms() if check_rom(r)[0]]
-			root.config(cursor="")
-			rom = None
-			if roms and messagebox.askyesno("Set up game files (2/2)", f"Found your Sonic 3 & Knuckles ROM in Steam:\n{roms[0]}\n\nCopy it to the SD card?"):
-				rom = roms[0]
-			elif not roms:
-				messagebox.showinfo("Set up game files (2/2)",
-									"Now pick your Sonic 3 & Knuckles ROM from Steam.\nIts file name doesn't matter, it gets renamed automatically.")
-			if rom is None:
-				path = filedialog.askopenfilename(title="Select your Sonic 3 & Knuckles ROM (Steam)", filetypes=[("ROM files", "*.bin *.md *.gen"), ("All files", "*.*")])
-				if path:
-					rom = Path(path)
+		# Ask for everything first, then copy it all in the background
+		air_path = None
+		if messagebox.askyesno("Set up game files (1/2)",
+							   f"Copy the game data from the official Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download?\n\n"
+							   "Download the Windows version first (sonic3air.org, or the link below). Then pick the downloaded .zip "
+							   "(or choose 'No' here if the data is already on the SD card).\n\n"
+							   f"{AIR_DOWNLOAD_URL}"):
+			path = filedialog.askopenfilename(title=f"Select the Sonic 3 A.I.R. {REQUIRED_AIR_VERSION} download (.zip)",
+											  filetypes=[("Zip archives", "*.zip"), ("All files", "*.*")])
+			if not path:
+				path = filedialog.askdirectory(title="Or select the unpacked Sonic 3 A.I.R. folder")
+			if path:
+				air_path = Path(path)
+
+		root.config(cursor="watch")
+		root.update()
+		roms = [r for r in find_steam_roms() if check_rom(r)[0]]
+		root.config(cursor="")
+		rom = None
+		if roms and messagebox.askyesno("Set up game files (2/2)", f"Found your Sonic 3 & Knuckles ROM in Steam:\n{roms[0]}\n\nCopy it to the SD card?"):
+			rom = roms[0]
+		elif not roms:
+			messagebox.showinfo("Set up game files (2/2)",
+								"Now pick your Sonic 3 & Knuckles ROM from Steam.\nIts file name doesn't matter, it gets renamed automatically.")
+		if rom is None:
+			path = filedialog.askopenfilename(title="Select your Sonic 3 & Knuckles ROM (Steam)", filetypes=[("ROM files", "*.bin *.md *.gen"), ("All files", "*.*")])
+			if path:
+				rom = Path(path)
+
+		def work(progress: Progress):
+			done = []
+			if air_path is not None:
+				version = install_air_data(air_path, card, progress)
+				done.append(f"Copied the A.I.R. {version} data.")
 			if rom is not None:
-				root.config(cursor="watch"); root.update()
-				install_rom(rom, card)
+				install_rom(rom, card, progress)
 				done.append(f"Copied the ROM as {ROM_NAME}.")
-		except (PatcherError, OSError, zipfile.BadZipFile) as e:
-			messagebox.showerror("Set up game files", str(e))
-		finally:
-			root.config(cursor="")
-		report = check_sd(card)
-		(messagebox.showinfo if report.ok else messagebox.showwarning)("Set up game files", "\n".join(done + ([""] if done else []) + report.lines))
-		refresh()
+			return done
+
+		def finished(done, error):
+			if error is not None:
+				show_error("Set up game files", error)
+			report = check_sd(card)
+			(messagebox.showinfo if report.ok else messagebox.showwarning)("Set up game files", "\n".join((done or []) + ([""] if done else []) + report.lines))
+			refresh()
+
+		if air_path is None and rom is None:
+			finished([], None)
+		else:
+			run_job("Setting up the game files", work, finished)
 	ttk.Button(top, text="Set up game files...", command=do_setup).pack(side="left", padx=(6, 0))
 
 	# Middle: mod list
@@ -991,28 +1381,45 @@ def main_gui() -> int:
 
 	def add_mods(paths):
 		card = sd()
-		if not card:
+		if not card or not paths:
 			return
-		messages = []
-		last = None
-		installed_folders = []
-		for p in paths:
-			r = install_mod(Path(p), card)
-			last = r.mod.folder
-			installed_folders.append(r.mod.folder)
-			msg = f"{'Updated' if r.replaced else 'Installed'}: {r.mod.name}"
-			if r.check.warnings:
-				msg += "\n  - " + "\n  - ".join(r.check.warnings)
-			messages.append(msg)
-		refresh(last)
-		if messages:
-			messagebox.showinfo("Mods installed", "\n\n".join(messages))
-		for folder in installed_folders:
-			resolve_conflicts(folder)
+		show_recovery(card)
+
+		def work(progress: Progress):
+			results, errors = [], []
+			for p in paths:
+				try:
+					results.append(install_mod(Path(p), card, progress=progress))
+				except (PatcherError, OSError, zipfile.BadZipFile) as e:
+					errors.append(f"{Path(p).name}: {e}")      # One bad mod doesn't stop the others
+			return results, errors
+
+		def finished(outcome, error):
+			if error is not None:
+				show_error("Installing mods", error)
+				refresh()
+				return
+			results, errors = outcome
+			messages = []
+			for r in results:
+				msg = f"{'Updated' if r.replaced else 'Installed'}: {r.mod.name}"
+				if r.check.warnings:
+					msg += "\n  - " + "\n  - ".join(r.check.warnings)
+				messages.append(msg)
+			refresh(results[-1].mod.folder if results else None)
+			if messages:
+				messagebox.showinfo("Mods installed", "\n\n".join(messages))
+			if errors:
+				messagebox.showerror("Not installed", "\n\n".join(errors))
+			for r in results:
+				resolve_conflicts(r.mod.folder)
+
+		run_job("Installing mods", work, finished)
 
 	@guarded
 	def add_zip():
 		paths = filedialog.askopenfilenames(title="Select mod .zip files", filetypes=[("Mod archives", "*.zip"), ("All files", "*.*")])
+		paths = list(paths)
 		add_mods(paths)
 
 	@guarded
@@ -1056,10 +1463,15 @@ def main_gui() -> int:
 			ttk.Button(side, text=text, command=cmd).pack(fill="x", pady=2)
 
 	tree.bind("<Double-1>", lambda e: toggle())
+
 	sd_var.trace_add("write", lambda *a: refresh())
 
 	ttk.Label(root, textvariable=status_var, padding=8, wraplength=680).pack(fill="x")
+	if sd_var.get():
+		root.after(200, lambda: show_recovery(Path(sd_var.get())))
 	refresh()
+	if len(cards) > 1:
+		status_var.set(f"Found {len(cards)} possible 3DS SD cards - check that the right one is picked at the top.")
 	root.mainloop()
 	return 0
 

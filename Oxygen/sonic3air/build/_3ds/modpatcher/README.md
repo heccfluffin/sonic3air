@@ -22,6 +22,26 @@ needs Python 3.8 or newer and nothing else.
 - Warns about things the 3DS port can't do: custom shaders, very large images, very large music packs
 - Copies the mod to `3ds/sonic3air/savedata/mods/` and turns it on
 - Writes the same `active-mods.json` file as the game's own Mods menu, so both stay in sync
+- Reads `mod.json` the way the game does, so mods with comments or a trailing comma in it install fine
+
+## Safe copying
+
+Copying to an SD card can take a while, and cards get full or pulled out. The patcher makes sure that never leaves
+you with a broken game or a lost mod:
+
+- **Progress bar:** big copies run in the background with a progress window, so Windows never shows "Not Responding".
+- **Nothing half-copied counts:** every file is copied under a temporary name and only gets its real name once it's
+  complete and has the right size.
+- **Updating a mod:** the new version is copied next to the mods folder first. Only once it's complete does it take the
+  place of the old one, so if anything goes wrong, the old version is still there.
+- **Cut off anyway?** The next time the patcher starts, it cleans up: it puts back an old mod version that was in the
+  middle of being replaced and removes half-copied files, and tells you what it did.
+- **Free space** is checked before copying anything.
+- **Check SD card** also checks the size of the game data files, so a damaged or incomplete copy gets caught.
+- **Wrong A.I.R. version?** The message links straight to the download of the version the port needs.
+- **Two SD cards plugged in?** Pick the right one from the drop-down at the top.
+- `.rar` and `.7z` mods can't be unpacked by the patcher: unpack them on your computer and use **Add mod folder...**, or
+  install them on the 3DS itself (GameBanana browser or Wi-Fi install in the Mods menu).
 
 ## Command line
 

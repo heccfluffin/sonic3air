@@ -622,19 +622,34 @@ setInterval(() => { if (!busy) loadMods(); }, 5000);
 				const uint32_t writeMs = msSince(writeTicks);
 				const uint64_t moveTicks = svcGetSystemTick();
 
-				// In place: an older version of the same mod goes
+				// In place: an older version of the same mod is moved aside first and only deleted once the new one is in its place,
+				// so a failed move never leaves neither version
 				const std::string destination = modsDirectory + folderName;
+				const std::string newFolder = installDir.substr(0, installDir.size() - 1);
+				const std::string oldFolder = newFolder + "_replaced";		// Next to the unpacking folder, on the same SD card
 				struct stat existing;
 				const bool replaced = (stat(destination.c_str(), &existing) == 0);
-				if (replaced)
-					removeRecursively(destination);
 				createDirectories(modsDirectory);
-				if (rename(installDir.substr(0, installDir.size() - 1).c_str(), destination.c_str()) != 0)
+				if (replaced)
 				{
-					removeRecursively(installDir.substr(0, installDir.size() - 1));
+					removeRecursively(oldFolder);		// From an earlier install that was cut off
+					if (rename(destination.c_str(), oldFolder.c_str()) != 0)
+					{
+						removeRecursively(newFolder);
+						result.mMessage = "Couldn't replace the older version of this mod. The older version is still there.";
+						return result;
+					}
+				}
+				if (rename(newFolder.c_str(), destination.c_str()) != 0)
+				{
+					if (replaced)
+						rename(oldFolder.c_str(), destination.c_str());		// Put the older version back
+					removeRecursively(newFolder);
 					result.mMessage = "Couldn't move the mod into the mods folder.";
 					return result;
 				}
+				if (replaced)
+					removeRecursively(oldFolder);
 
 				const std::string modName = readModName(destination + "/mod.json", folderName);
 				const uint32_t totalMs = msSince(startTicks);
