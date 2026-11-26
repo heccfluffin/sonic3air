@@ -110,6 +110,7 @@ extern "C" ssize_t __wrap_write(int fd, const void* buffer, size_t count)
 // --- libctru stand-ins ---
 
 u64 svcGetSystemTick()		{ return (u64)(secondsSinceStart() * SYSCLOCK_ARM11); }
+u64 osGetTime()				{ return 3373000000000ull + (u64)(secondsSinceStart() * 1000.0); }
 void svcSleepThread(int64_t ns)	{ std::this_thread::sleep_for(std::chrono::nanoseconds(ns)); }
 Result svcGetThreadPriority(s32* out, Handle)	{ *out = 0x30; return 0; }
 

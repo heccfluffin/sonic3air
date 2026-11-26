@@ -36,13 +36,13 @@ for f in json_reader json_value json_writer; do g++ -c -O1 -w -std=c++17 -I"$JSO
 ar rcs "$OUT/jsoncpp.a" "$OUT/json_reader.o" "$OUT/json_value.o" "$OUT/json_writer.o"
 g++ $FLAGS -include "$HERE/fake/3ds.h" \
 	"$SRC/oxygen/platform/3ds/N3DSBottomScreen.cpp" "$SRC/oxygen/platform/3ds/N3DSShop.cpp" "$SRC/oxygen/platform/3ds/N3DSProfile.cpp" \
-	"$SRC/oxygen/platform/3ds/N3DSFileWriter.cpp" "$SRC/oxygen/platform/3ds/N3DSJournal.cpp" "$SRC/oxygen/platform/3ds/N3DSChallenges.cpp" \
+	"$SRC/oxygen/platform/3ds/N3DSFileWriter.cpp" "$SRC/oxygen/platform/3ds/N3DSJournal.cpp" "$SRC/oxygen/platform/3ds/N3DSPostcardSwap.cpp" "$SRC/oxygen/platform/3ds/N3DSChallenges.cpp" \
 	"$SRC/oxygen/platform/3ds/N3DSModServer.cpp" "$SRC/oxygen/platform/3ds/N3DSQRCode.cpp" \
 	"$SRC/oxygen/platform/3ds/N3DSHttp.cpp" "$SRC/oxygen/platform/3ds/N3DSGameBanana.cpp" "$OUT/jsoncpp.a" "$OUT/ioapi.o" "$OUT/unzip.o" "$HERE/fake3ds.cpp" "$HERE/main.cpp" "$OUT/embedded.o" \
 	-Wl,--wrap=time -Wl,--wrap=write -lcurl -lturbojpeg -larchive -lz -pthread -o "$OUT/hosttest"
 
 FAILED=0
-for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload postcards postcardsall rewards rewardsreload challenges challengeslots challengetypes challengetypes2 challengetypes3 challengegeneration challengelights editedfiles modserver gamebanana; do
+for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload postcards postcardsall rewards rewardsreload postcardswap postcardswapreload challenges challengeslots challengetypes challengetypes2 challengetypes3 challengegeneration challengelights editedfiles modserver gamebanana; do
 	echo "== $scenario"
 	mkdir -p "$OUT/sd_$scenario/sdmc:"		# The SD card itself, which always exists on the 3DS
 	(cd "$OUT/sd_$scenario" && "$OUT/hosttest" "$scenario" "$OUT/shots") || FAILED=1

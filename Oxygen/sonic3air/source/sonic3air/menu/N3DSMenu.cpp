@@ -29,6 +29,7 @@
 #include "oxygen/platform/3ds/N3DSFileWriter.h"
 #include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSPlayCoins.h"
+#include "oxygen/platform/3ds/N3DSPostcardSwap.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
 
@@ -60,6 +61,7 @@ namespace
 	static constexpr uint32 JOURNAL_STATS = 0x609;			// Opens the page with all the numbers above
 	static constexpr uint32 JOURNAL_BONUS = 0x60a;			// Bonus box, with the gift to choose as options
 	static constexpr uint32 JOURNAL_VOUCHERS = 0x60b;
+	static constexpr uint32 JOURNAL_SWAP = 0x60c;			// Swapping postcards by local wireless; the options are which one to share
 	static constexpr uint32 CHALLENGE_MEDAL = 0x700;		// Doctor Robotnik's Daily Challenge: him, and the Robotnik medal
 	static constexpr uint32 CHALLENGE_FIRST = 0x701;		// Today's challenges, 0x701 to 0x705
 	static constexpr uint32 CHALLENGE_EGGROBOS = 0x70d;		// Egg Robo patrols, changed with left / right
@@ -336,6 +338,47 @@ namespace
 				return &funny;
 		}
 		return nullptr;
+	}
+
+	// The album's postcards: the ones from stamp cards (option value = their index), then the swapped ones (SWAPPED_POSTCARD + index)
+	const uint32 SWAPPED_POSTCARD = 0x10000;
+	const n3ds::journal::Postcard* getAlbumPostcard(uint32 value, const n3ds::journal::SwappedPostcard** outSwapped = nullptr)
+	{
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		if (nullptr != outSwapped)
+			*outSwapped = nullptr;
+		if (value >= SWAPPED_POSTCARD)
+		{
+			const uint32 index = value - SWAPPED_POSTCARD;
+			if (index >= journal.mSwapped.size())
+				return nullptr;
+			if (nullptr != outSwapped)
+				*outSwapped = &journal.mSwapped[index];
+			return &journal.mSwapped[index].mPostcard;
+		}
+		return (value < journal.mPostcards.size()) ? &journal.mPostcards[value] : nullptr;
+	}
+
+	std::string getPostcardZoneName(const std::string& spriteName);
+
+	// Like "Hydrocity Act 1", or a funny one's headline
+	std::string getPostcardTitle(const n3ds::journal::Postcard& postcard)
+	{
+		const FunnyPostcard* funny = findFunnyPostcard(postcard);
+		if (nullptr != funny)
+		{
+			String headline(funny->mHeadline);
+			headline.lowerCase();
+			std::string result = headline.toStdString();
+			for (size_t k = 0; k < result.size(); ++k)
+			{
+				if (k == 0 || result[k - 1] == ' ')
+					result[k] = (char)toupper((unsigned char)result[k]);
+			}
+			return result;
+		}
+		const int acts = (postcard.mZone == 11 || postcard.mZone == 12 || postcard.mZone == 14) ? 1 : 2;
+		return getPostcardZoneName(postcard.getSpriteName()) + ((acts > 1) ? (" Act " + std::to_string(postcard.mAct)) : std::string());
 	}
 
 	// The Time of Day theme is free, but only once all three of the themes it switches between are owned
@@ -657,6 +700,7 @@ GameMenuBase::BaseState N3DSMenu::getBaseState() const
 		case State::CONFIRM:	  return BaseState::SHOW;
 		case State::POSTCARD:	  return BaseState::SHOW;
 		case State::STATS:		  return BaseState::SHOW;
+		case State::SWAP:		  return BaseState::SHOW;
 		case State::FADE_TO_MENU: return BaseState::FADE_OUT;
 		default:				  return BaseState::INACTIVE;
 	}
@@ -1215,12 +1259,28 @@ void N3DSMenu::rebuildTabs()
 		entries.addEntry("Stamp Card", JOURNAL_STAMPS);
 		{
 			// One option per postcard, the newest one shown first
+			// One option per postcard: the ones from stamp cards, then the swapped ones; the newest from a stamp card shown first
 			GameMenuEntry& entry = entries.addEntry("Postcards", JOURNAL_POSTCARDS);
 			const std::vector<n3ds::journal::Postcard>& postcards = n3ds::journal::get().mPostcards;
+			const std::vector<n3ds::journal::SwappedPostcard>& swapped = n3ds::journal::get().mSwapped;
 			for (size_t k = 0; k < postcards.size(); ++k)
 				entry.addOption(postcards[k].getSpriteName(), (uint32)k);
-			if (!postcards.empty())
+			for (size_t k = 0; k < swapped.size(); ++k)
+				entry.addOption(swapped[k].mPostcard.getSpriteName(), SWAPPED_POSTCARD + (uint32)k);
+			if (mSelectSwappedPostcard >= 0 && mSelectSwappedPostcard < (int)swapped.size())
+				entry.setSelectedIndexByValue(SWAPPED_POSTCARD + (uint32)mSelectSwappedPostcard);
+			else if (!postcards.empty())
 				entry.setSelectedIndexByValue((uint32)(postcards.size() - 1));
+			mSelectSwappedPostcard = -1;
+		}
+		{
+			// Swapping postcards: the options are which one to share
+			GameMenuEntry& entry = entries.addEntry("Swap Postcards", JOURNAL_SWAP);
+			const n3ds::journal::Data& journal = n3ds::journal::get();
+			for (size_t k = 0; k < journal.mPostcards.size(); ++k)
+				entry.addOption(getPostcardTitle(journal.mPostcards[k]), (uint32)k);
+			if (!journal.mPostcards.empty())
+				entry.setSelectedIndexByValue((journal.mShareIndex >= 0 && journal.mShareIndex < (int)journal.mPostcards.size()) ? (uint32)journal.mShareIndex : (uint32)(journal.mPostcards.size() - 1));
 		}
 		{
 			// The gifts a bonus box can hold: shields only without a starting shield (it would replace that one), rings always
@@ -1393,7 +1453,11 @@ void N3DSMenu::update(float timeElapsed)
 
 	updateJournalAnimations(timeElapsed);
 
-	if (mState == State::STATS)
+	if (mState == State::SWAP)
+	{
+		updateSwap(accept, back);
+	}
+	else if (mState == State::STATS)
 	{
 		if (accept || back)
 		{
@@ -1679,6 +1743,24 @@ void N3DSMenu::onAccept()
 			return;
 		}
 
+		if (data == JOURNAL_SWAP)
+		{
+			const GameMenuEntry& entry = mActiveMenu->selected();
+			if (!entry.hasSelected())
+			{
+				playMenuSound(0xad);
+				showMessage("Complete a stamp card first: you need a postcard to share", true);
+				return;
+			}
+			n3ds::journal::setShareIndex((int)entry.selected().mValue);
+			playMenuSound(0x63);
+			n3ds::swap::start(n3ds::profile::getNickname());
+			mSwapResultHandled = false;
+			mSwapStartTime = (float)FTX::getTime();
+			mState = State::SWAP;
+			return;
+		}
+
 		// The postcards can be looked at big; the rest is just to look at
 		if (data == JOURNAL_POSTCARDS && mActiveMenu->selected().hasSelected())
 		{
@@ -1841,7 +1923,7 @@ void N3DSMenu::render()
 
 	int anchorX = 200;
 	float alpha = 1.0f;
-	if (mState != State::SHOW && mState != State::CONFIRM && mState != State::POSTCARD && mState != State::STATS)
+	if (mState != State::SHOW && mState != State::CONFIRM && mState != State::POSTCARD && mState != State::STATS && mState != State::SWAP)
 	{
 		anchorX += roundToInt((1.0f - mVisibility) * 300.0f);
 		alpha = mVisibility;
@@ -2184,13 +2266,15 @@ void N3DSMenu::render()
 					}
 					const Recti card(px - 180, py + 4 + drop, 206, 86);
 					const Recti window(card.x + 3, card.y + 3, card.width - 6, card.height - 6);
-					const bool hasPostcard = entry.hasSelected() && entry.selected().mValue < postcards.size();
+					const n3ds::journal::SwappedPostcard* swapped = nullptr;
+					const n3ds::journal::Postcard* albumPostcard = entry.hasSelected() ? getAlbumPostcard(entry.selected().mValue, &swapped) : nullptr;
+					const bool hasPostcard = (nullptr != albumPostcard);
 					drawer.drawRect(card, hasPostcard ? Color(0.98f, 0.95f, 0.86f, tabAlpha) : Color(0.98f, 0.95f, 0.86f, tabAlpha * 0.3f));
-					const FunnyPostcard* funny = hasPostcard ? findFunnyPostcard(postcards[entry.selected().mValue]) : nullptr;
+					const FunnyPostcard* funny = hasPostcard ? findFunnyPostcard(*albumPostcard) : nullptr;
 					if (nullptr != funny)
 					{
 						// A funny one: its scene, put together once
-						const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
+						const n3ds::journal::Postcard& postcard = *albumPostcard;
 						if (mAlbumFunnyName != funny->mName)
 						{
 							mAlbumFunnyName = funny->mName;
@@ -2220,7 +2304,7 @@ void N3DSMenu::render()
 						drawer.printText(global::mOxyfontSmall, Recti(px + 34, py + 24, 0, 10), funny->mHeadline, 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 						std::vector<std::string_view> textLines;
 						utils::splitTextIntoLines(textLines, funny->mMessage, global::mOxyfontTiny, funny->mScribbled ? 120 : 136);
-						for (size_t k = 0; k < textLines.size() && k < 3; ++k)
+						for (size_t k = 0; k < textLines.size() && k < ((nullptr != swapped) ? 2u : 3u); ++k)
 						{
 							if (funny->mScribbled)
 								printScribbled(drawer, global::mOxyfontTiny, px + 34, py + 36 + (int)k * 10, textLines[k], Color(1.0f, 1.0f, 1.0f, tabAlpha), (uint32)k);
@@ -2228,9 +2312,11 @@ void N3DSMenu::render()
 								drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 36 + (int)k * 10, 0, 10), textLines[k], 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
 						}
 						(void)postcard;
-						if (postcards.size() > 1)
+						if (nullptr != swapped)
+							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 57, 0, 10), "From " + swapped->mFrom, 1, Color(0.5f, 1.0f, 0.6f, tabAlpha));
+						if (entry.mOptions.size() > 1)
 						{
-							const String flip(0, "%s %d of %d %s", (entry.mSelectedIndex > 0) ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)postcards.size(),
+							const String flip(0, "%s %d of %d %s", (entry.mSelectedIndex > 0) ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)entry.mOptions.size(),
 											  (entry.mSelectedIndex + 1 < entry.mOptions.size()) ? ">" : " ");
 							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 70, 0, 10), flip, 1, isSelected ? color : color2);
 						}
@@ -2239,7 +2325,7 @@ void N3DSMenu::render()
 					}
 					else if (hasPostcard)
 					{
-						const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
+						const n3ds::journal::Postcard& postcard = *albumPostcard;
 						const uint64 spriteKey = rmx::getMurmur2_64(postcard.getSpriteName());
 
 						// The picture's best view, drifting gently a little to each side
@@ -2276,10 +2362,13 @@ void N3DSMenu::render()
 						drawer.printText(global::mOxyfontSmall, Recti(px + 34, py + 26, 0, 10), name, 1, Color(1.0f, 0.85f, 0.2f, tabAlpha));
 						if (nullptr != view)
 							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 39, 0, 10), view->mCaption, 1, Color(1.0f, 1.0f, 1.0f, tabAlpha));
-						drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 53, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 1, color2);
-						if (postcards.size() > 1)
+						if (nullptr != swapped)
+							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 53, 0, 10), "From " + swapped->mFrom, 1, Color(0.5f, 1.0f, 0.6f, tabAlpha));
+						else
+							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 53, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 1, color2);
+						if (entry.mOptions.size() > 1)
 						{
-							const String flip(0, "%s %d of %d %s", (entry.mSelectedIndex > 0) ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)postcards.size(),
+							const String flip(0, "%s %d of %d %s", (entry.mSelectedIndex > 0) ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)entry.mOptions.size(),
 											  (entry.mSelectedIndex + 1 < entry.mOptions.size()) ? ">" : " ");
 							drawer.printText(global::mOxyfontTiny, Recti(px + 34, py + 70, 0, 10), flip, 1, isSelected ? color : color2);
 						}
@@ -2343,6 +2432,28 @@ void N3DSMenu::render()
 							else
 								icon = mHasJournalIcons ? &mStampIcons[0] : nullptr;			// The ring monitor
 							iconAlpha = hasBox ? 1.0f : 0.4f;
+							break;
+						}
+						case JOURNAL_SWAP:
+						{
+							const n3ds::journal::Postcard* shared = (entry.hasSelected() && entry.selected().mValue < journal.mPostcards.size()) ? &journal.mPostcards[entry.selected().mValue] : nullptr;
+							if (nullptr == shared)
+							{
+								status = "NOTHING TO SHARE YET";
+								statusColor = Color(0.6f, 0.6f, 0.7f, tabAlpha);
+								description = "Fill a stamp card for a postcard, then swap copies with a friend nearby by local wireless.";
+							}
+							else
+							{
+								String shareName(getPostcardTitle(*shared));
+								shareName.upperCase();
+								status = isSelected ? ("< " + shareName.toStdString() + " >") : shareName.toStdString();
+								statusColor = Color(1.0f, 0.85f, 0.2f, tabAlpha);
+								description = std::string("Both of you press A here at the same time: local wireless, no Internet. ") +
+											  ((journal.mSwapped.empty()) ? std::string("Left / Right: the postcard you share.") : ("Swapped so far: " + formatNumber((uint32)journal.mSwapped.size()) + "."));
+							}
+							icon = mHasJournalIcons ? &mJournalIcons[1] : nullptr;		// Tails, a friend
+							iconAlpha = (nullptr != shared) ? 1.0f : 0.4f;
 							break;
 						}
 						case JOURNAL_VOUCHERS:
@@ -2943,6 +3054,8 @@ void N3DSMenu::render()
 		renderPostcard(alpha);
 	else if (mState == State::STATS)
 		renderStats(alpha);
+	else if (mState == State::SWAP)
+		renderSwap(alpha);
 
 	drawer.performRendering();
 }
@@ -2981,11 +3094,11 @@ void N3DSMenu::openPostcard()
 	// The zone picture straight from its file, just the postcard's view of it (the drawer can't scale palette sprites)
 	mHasPostcardPicture = false;
 	const GameMenuEntry& entry = mActiveMenu->selected();
-	const std::vector<n3ds::journal::Postcard>& postcards = n3ds::journal::get().mPostcards;
-	if (!entry.hasSelected() || entry.selected().mValue >= postcards.size())
+	const n3ds::journal::Postcard* albumPostcard = entry.hasSelected() ? getAlbumPostcard(entry.selected().mValue) : nullptr;
+	if (nullptr == albumPostcard)
 		return;
-	const std::string spriteName = postcards[entry.selected().mValue].getSpriteName();
-	const FunnyPostcard* funny = findFunnyPostcard(postcards[entry.selected().mValue]);
+	const std::string spriteName = albumPostcard->getSpriteName();
+	const FunnyPostcard* funny = findFunnyPostcard(*albumPostcard);
 	if (nullptr != funny)
 	{
 		mHasPostcardPicture = composeFunnyScene(*funny, mPostcardPicture);
@@ -3014,10 +3127,12 @@ void N3DSMenu::renderPostcard(float alpha)
 {
 	Drawer& drawer = EngineMain::instance().getDrawer();
 	const GameMenuEntry& entry = mActiveMenu->selected();
-	const std::vector<n3ds::journal::Postcard>& postcards = n3ds::journal::get().mPostcards;
-	if (!entry.hasSelected() || entry.selected().mValue >= postcards.size())
+	const n3ds::journal::SwappedPostcard* swapped = nullptr;
+	const n3ds::journal::Postcard* albumPostcard = entry.hasSelected() ? getAlbumPostcard(entry.selected().mValue, &swapped) : nullptr;
+	if (nullptr == albumPostcard)
 		return;
-	const n3ds::journal::Postcard& postcard = postcards[entry.selected().mValue];
+	const n3ds::journal::Postcard& postcard = *albumPostcard;
+	const std::string arrivedText = (nullptr != swapped) ? ("From " + swapped->mFrom) : ("Arrived " + n3ds::journal::formatDate(postcard.mDate));
 	const std::string spriteName = postcard.getSpriteName();
 	const PostcardView* view = findPostcardView(spriteName);
 	const FunnyPostcard* funny = findFunnyPostcard(postcard);
@@ -3056,7 +3171,7 @@ void N3DSMenu::renderPostcard(float alpha)
 	if (nullptr != funny)
 	{
 		drawer.printText(global::mSonicFontB, Recti(card.x + 14, bandY + 3, 0, 10), funny->mHeadline, 1, Color(1.0f, 0.85f, 0.2f, alpha));
-		drawer.printText(global::mOxyfontTiny, Recti(card.x + card.width - 14, bandY + 4, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 3, Color(0.9f, 0.8f, 0.7f, alpha));
+		drawer.printText(global::mOxyfontTiny, Recti(card.x + card.width - 14, bandY + 4, 0, 10), arrivedText, 3, Color(0.9f, 0.8f, 0.7f, alpha));
 		if (funny->mScribbled)
 			printScribbled(drawer, global::mOxyfontTiny, card.x + 14, bandY + 18, funny->mMessage, Color(1.0f, 1.0f, 1.0f, alpha));
 		else
@@ -3076,7 +3191,7 @@ void N3DSMenu::renderPostcard(float alpha)
 	if (nullptr == funny)
 	{
 		drawer.printText(global::mOxyfontSmall, Recti(card.x + 14, bandY + 17, 0, 10), line, 1, Color(1.0f, 1.0f, 1.0f, alpha));
-		drawer.printText(global::mOxyfontTiny, Recti(card.x + card.width - 14, bandY + 18, 0, 10), "Arrived " + n3ds::journal::formatDate(postcard.mDate), 3, Color(0.9f, 0.8f, 0.7f, alpha));
+		drawer.printText(global::mOxyfontTiny, Recti(card.x + card.width - 14, bandY + 18, 0, 10), arrivedText, 3, Color(0.9f, 0.8f, 0.7f, alpha));
 	}
 
 	// How to flip and go back
@@ -3085,6 +3200,124 @@ void N3DSMenu::renderPostcard(float alpha)
 	const String hint(0, "%s  %d of %d  %s        B: Back", canGoLeft ? "<" : " ", (int)entry.mSelectedIndex + 1, (int)entry.mOptions.size(), canGoRight ? ">" : " ");
 	drawer.drawRect(Recti(0, (int)mRect.height - 16, (int)mRect.width, 16), Color(0.0f, 0.0f, 0.0f, 0.9f * alpha));
 	drawer.printText(global::mOxyfontSmall, Recti(200, (int)mRect.height - 12, 0, 10), hint, 5, Color(1.0f, 1.0f, 1.0f, alpha));
+}
+
+void N3DSMenu::updateSwap(bool accept, bool back)
+{
+	const n3ds::swap::Status status = n3ds::swap::getStatus();
+	if (status.mPhase != n3ds::swap::Phase::DONE)
+	{
+		if (back)
+		{
+			n3ds::swap::stop();
+			playMenuSound(0xad);
+			mState = State::SHOW;
+		}
+		return;
+	}
+
+	if (!mSwapResultHandled)
+	{
+		// Into the journal (once per partner and day), with a fanfare
+		mSwapResultHandled = true;
+		if (status.mSuccess && !n3ds::journal::hasSwappedToday(status.mPartnerId))
+		{
+			n3ds::journal::addSwappedPostcard(status.mReceived, status.mPartnerId);
+			mSelectSwappedPostcard = (int)n3ds::journal::get().mSwapped.size() - 1;
+			playMenuSound(0xb8);		// Emerald
+		}
+		else
+		{
+			playMenuSound(0xad);
+		}
+	}
+	if (accept || back)
+	{
+		playMenuSound(0xad);
+		mState = State::SHOW;
+		if (mSelectSwappedPostcard >= 0)
+		{
+			// Straight to the new postcard in the album
+			rebuildTabs();
+			GameMenuEntries& entries = mTabs[Tab::Id::JOURNAL].mMenuEntries;
+			for (size_t k = 0; k < entries.size(); ++k)
+			{
+				if (entries[k].mData == JOURNAL_POSTCARDS)
+					entries.mSelectedEntryIndex = (int)k;
+			}
+		}
+	}
+}
+
+void N3DSMenu::renderSwap(float alpha)
+{
+	Drawer& drawer = EngineMain::instance().getDrawer();
+	const n3ds::swap::Status status = n3ds::swap::getStatus();
+	const float time = (float)FTX::getTime() - mSwapStartTime;
+
+	// Darken everything, then a box like the Stats page
+	drawer.drawRect(Recti(0, 0, (int)mRect.width, (int)mRect.height), Color(0.0f, 0.0f, 0.0f, 0.6f * alpha));
+	const Recti box(40, 30, 320, 160);
+	drawer.drawRect(Recti(box.x - 2, box.y - 2, box.width + 4, box.height + 4), Color(0.6f, 0.8f, 1.0f, alpha));
+	drawer.drawRect(box, Color(0.02f, 0.1f, 0.35f, alpha));
+	drawer.printText(global::mSonicFontB, Recti(200, box.y + 8, 0, 10), "SWAP POSTCARDS", 5, Color(1.0f, 1.0f, 1.0f, alpha));
+
+	const Color white(1.0f, 1.0f, 1.0f, alpha);
+	const Color yellow(1.0f, 0.85f, 0.2f, alpha);
+	const Color soft(0.85f, 0.85f, 0.9f, alpha);
+	const int iconX = 200 - 16;
+	const int iconY = box.y + 30;
+	if (status.mPhase == n3ds::swap::Phase::DONE)
+	{
+		if (status.mSuccess && mSelectSwappedPostcard >= 0)
+		{
+			if (mHasJournalIcons)
+				drawer.drawRect(Recti(iconX, iconY, 32, 32), mJournalIcons[1], white);
+			drawer.printText(global::mOxyfontRegular, Recti(200, box.y + 72, 0, 10), "Swapped with " + status.mPartnerName + "!", 5, yellow);
+			drawer.printText(global::mOxyfontSmall, Recti(200, box.y + 90, 0, 10), "You got: " + getPostcardTitle(status.mReceived.mPostcard), 5, white);
+			const String about(0, "%s has filled %u stamp card%s in %u day%s of playing.", status.mPartnerName.c_str(), (unsigned)status.mReceived.mFromCards,
+							   (status.mReceived.mFromCards == 1) ? "" : "s", (unsigned)status.mReceived.mFromDays, (status.mReceived.mFromDays == 1) ? "" : "s");
+			drawer.printText(global::mOxyfontTiny, Recti(200, box.y + 106, 0, 10), about, 5, soft);
+			drawer.printText(global::mOxyfontSmall, Recti(200, box.y + 136, 0, 10), "A: See it in the album", 5, white);
+		}
+		else
+		{
+			const std::string message = status.mSuccess ? ("You already swapped with " + status.mPartnerName + " today. Try again tomorrow!") : status.mMessage;
+			std::vector<std::string_view> lines;
+			utils::splitTextIntoLines(lines, message, global::mOxyfontSmall, 280);
+			for (size_t k = 0; k < lines.size() && k < 4; ++k)
+				drawer.printText(global::mOxyfontSmall, Recti(200, box.y + 56 + (int)k * 14, 0, 10), lines[k], 5, white);
+			drawer.printText(global::mOxyfontSmall, Recti(200, box.y + 136, 0, 10), "A: OK", 5, white);
+		}
+		return;
+	}
+
+	// Looking for the other console: Tails' monitor with waves going out to both sides
+	if (mHasJournalIcons)
+		drawer.drawRect(Recti(iconX, iconY, 32, 32), mJournalIcons[1], white);
+	for (int k = 0; k < 3; ++k)
+	{
+		const float wave = std::fmod(time * 0.8f + (float)k / 3.0f, 1.0f);
+		const int distance = 22 + roundToInt(wave * 70.0f);
+		const int height = 6 + roundToInt(wave * 18.0f);
+		const Color waveColor(0.5f, 0.8f, 1.0f, alpha * (1.0f - wave));
+		drawer.drawRect(Recti(200 - distance - 2, iconY + 16 - height / 2, 2, height), waveColor);
+		drawer.drawRect(Recti(200 + distance, iconY + 16 - height / 2, 2, height), waveColor);
+	}
+	const int dots = (int)(time * 3.0f) % 4;
+	if (status.mPhase == n3ds::swap::Phase::SWAPPING)
+	{
+		drawer.printText(global::mOxyfontRegular, Recti(200, box.y + 76, 0, 10), "Found someone! Swapping" + std::string((size_t)dots, '.'), 5, yellow);
+	}
+	else
+	{
+		drawer.printText(global::mOxyfontRegular, Recti(200, box.y + 76, 0, 10), "Looking for a friend nearby" + std::string((size_t)dots, '.'), 5, yellow);
+		drawer.printText(global::mOxyfontTiny, Recti(200, box.y + 96, 0, 10), "Both of you: 3DS menu, Journal, Swap Postcards, A.", 5, soft);
+		drawer.printText(global::mOxyfontTiny, Recti(200, box.y + 108, 0, 10), "Wireless on, consoles close together.", 5, soft);
+		if (status.mSecondsLeft > 0)
+			drawer.printText(global::mOxyfontTiny, Recti(200, box.y + 120, 0, 10), String(0, "%d seconds left", status.mSecondsLeft), 5, Color(0.6f, 0.9f, 1.0f, alpha));
+	}
+	drawer.printText(global::mOxyfontSmall, Recti(200, box.y + 140, 0, 10), "B: Cancel", 5, white);
 }
 
 void N3DSMenu::createRobotnik()

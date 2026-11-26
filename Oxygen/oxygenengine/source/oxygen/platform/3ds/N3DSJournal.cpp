@@ -35,6 +35,9 @@ namespace n3ds
 			bool gNewStampNotice = false;
 			bool gNewPostcardNotice = false;
 			bool gNewRewardNotice = false;
+			bool gNewSwapNotice = false;
+			const size_t MAX_SWAP_PARTNERS = 64;		// Remembered for the "once a day" rule
+			const size_t MAX_SWAPPED = 500;
 
 			// The zone preview pictures there are: acts per zone, for zones 1 to 14 (Hidden Palace, Sky Sanctuary and Doomsday have one)
 			const int ACTS_PER_ZONE[14] = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1 };
@@ -72,6 +75,20 @@ namespace n3ds
 				for (const Postcard& postcard : data.mPostcards)
 				{
 					snprintf(text, sizeof(text), "postcard=%s %u\n", postcard.getSpriteName().c_str(), (unsigned)postcard.mDate);
+					result += text;
+				}
+				snprintf(text, sizeof(text), "swap_id=%016llx\nshare=%d\n", (unsigned long long)data.mSwapId, data.mShareIndex);
+				result += text;
+				for (const auto& partner : data.mSwapPartners)
+				{
+					snprintf(text, sizeof(text), "swap_partner=%016llx %u\n", (unsigned long long)partner.first, (unsigned)partner.second);
+					result += text;
+				}
+				for (const SwappedPostcard& swapped : data.mSwapped)
+				{
+					// The name goes last, it may have spaces
+					snprintf(text, sizeof(text), "swapped=%s %u %u %u %s\n", swapped.mPostcard.getSpriteName().c_str(), (unsigned)swapped.mPostcard.mDate,
+							 (unsigned)swapped.mFromCards, (unsigned)swapped.mFromDays, swapped.mFrom.c_str());
 					result += text;
 				}
 				return result;
@@ -204,6 +221,7 @@ namespace n3ds
 					{
 						unsigned int value = 0;
 						unsigned long long bigValue = 0;
+						int signedValue = 0;
 						if (sscanf(line, "started=%u", &value) == 1)				gData.mStartedDate = value;
 						else if (sscanf(line, "last_day=%u", &value) == 1)			gData.mLastDayPlayed = value;
 						else if (sscanf(line, "days_played=%u", &value) == 1)		gData.mDaysPlayed = value;
@@ -219,6 +237,31 @@ namespace n3ds
 						else if (sscanf(line, "game_steps=%llu", &bigValue) == 1)	gData.mGameSteps = bigValue;
 						else if (sscanf(line, "welcome_postcard=%u", &value) == 1)	gData.mWelcomePostcard = (value != 0);
 						else if (sscanf(line, "bonus_ready=%u", &value) == 1)		gData.mBonusReady = (value < _NUM_BONUS_GIFTS) ? (int)value : BONUS_NONE;
+						else if (sscanf(line, "swap_id=%llx", &bigValue) == 1)		gData.mSwapId = bigValue;
+						else if (sscanf(line, "share=%d", &signedValue) == 1)		gData.mShareIndex = std::max(signedValue, -1);
+						else if (sscanf(line, "swap_partner=%llx %u", &bigValue, &value) == 2)
+						{
+							if (gData.mSwapPartners.size() < MAX_SWAP_PARTNERS)
+								gData.mSwapPartners.emplace_back(bigValue, value);
+						}
+						else if (strncmp(line, "swapped=", 8) == 0)
+						{
+							char spriteName[40] = { 0 };
+							unsigned int date = 0, cards = 0, days = 0;
+							int nameStart = 0;
+							SwappedPostcard swapped;
+							if (sscanf(line + 8, "%39s %u %u %u %n", spriteName, &date, &cards, &days, &nameStart) == 4 && parsePostcardName(spriteName, swapped.mPostcard) &&
+								gData.mSwapped.size() < MAX_SWAPPED)
+							{
+								swapped.mPostcard.mDate = date;
+								swapped.mFromCards = cards;
+								swapped.mFromDays = days;
+								swapped.mFrom = line + 8 + nameStart;
+								while (!swapped.mFrom.empty() && (swapped.mFrom.back() == '\n' || swapped.mFrom.back() == '\r'))
+									swapped.mFrom.pop_back();
+								gData.mSwapped.push_back(swapped);
+							}
+						}
 						else
 						{
 							int zone = 0;
@@ -364,6 +407,105 @@ namespace n3ds
 			char name[16];
 			snprintf(name, sizeof(name), "zone%02d_act%d%c", mZone, mAct, mImage);
 			return name;
+		}
+
+		bool parsePostcardName(const std::string& spriteName, Postcard& outPostcard)
+		{
+			outPostcard = Postcard();
+			if (spriteName.compare(0, 6, "funny_") == 0)
+			{
+				for (int index = 0; index < NUM_FUNNY; ++index)
+				{
+					if (spriteName.compare(6, std::string::npos, FUNNY_POSTCARDS[index]) == 0)
+					{
+						outPostcard.mFunny = index;
+						return true;
+					}
+				}
+				return false;
+			}
+			int zone = 0;
+			int act = 0;
+			char image = 0;
+			char rest = 0;
+			if (sscanf(spriteName.c_str(), "zone%2d_act%1d%c%c", &zone, &act, &image, &rest) != 3 || zone < 1 || zone > 14 ||
+				act < 1 || act > ACTS_PER_ZONE[zone - 1] || (image != 'a' && image != 'b'))
+				return false;
+			outPostcard.mZone = zone;
+			outPostcard.mAct = act;
+			outPostcard.mImage = image;
+			return true;
+		}
+
+		const Postcard* getSharedPostcard()
+		{
+			load();
+			if (gData.mPostcards.empty())
+				return nullptr;
+			const int index = (gData.mShareIndex >= 0 && gData.mShareIndex < (int)gData.mPostcards.size()) ? gData.mShareIndex : (int)gData.mPostcards.size() - 1;
+			return &gData.mPostcards[index];
+		}
+
+		void setShareIndex(int index)
+		{
+			load();
+			gData.mShareIndex = (index >= 0 && index < (int)gData.mPostcards.size() - 1) ? index : -1;		// The newest is the default
+			save();
+		}
+
+		uint64_t getSwapId()
+		{
+			load();
+			while (gData.mSwapId == 0)
+			{
+				// Random enough: the time it was made, and the clock ticks since the console started
+				gData.mSwapId = ((uint64_t)osGetTime() << 24) ^ svcGetSystemTick() ^ ((uint64_t)svcGetSystemTick() << 40);
+				save();
+			}
+			return gData.mSwapId;
+		}
+
+		bool hasSwappedToday(uint64_t partnerId)
+		{
+			load();
+			const uint32_t day = today();
+			for (const auto& partner : gData.mSwapPartners)
+			{
+				if (partner.first == partnerId && partner.second == day)
+					return true;
+			}
+			return false;
+		}
+
+		void addSwappedPostcard(const SwappedPostcard& swapped, uint64_t partnerId)
+		{
+			load();
+			SwappedPostcard copy = swapped;
+			copy.mPostcard.mDate = today();
+			for (char& c : copy.mFrom)
+			{
+				if ((unsigned char)c < 0x20)
+					c = ' ';		// One line in the file
+			}
+			if (gData.mSwapped.size() >= MAX_SWAPPED)
+				gData.mSwapped.erase(gData.mSwapped.begin());
+			gData.mSwapped.push_back(copy);
+
+			for (auto it = gData.mSwapPartners.begin(); it != gData.mSwapPartners.end(); )
+				it = (it->first == partnerId) ? gData.mSwapPartners.erase(it) : (it + 1);
+			gData.mSwapPartners.emplace_back(partnerId, today());
+			while (gData.mSwapPartners.size() > MAX_SWAP_PARTNERS)
+				gData.mSwapPartners.erase(gData.mSwapPartners.begin());
+			gNewSwapNotice = true;
+			RMX_LOG_INFO("Journal: swapped postcards with " << copy.mFrom << ", got " << copy.mPostcard.getSpriteName());
+			save();
+		}
+
+		bool takeNewSwapNotice()
+		{
+			const bool notice = gNewSwapNotice;
+			gNewSwapNotice = false;
+			return notice;
 		}
 
 		int getNumPossiblePostcards()

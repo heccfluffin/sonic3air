@@ -12,6 +12,7 @@
 #include "oxygen/platform/3ds/N3DSGameBanana.h"
 #include "oxygen/platform/3ds/N3DSJournal.h"
 #include "oxygen/platform/3ds/N3DSModServer.h"
+#include "oxygen/platform/3ds/N3DSPostcardSwap.h"
 #include "oxygen/platform/3ds/N3DSQRCode.h"
 #include "oxygen/platform/3ds/N3DSProfile.h"
 #include "oxygen/platform/3ds/N3DSShop.h"
@@ -585,6 +586,86 @@ namespace
 		check(journal.mVouchers == 2 && journal.mBonusBoxes == 0 && journal.mBonusReady == n3ds::journal::BONUS_LIGHTNING_SHIELD, "vouchers and the ready bonus are read back");
 		check(!n3ds::journal::takeNewRewardNotice() && journal.mPostcards.size() == 5, "nothing is given twice");
 		check(!n3ds::journal::giveWelcomePostcard(), "no second welcome postcard");
+	}
+
+	void postcardSwap()
+	{
+		// The message two consoles swap: written and read back, and anything broken or made up is refused
+		fake::setTime(2026, 11, 26, 18, 0);
+		writeJournal("started=20261001\nlast_day=20261126\ndays_played=30\nstamps=2\ncards_completed=3\nrewarded_cards=3\nwelcome_postcard=1\n"
+					 "postcard=zone01_act1a 20261008\npostcard=funny_decoys 20261015\npostcard=zone14_act1b 20261022\npostcard=zone12_act1a 20261121\n");
+		n3ds::swap::Message message;
+		message.mSenderId = 0x0123456789abcdefull;
+		message.mName = "Tails";
+		check(n3ds::journal::parsePostcardName("zone05_act2b", message.mPostcard), "a postcard by its name");
+		message.mCards = 12;
+		message.mDays = 90;
+		const std::vector<uint8_t> data = n3ds::swap::encode(message);
+		n3ds::swap::Message back;
+		check(data.size() == n3ds::swap::MESSAGE_SIZE && n3ds::swap::decode(data.data(), data.size(), back), "a message is written and read back");
+		check(back.mSenderId == message.mSenderId && back.mName == "Tails" && back.mPostcard.getSpriteName() == "zone05_act2b" && back.mCards == 12 && back.mDays == 90 && back.mType == n3ds::swap::Message::CARD,
+			  "... with everything in it (" + back.mPostcard.getSpriteName() + ")");
+		check(n3ds::journal::parsePostcardName("funny_skyhigh", message.mPostcard) && n3ds::swap::decode(n3ds::swap::encode(message).data(), n3ds::swap::MESSAGE_SIZE, back) &&
+			  back.mPostcard.getSpriteName() == "funny_skyhigh", "a funny postcard too");
+
+		std::vector<uint8_t> broken = data;
+		broken[30] ^= 0x20;
+		check(!n3ds::swap::decode(broken.data(), broken.size(), back), "a damaged message is refused (checksum)");
+		check(!n3ds::swap::decode(data.data(), 40, back), "a short one too");
+		message.mPostcard.mFunny = -1;
+		message.mPostcard.mZone = 11;
+		message.mPostcard.mAct = 2;		// Hidden Palace has one act
+		check(!n3ds::swap::decode(n3ds::swap::encode(message).data(), n3ds::swap::MESSAGE_SIZE, back), "a postcard that doesn't exist is refused");
+		message.mName = std::string(50, 'x');
+		message.mPostcard.mAct = 1;
+		check(n3ds::swap::decode(n3ds::swap::encode(message).data(), n3ds::swap::MESSAGE_SIZE, back) && back.mName.size() == 31, "a long name is cut to fit");
+		check(!n3ds::journal::parsePostcardName("zone03_act1c", message.mPostcard) && !n3ds::journal::parsePostcardName("funny_nothing", message.mPostcard) &&
+			  !n3ds::journal::parsePostcardName("zone03_act1ax", message.mPostcard), "made-up postcard names are refused");
+
+		// The shared postcard: the newest by default, or the one chosen
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		check(n3ds::journal::getSharedPostcard() != nullptr && n3ds::journal::getSharedPostcard()->getSpriteName() == "zone12_act1a", "the newest postcard is shared by default");
+		n3ds::journal::setShareIndex(1);
+		check(n3ds::journal::getSharedPostcard()->getSpriteName() == "funny_decoys" && journal.mShareIndex == 1, "... or the one chosen");
+		const uint64_t id = n3ds::journal::getSwapId();
+		check(id != 0 && n3ds::journal::getSwapId() == id, "the journal gets a swap ID, once");
+
+		// A swapped postcard: kept apart from the earned ones (they come one per stamp card), once per partner and day
+		n3ds::journal::SwappedPostcard swapped;
+		n3ds::journal::parsePostcardName("zone05_act2b", swapped.mPostcard);
+		swapped.mFrom = "Tails";
+		swapped.mFromCards = 12;
+		swapped.mFromDays = 90;
+		check(!n3ds::journal::hasSwappedToday(42), "not swapped with partner 42 yet");
+		n3ds::journal::addSwappedPostcard(swapped, 42);
+		check(journal.mSwapped.size() == 1 && journal.mPostcards.size() == 4 && n3ds::journal::hasSwappedToday(42) && !n3ds::journal::hasSwappedToday(43),
+			  "a swapped postcard arrives, apart from the earned ones, and partner 42 counts as swapped today");
+		check(n3ds::journal::takeNewSwapNotice() && !n3ds::journal::takeNewSwapNotice(), "... with a notice, once");
+		n3ds::journal::save();
+		n3ds::filewriter::waitUntilDone();
+		const std::string saved = readFile("sdmc:/3ds/sonic3air/savedata/3ds_journal.txt");
+		check(saved.find("swapped=zone05_act2b 20261126 12 90 Tails\n") != std::string::npos && saved.find("swap_partner=000000000000002a 20261126\n") != std::string::npos &&
+			  saved.find("share=1\n") != std::string::npos, "saved in the journal file");
+		fake::setTime(2026, 11, 27, 9, 0);
+		check(!n3ds::journal::hasSwappedToday(42), "the next day, partner 42 can swap again");
+	}
+
+	void postcardSwapReload()
+	{
+		// Read back, also with a name with spaces; and the earned postcards still come one per stamp card
+		fake::setTime(2026, 11, 26, 20, 0);
+		writeJournal("started=20261001\nlast_day=20261126\ndays_played=30\nstamps=6\ncards_completed=3\nrewarded_cards=3\nwelcome_postcard=1\n"
+					 "postcard=zone01_act1a 20261008\npostcard=funny_decoys 20261015\npostcard=zone14_act1b 20261022\npostcard=zone12_act1a 20261121\n"
+					 "swap_id=00000000deadbeef\nshare=2\nswap_partner=000000000000002a 20261126\n"
+					 "swapped=zone05_act2b 20261126 12 90 Big Tails\nswapped=zone99_act1a 20261126 1 1 Nobody\nswapped=funny_heyho 20261126 3 4 Knux\n");
+		const n3ds::journal::Data& journal = n3ds::journal::get();
+		check(journal.mSwapped.size() == 2 && journal.mSwapped[0].mFrom == "Big Tails" && journal.mSwapped[0].mFromCards == 12 && journal.mSwapped[1].mPostcard.getSpriteName() == "funny_heyho",
+			  "swapped postcards are read back (a made-up one is dropped)");
+		check(journal.mSwapId == 0xdeadbeef && journal.mShareIndex == 2 && n3ds::journal::hasSwappedToday(42), "... with the swap ID, the shared one and today's partner");
+		fake::setTime(2026, 11, 27, 9, 0);
+		n3ds::journal::update();
+		check(journal.mCardsCompleted == 4 && journal.mPostcards.size() == 5 && journal.mSwapped.size() == 2,
+			  "completing a stamp card still brings an earned postcard (" + std::to_string(journal.mPostcards.size()) + " postcards, " + std::to_string(journal.mCardsCompleted) + " cards, stamps " + std::to_string(journal.mStamps) + ")");
 	}
 
 	bool actDone(uint8_t zone, uint8_t act, uint16_t rings, uint32_t seconds, bool wasHit, bool lowOnAir = false, uint8_t characters = 1)
@@ -1378,7 +1459,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights }, { "editedfiles", editedFiles }, { "modserver", modServer }, { "gamebanana", gameBanana },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "postcardswap", postcardSwap }, { "postcardswapreload", postcardSwapReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights }, { "editedfiles", editedFiles }, { "modserver", modServer }, { "gamebanana", gameBanana },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

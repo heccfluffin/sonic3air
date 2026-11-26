@@ -223,6 +223,13 @@ open it in the Journal with a Fire, Lightning or Bubble Shield or 50 rings insid
 shield), and you get it at the start of your next act in a normal game. **Stats** shows your play time, days, Sonic's
 steps (running around in the game), Play Coins spent, achievements, screenshots and postcards on one page. It's all saved in `savedata/3ds_journal.txt`.
 
+**Swap Postcards** (in the Journal) trades copies of postcards with a friend nearby, by **local wireless** like Download
+Play: no Internet needed, just wireless switched on and both consoles running this port. Pick the postcard you share with
+Left / Right, then both of you press A there at about the same time (within a minute). The consoles find each other by
+themselves, and each gets a copy of the other's postcard with their name on it ("From ..."). Swapped postcards go into
+the album after your own and don't change how many you've collected from stamp cards. You can swap with the same person
+once a day, like StreetPass. (Real StreetPass isn't supported: homebrew can't safely set up its own StreetPass box yet.)
+
 The **Challenge** tab has **Doctor Robotnik's Daily Challenge**: three new challenges every day (easy, medium and hard),
 in zones you've already reached. They count in a normal game and in Act Select.
 

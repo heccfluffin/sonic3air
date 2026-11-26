@@ -22,6 +22,7 @@ typedef u32 Handle;
 
 // Ticks and threads
 u64 svcGetSystemTick();
+u64 osGetTime();
 void svcSleepThread(int64_t ns);
 Result svcGetThreadPriority(s32* out, Handle handle);
 

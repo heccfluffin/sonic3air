@@ -48,6 +48,7 @@ private:
 		CONFIRM,		// Asking whether to buy the selected item
 		POSTCARD,		// Looking at a postcard of the journal, big
 		STATS,			// The journal's numbers, all on one page
+		SWAP,			// Swapping postcards with a friend nearby, by local wireless
 		FADE_TO_MENU
 	};
 
@@ -83,6 +84,8 @@ private:
 	void renderConfirmation(float alpha);
 	void openPostcard();
 	void renderPostcard(float alpha);
+	void updateSwap(bool accept, bool back);
+	void renderSwap(float alpha);
 	void renderStats(float alpha);
 	void createRobotnik();
 	void updateJournalAnimations(float timeElapsed);
@@ -147,6 +150,9 @@ private:
 	bool mHasMoveSprites = false;
 
 	// The postcard being looked at: its view of the zone picture, doubled in size when drawn
+	bool mSwapResultHandled = false;		// The swap's result went into the journal
+	float mSwapStartTime = 0.0f;
+	int mSelectSwappedPostcard = -1;		// After a swap: show the new one in the album
 	DrawerTexture mPostcardPicture;
 	bool mHasPostcardPicture = false;
 	DrawerTexture mAlbumFunnyPicture;		// The funny postcard shown in the album, if any

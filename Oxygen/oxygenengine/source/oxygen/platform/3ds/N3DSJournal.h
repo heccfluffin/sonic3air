@@ -52,6 +52,17 @@ namespace n3ds
 
 			std::string getSpriteName() const;		// Or "funny_<name>"
 		};
+		bool parsePostcardName(const std::string& spriteName, Postcard& outPostcard);		// The other way round; false if there's no such postcard
+
+		// A postcard swapped with another player (by local wireless): a copy of one of theirs, with who sent it
+		struct SwappedPostcard
+		{
+			Postcard mPostcard;			// mDate: when it arrived here
+			std::string mFrom;			// Their console's user name
+			uint32_t mFromCards = 0;	// Stamp cards they completed
+			uint32_t mFromDays = 0;		// Days they played
+		};
+
 		int getNumPossiblePostcards();
 		int getNumFunnyPostcards();
 		const char* getFunnyPostcardName(int index);		// Like "decoys", nullptr if there's no such one
@@ -74,6 +85,12 @@ namespace n3ds
 			uint32_t mRewardedCards = 0;	// Completed cards that gave their voucher and bonus box
 			bool mWelcomePostcard = false;	// The free one for opening the journal the first time was given
 			std::vector<Postcard> mPostcards;		// In the order they arrived
+
+			// Swapping postcards with other players
+			std::vector<SwappedPostcard> mSwapped;	// In the order they arrived
+			uint64_t mSwapId = 0;			// This journal's random ID, so a swap partner can tell who they swapped with
+			int mShareIndex = -1;			// Which of the postcards in "mPostcards" goes to swap partners; -1 for the newest
+			std::vector<std::pair<uint64_t, uint32_t>> mSwapPartners;	// Who was swapped with, and the day of it (the latest ones only)
 		};
 
 		const Data& get();		// Loaded on first use
@@ -111,6 +128,14 @@ namespace n3ds
 
 		// The gift was given in the game
 		void bonusGiven();
+
+		// Swapping postcards: the one shared, whether a partner was already swapped with today, and a postcard that came in
+		const Postcard* getSharedPostcard();		// nullptr if there's none yet
+		void setShareIndex(int index);
+		uint64_t getSwapId();
+		bool hasSwappedToday(uint64_t partnerId);
+		void addSwappedPostcard(const SwappedPostcard& swapped, uint64_t partnerId);
+		bool takeNewSwapNotice();		// Whether a postcard came in by swapping since this was last asked
 
 		// Counters
 		void addPurchase(int playCoins);		// What was actually paid
