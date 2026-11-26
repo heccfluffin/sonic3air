@@ -265,6 +265,11 @@ Two surprises can also turn up while you play. Both are set on the Challenge tab
     glows for a second, and it fires its laser straight down (following you slowly, so keep running) while two Egg Robos
     fly in from both sides. Then it goes back to its post and keeps watching. It can be popped too, if you get up there;
     like a badnik, it's back if you lose a life.
+  - **Mecha Sonic** leads the squad: when Red Eye sounds the alarm, he drops in, rolled up, somewhere you were a moment
+    ago, unfolds and comes after you, rolling along your own way a bit faster than you ran it. Now and then he stops,
+    revs a spindash and lunges. Touching him hurts, unless you jump or roll into him: three hits and he's beaten, like a
+    boss (1000 points), and his Egg Robos retreat. Hitting him mid-lunge only bounces you off. While he's around, he calls
+    in more Egg Robos; after 40 seconds he gives up and jumps off. Once beaten, he stays away for the rest of the act.
 
 Saved in `savedata/3ds_challenges.txt`.
 

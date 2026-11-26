@@ -3,7 +3,8 @@
 *	Nintendo 3DS port: Egg Robo patrols - now and then (a setting on the "3DS" menu's Challenge tab) Sky Sanctuary's Egg
 *	Robos fly into other zones to hunt you down: they take up a clear spot at your height, facing you, charge their laser
 *	gun and fire when nothing solid is in between. They're drawn from the ROM in their own colors, and pop like any badnik
-*	when you jump or roll into them.
+*	when you jump or roll into them. Red Eye watches over each act as a security camera, and when it spots you, Mecha Sonic
+*	comes to lead them: he chases you along your own way and takes three hits to beat.
 *
 *	Published under the GNU GPLv3 open source software license, see license.txt
 *	or https://www.gnu.org/licenses/gpl-3.0.en.html

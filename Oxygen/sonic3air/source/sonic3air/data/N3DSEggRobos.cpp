@@ -141,6 +141,82 @@ namespace n3ds
 				int mBeamGrowth = 0;		// The laser comes out a frame at a time
 			};
 
+			// Mecha Sonic, the squad's leader: when Red Eye sounds the alarm, he drops in where the character was a moment ago and
+			// chases them along their own way (like the shadow, so no level collision needed), rolled up, a bit faster than they
+			// run; now and then he stops, revs a spindash and lunges. Three hits and he's beaten - and his Egg Robos retreat.
+			const uint32 MECHA_ART_ADDRESS = 0x175a9e;		// Uncompressed, loaded a few patterns at a time (see "setupDplcSprite")
+			const uint32 MECHA_DPLC_ADDRESS = 0x185852;
+			const uint32 MECHA_MAPPINGS_ADDRESS = 0x1853aa;
+			const uint32 MECHA_PALETTE_ADDRESS = 0x07d850;	// His palette line in the Sky Sanctuary fight
+			const int MECHA_FRAME_STAND = 0;
+			const int MECHA_FRAME_BALL = 3;				// 3 to 5, spinning
+			const int MECHA_FRAME_UNFOLD = 6;			// 6 to 10, from rolled up to standing (facing the screen at the end)
+			const int MECHA_FRAME_CROUCH = 14;			// 14 to 16: charging a spindash
+			const int MECHA_FRAME_JUMP = 18;
+			const int MECHA_PATH_SIZE = 600;			// Recorded positions of the character, 10 seconds
+			const int MECHA_START_DELAY = 90;			// He lands where the character was at least 1.5 seconds ago, and some way off...
+			const int MECHA_START_DISTANCE = 112;
+			const float MECHA_CHASE_SPEED = 1.5f;		// ...and rolls along their way half again as fast as it was run
+			const float MECHA_DASH_SPEED = 3.5f;
+			const int MECHA_CHARGE_FRAMES = 50;
+			const int MECHA_DASH_FRAMES = 50;
+			const int MECHA_CHASE_FRAMES = 150;			// Before he stops to rev a spindash (sooner when he's close)
+			const int MECHA_TAUNT_FRAMES = 50;
+			const int MECHA_HITS = 3;
+			const int MECHA_FLASH_FRAMES = 32;			// After a hit: flashing, and no more hits for that long
+			const int MECHA_KNOCK_BACK = 60;			// Path positions he gets thrown back by a hit
+			const int MECHA_LIFETIME = 40 * 60;			// Then he gives up
+			const int MECHA_EXPLODE_FRAMES = 64;
+			const int MECHA_SQUAD_INTERVAL = 8 * 60;	// He calls in another Egg Robo this often
+			const uint8 SFX_SPINDASH_CHARGE = 0xab;
+			const uint8 SFX_SPINDASH_RELEASE = 0xb6;
+			const uint8 SFX_BOSS_HIT = 0x6e;
+			const uint8 SFX_LAND = 0x96;
+
+			enum class MechaState
+			{
+				ARRIVE,		// Dropping in, rolled up
+				TAUNT,		// Unfolding and standing there for a moment
+				CHASE,		// Rolling along the character's way
+				CHARGE,		// Revving a spindash
+				DASH,		// Lunging along the way
+				KNOCKED,	// Thrown back along the way by a hit
+				EXPLODE,	// Beaten
+				LEAVE		// Jumping off (after a while, or for a boss fight)
+			};
+
+			struct Mecha
+			{
+				bool mActive = false;
+				MechaState mState = MechaState::ARRIVE;
+				float mIndex = 0.0f;		// Where on the character's recorded way he is (counting from the start of the recording)
+				float mX = 0.0f;
+				float mY = 0.0f;			// While arriving and leaving: free in the air
+				float mVelocityY = 0.0f;
+				int mFacing = 1;			// 1 right, -1 left
+				int mTimer = 0;
+				int mAge = 0;
+				int mStateAge = 0;
+				int mHits = 0;
+				int mFlash = 0;
+				int mSquadTimer = 0;
+			};
+
+			struct PathPoint
+			{
+				int16 mX = 0;
+				int16 mY = 0;
+			};
+
+			Mecha gMecha;
+			PathPoint gPath[MECHA_PATH_SIZE];
+			uint32 gPathCount = 0;
+			bool gMechaBeaten = false;			// In this act: he doesn't come back
+			int gMechaPending = 0;				// Called in: frames left to find a spot away from the character
+			uint64 gMechaKeys[22] = { 0 };
+			PaletteBase gMechaPalette;
+			bool gMechaReady = false;
+
 			RedEye gRedEye;
 			uint16 gRedEyePostAct = 0xffff;		// The act its post was looked for in
 			bool gRedEyeHasPost = false;
@@ -236,6 +312,9 @@ namespace n3ds
 			// Builds a sprite frame from art compressed in the ROM (Kosinski, in modules of up to 4 KB) and its mappings. Done here
 			// rather than with the engine's own ROM sprite setup: that one only gets the first module right, and art in several
 			// modules (like Red Eye's) overran its buffer.
+			uint64 createSpriteFromMappings(const std::vector<RenderUtils::PatternPixelContent>& patternBuffer, uint32 artAddress, uint32 mappingsAddress, int frame,
+											uint8 (*recolor)(int x, int y, uint8 color));
+
 			uint64 setupSprite(uint32 artAddress, uint32 mappingsAddress, int frame, uint8 (*recolor)(int x, int y, uint8 color) = nullptr)
 			{
 				EmulatorInterface& emulatorInterface = emu();
@@ -269,6 +348,14 @@ namespace n3ds
 					cachedArtAddress = artAddress;
 				}
 
+				return createSpriteFromMappings(patternBuffer, artAddress, mappingsAddress, frame, recolor);
+			}
+
+			// A sprite frame from its mappings (pieces of 8 x 8 patterns), with the patterns already unpacked
+			uint64 createSpriteFromMappings(const std::vector<RenderUtils::PatternPixelContent>& patternBuffer, uint32 artAddress, uint32 mappingsAddress, int frame,
+											uint8 (*recolor)(int x, int y, uint8 color))
+			{
+				EmulatorInterface& emulatorInterface = emu();
 				std::vector<RenderUtils::SinglePattern> patterns;
 				const uint32 mappingAddress = mappingsAddress + emulatorInterface.readMemory16(mappingsAddress + frame * 2);
 				const int count = emulatorInterface.readMemory16(mappingAddress);
@@ -295,6 +382,26 @@ namespace n3ds
 				}
 				++item.mChangeCounter;
 				return key;
+			}
+
+			// A sprite frame from uncompressed art that's loaded a few patterns at a time, like the characters' (the frame's pattern
+			// load list, "DPLC", says which ones)
+			uint64 setupDplcSprite(uint32 artAddress, uint32 dplcAddress, uint32 mappingsAddress, int frame)
+			{
+				EmulatorInterface& emulatorInterface = emu();
+				std::vector<uint8> art;
+				const uint32 list = dplcAddress + emulatorInterface.readMemory16(dplcAddress + frame * 2);
+				const int entries = emulatorInterface.readMemory16(list) + 1;
+				for (int k = 0; k < entries && k < 32; ++k)
+				{
+					const uint16 entry = emulatorInterface.readMemory16(list + 2 + k * 2);
+					const uint32 source = artAddress + (entry & 0x7ff0) * 2;
+					const int bytes = ((entry & 0x000f) + 1) * 32;
+					art.insert(art.end(), emulatorInterface.getRom() + source, emulatorInterface.getRom() + source + bytes);
+				}
+				std::vector<RenderUtils::PatternPixelContent> patternBuffer;
+				RenderUtils::expandMultiplePatternDataFromROM(patternBuffer, art.data(), (uint32)(art.size() / 32));
+				return createSpriteFromMappings(patternBuffer, artAddress, mappingsAddress, frame, nullptr);
 			}
 
 			void setupGraphics()
@@ -370,6 +477,43 @@ namespace n3ds
 				}
 			}
 
+			void playSound(uint8 sfx)
+			{
+				AudioOut::instance().playAudioDirect(sfx, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
+			}
+
+			void setupMechaGraphics()
+			{
+				EmulatorInterface& emulatorInterface = emu();
+				SpriteCollection& spriteCollection = SpriteCollection::instance();
+				static const int FRAMES[] = { 0, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, 16, 18 };
+				for (int frame : FRAMES)
+				{
+					if (gMechaKeys[frame] != 0 && spriteCollection.hasSprite(gMechaKeys[frame]))
+						continue;
+					gMechaKeys[frame] = setupDplcSprite(MECHA_ART_ADDRESS, MECHA_DPLC_ADDRESS, MECHA_MAPPINGS_ADDRESS, frame);
+				}
+
+				if (!gMechaReady)
+				{
+					// Line 0: his colors; line 1: the same, flashing like the boss when hit (some of them gray and white)
+					static const uint8 LEVELS[8] = { 0x00, 0x24, 0x49, 0x6d, 0x92, 0xb6, 0xdb, 0xff };
+					const auto convert = [](uint16 md) -> uint32
+					{
+						return 0xff000000 | ((uint32)LEVELS[(md >> 9) & 7] << 16) | ((uint32)LEVELS[(md >> 5) & 7] << 8) | (uint32)LEVELS[(md >> 1) & 7];
+					};
+					uint32 colors[32] = { 0 };
+					for (int k = 1; k < 16; ++k)
+						colors[k] = colors[16 + k] = convert(emulatorInterface.readMemory16(MECHA_PALETTE_ADDRESS + k * 2));
+					static const int FLASH_INDICES[5] = { 4, 10, 11, 12, 14 };		// Like the boss (its flash colors at 0x07d3cc and 0x07d3e0)
+					for (int k = 0; k < 5; ++k)
+						colors[16 + FLASH_INDICES[k]] = convert(emulatorInterface.readMemory16(0x07d3e0 + k * 2));
+					gMechaPalette.initPalette(0x5ad0e9b4u, 32, BitFlagSet<PaletteBase::Properties>(), "n3ds_mechasonic");
+					gMechaPalette.writeRawColors(colors, 32);
+					gMechaReady = true;
+				}
+			}
+
 			void hurtCharacter(bool fromRight)
 			{
 				EmulatorInterface& emulatorInterface = emu();
@@ -391,7 +535,9 @@ namespace n3ds
 
 			// Popped like a badnik: the game's own explosion object (with its points, the score chain and a freed animal), and the
 			// character bounces off
-			void pop(Robo& robo)
+			// The game's own explosion object at a position, in a free object slot (with its pop sound, and a freed critter if wanted);
+			// returns its address (or 0 if there's no room)
+			uint32 spawnExplosion(int x, int y, bool withCritter = true)
 			{
 				EmulatorInterface& emulatorInterface = emu();
 				for (uint32 address = 0xffffb0de + 0x4a; address < 0xffffb0de + 0x4a * 0x5a; address += 0x4a)
@@ -401,15 +547,26 @@ namespace n3ds
 					for (uint32 k = 0; k < 0x4a; ++k)
 						emulatorInterface.writeMemory8(address + k, 0);
 					emulatorInterface.writeMemory32(address, 0x01e5e0);		// SmallExplosion.BaseUpdate
-					emulatorInterface.writeMemory16(address + 0x10, (uint16)roundToInt(robo.mX));
-					emulatorInterface.writeMemory16(address + 0x14, (uint16)roundToInt(robo.mY));
+					emulatorInterface.writeMemory16(address + 0x10, (uint16)x);
+					emulatorInterface.writeMemory16(address + 0x14, (uint16)y);
+					if (!withCritter)
+						emulatorInterface.writeMemory8(address + 0x05, 0x02);		// base_state: straight to the explosion
+					return address;
+				}
+				return 0;
+			}
 
+			void pop(Robo& robo)
+			{
+				EmulatorInterface& emulatorInterface = emu();
+				const uint32 address = spawnExplosion(roundToInt(robo.mX), roundToInt(robo.mY));
+				if (address != 0)
+				{
 					CodeExec::FunctionExecData execData;
 					execData.mParams.mReturnType = &lemon::PredefinedDataTypes::VOID;
 					execData.addParam(lemon::PredefinedDataTypes::UINT_32, address);
 					execData.addParam(lemon::PredefinedDataTypes::UINT_32, 0x010216);		// The badniks' score table
 					callGameScript("Enemy.addScore", 0xffffb000, &execData);
-					break;
 				}
 
 				const int characterY = emulatorInterface.readMemory16(0xffffb014);
@@ -600,6 +757,327 @@ namespace n3ds
 				}
 			}
 
+			// ----- Mecha Sonic -----
+
+			inline uint32 oldestPathIndex()
+			{
+				return (gPathCount > (uint32)MECHA_PATH_SIZE) ? gPathCount - MECHA_PATH_SIZE : 0;
+			}
+
+			const PathPoint& getPathPoint(float index)
+			{
+				const uint32 clamped = std::min(std::max((uint32)std::max(index, 0.0f), oldestPathIndex()), gPathCount - 1);
+				return gPath[clamped % MECHA_PATH_SIZE];
+			}
+
+			void summonMecha()
+			{
+				if (!gMecha.mActive && !gMechaBeaten)
+					gMechaPending = 10 * 60;
+			}
+
+			// Drops in once there's a spot on the character's way that's far enough from them (they might have been standing still)
+			void tryMechaArrival(int cameraY)
+			{
+				--gMechaPending;
+				const PathPoint& now = gPath[(gPathCount - 1) % MECHA_PATH_SIZE];
+				uint32 index = 0;
+				bool found = false;
+				for (uint32 back = MECHA_START_DELAY; back < gPathCount - oldestPathIndex() && !found; back += 4)
+				{
+					index = gPathCount - 1 - back;
+					const PathPoint& candidate = gPath[index % MECHA_PATH_SIZE];
+					found = (std::abs(candidate.mX - now.mX) >= MECHA_START_DISTANCE || std::abs(candidate.mY - now.mY) >= MECHA_START_DISTANCE);
+				}
+				if (!found)
+					return;
+
+				gMechaPending = 0;
+				setupMechaGraphics();
+				gMecha = Mecha();
+				gMecha.mActive = true;
+				gMecha.mState = MechaState::ARRIVE;
+				gMecha.mIndex = (float)index;
+				const PathPoint& point = getPathPoint(gMecha.mIndex);
+				gMecha.mX = (float)point.mX;
+				gMecha.mY = (float)std::min<int>(point.mY - 64, cameraY - 48);
+				gMecha.mFacing = (now.mX >= point.mX) ? 1 : -1;
+				gMecha.mSquadTimer = MECHA_SQUAD_INTERVAL;
+				RMX_LOG_INFO("Mecha Sonic: dropping in");
+			}
+
+			void setMechaState(MechaState state, int timer = 0)
+			{
+				gMecha.mState = state;
+				gMecha.mTimer = timer;
+				gMecha.mStateAge = 0;
+			}
+
+			void sendSquadAway()
+			{
+				for (Robo& robo : gRobos)
+				{
+					if (robo.mActive && robo.mState != State::LEAVE)
+					{
+						robo.mState = State::LEAVE;
+						robo.mVelocityY = -1.0f;
+					}
+				}
+			}
+
+			void leaveMecha()
+			{
+				if (gMecha.mState == MechaState::LEAVE || gMecha.mState == MechaState::EXPLODE)
+					return;
+				setMechaState(MechaState::LEAVE);
+				gMecha.mVelocityY = -6.0f;
+				playSound(SFX_SPINDASH_RELEASE);
+				sendSquadAway();
+				RMX_LOG_INFO("Mecha Sonic: leaving");
+			}
+
+			// Where his sprite's middle is compared to the character's: he's a bit taller standing, about the same rolled up
+			int getMechaOffsetY(MechaState state)
+			{
+				return (state == MechaState::TAUNT || state == MechaState::CHARGE) ? -12 : -2;
+			}
+
+			void hitMecha(int characterX)
+			{
+				Mecha& mecha = gMecha;
+				++mecha.mHits;
+				mecha.mFlash = MECHA_FLASH_FRAMES;
+				playSound(SFX_BOSS_HIT);
+
+				// The character bounces off, like off a boss
+				EmulatorInterface& emulatorInterface = emu();
+				const int16 speedX = (int16)emulatorInterface.readMemory16(0xffffb018);
+				const int16 speedY = (int16)emulatorInterface.readMemory16(0xffffb01a);
+				emulatorInterface.writeMemory16(0xffffb018, (uint16)(int16)((characterX < mecha.mX) ? -std::max<int>(std::abs(speedX), 0x200) : std::max<int>(std::abs(speedX), 0x200)));
+				emulatorInterface.writeMemory16(0xffffb01a, (uint16)(int16)std::min<int>(-std::abs(speedY), -0x300));
+
+				if (mecha.mHits >= MECHA_HITS)
+				{
+					setMechaState(MechaState::EXPLODE, MECHA_EXPLODE_FRAMES);
+					mecha.mX = (float)getPathPoint(mecha.mIndex).mX;
+					mecha.mY = (float)(getPathPoint(mecha.mIndex).mY + getMechaOffsetY(MechaState::TAUNT));
+					sendSquadAway();
+					RMX_LOG_INFO("Mecha Sonic: beaten");
+				}
+				else
+				{
+					setMechaState(MechaState::KNOCKED, 20);
+					RMX_LOG_INFO("Mecha Sonic: hit " << mecha.mHits << " of " << MECHA_HITS);
+				}
+			}
+
+			void updateMecha(int characterX, int characterY, int cameraX, int cameraY, int screenWidth)
+			{
+				Mecha& mecha = gMecha;
+				++mecha.mAge;
+				++mecha.mStateAge;
+				if (mecha.mFlash > 0)
+					--mecha.mFlash;
+				const float newest = (float)(gPathCount - 1);
+
+				switch (mecha.mState)
+				{
+					case MechaState::ARRIVE:
+					{
+						// Falling onto his spot on the character's way, rolled up
+						const PathPoint& point = getPathPoint(mecha.mIndex);
+						mecha.mX = (float)point.mX;
+						mecha.mVelocityY = std::min(mecha.mVelocityY + 0.25f, 8.0f);
+						mecha.mY += mecha.mVelocityY;
+						const float landY = (float)(point.mY + getMechaOffsetY(MechaState::TAUNT));
+						if (mecha.mY >= landY)
+						{
+							mecha.mY = landY;
+							playSound(SFX_LAND);
+							setMechaState(MechaState::TAUNT, MECHA_TAUNT_FRAMES);
+						}
+						break;
+					}
+
+					case MechaState::TAUNT:
+					case MechaState::CHARGE:
+					{
+						// Standing on his spot
+						const PathPoint& point = getPathPoint(mecha.mIndex);
+						mecha.mX = (float)point.mX;
+						mecha.mY = (float)(point.mY + getMechaOffsetY(mecha.mState));
+						mecha.mFacing = (characterX >= mecha.mX) ? 1 : -1;
+						if (mecha.mState == MechaState::CHARGE && (mecha.mStateAge % 16) == 1)
+							playSound(SFX_SPINDASH_CHARGE);
+						if (--mecha.mTimer <= 0)
+						{
+							if (mecha.mState == MechaState::TAUNT)
+							{
+								setMechaState(MechaState::CHASE, MECHA_CHASE_FRAMES);
+								playSound(SFX_SPINDASH_RELEASE);
+							}
+							else
+							{
+								setMechaState(MechaState::DASH, MECHA_DASH_FRAMES);
+								playSound(SFX_SPINDASH_RELEASE);
+							}
+						}
+						break;
+					}
+
+					case MechaState::CHASE:
+					case MechaState::DASH:
+					case MechaState::KNOCKED:
+					{
+						// Along the way: forward (as fast as he goes, never ahead of the character), or thrown back
+						const float speed = (mecha.mState == MechaState::CHASE) ? MECHA_CHASE_SPEED : (mecha.mState == MechaState::DASH) ? MECHA_DASH_SPEED : -(float)MECHA_KNOCK_BACK / 20.0f;
+						const float before = mecha.mIndex;
+						mecha.mIndex = clamp(mecha.mIndex + speed, (float)oldestPathIndex(), newest);
+						const PathPoint& point = getPathPoint(mecha.mIndex);
+						const PathPoint& previous = getPathPoint(before);
+						if (point.mX != previous.mX && mecha.mState != MechaState::KNOCKED)
+							mecha.mFacing = (point.mX > previous.mX) ? 1 : -1;
+						mecha.mX = (float)point.mX;
+						mecha.mY = (float)(point.mY + getMechaOffsetY(mecha.mState));
+
+						const float behind = newest - mecha.mIndex;
+						if (mecha.mState == MechaState::KNOCKED)
+						{
+							if (--mecha.mTimer <= 0)
+								setMechaState(MechaState::CHASE, MECHA_CHASE_FRAMES);
+						}
+						else if (mecha.mState == MechaState::DASH)
+						{
+							if (--mecha.mTimer <= 0 || behind < 1.0f)
+								setMechaState(MechaState::CHASE, MECHA_CHASE_FRAMES);
+						}
+						else if (--mecha.mTimer <= 0 || (behind < 70.0f && mecha.mStateAge > 40))
+						{
+							// Close enough (or chasing long enough): stop and rev up
+							setMechaState(MechaState::CHARGE, MECHA_CHARGE_FRAMES);
+						}
+						break;
+					}
+
+					case MechaState::EXPLODE:
+					{
+						// Like a boss: explosions all over him, then 1000 points
+						if ((mecha.mStateAge % 8) == 1)
+							spawnExplosion(roundToInt(mecha.mX) + (int)random(32) - 16, roundToInt(mecha.mY) + (int)random(40) - 20, false);
+						if (--mecha.mTimer <= 0)
+						{
+							CodeExec::FunctionExecData execData;
+							execData.mParams.mReturnType = &lemon::PredefinedDataTypes::VOID;
+							execData.addParam(lemon::PredefinedDataTypes::UINT_32, 100);		// In tens: 1000 points
+							callGameScript("addScore", 0xffffb000, &execData);
+							spawnExplosion(roundToInt(mecha.mX), roundToInt(mecha.mY));		// And a critter that was inside
+							mecha.mActive = false;
+							gMechaBeaten = true;
+						}
+						return;
+					}
+
+					case MechaState::LEAVE:
+					{
+						mecha.mVelocityY += 0.2f;
+						mecha.mY += mecha.mVelocityY;
+						mecha.mX += (float)mecha.mFacing * 2.0f;
+						if (mecha.mY > cameraY + 400 || mecha.mY < cameraY - 200)
+							mecha.mActive = false;
+						if (mecha.mVelocityY > 0.0f && mecha.mY > cameraY + VideoOut::instance().getScreenHeight() + 64)
+							mecha.mActive = false;
+						return;
+					}
+				}
+
+				// Too far behind (the recording doesn't go back that far), or he's been at it long enough: off he goes
+				if (mecha.mState != MechaState::ARRIVE && (mecha.mAge > MECHA_LIFETIME || (mecha.mIndex <= (float)oldestPathIndex() + 1.0f && gPathCount > (uint32)MECHA_PATH_SIZE)))
+				{
+					leaveMecha();
+					return;
+				}
+
+				// His squad: another Egg Robo now and then
+				if (--mecha.mSquadTimer <= 0)
+				{
+					mecha.mSquadTimer = MECHA_SQUAD_INTERVAL;
+					trySpawn(characterX, characterY, cameraX, screenWidth);
+				}
+
+				// Touching the character: hit by an attack (except mid-lunge, when it just bounces them off), else a hit for them
+				if (mecha.mState == MechaState::ARRIVE || mecha.mState == MechaState::KNOCKED || mecha.mFlash > 0)
+					return;
+				const int dx = characterX - roundToInt(mecha.mX);
+				const int dy = characterY - roundToInt(mecha.mY);
+				const bool rolled = (mecha.mState == MechaState::CHASE || mecha.mState == MechaState::DASH);
+				if (std::abs(dx) < (rolled ? 24 : 22) && std::abs(dy) < (rolled ? 24 : 32))
+				{
+					if (isAttacking())
+					{
+						if (mecha.mState == MechaState::DASH)
+						{
+							EmulatorInterface& emulatorInterface = emu();
+							emulatorInterface.writeMemory16(0xffffb018, (uint16)(int16)((dx < 0) ? -0x400 : 0x400));
+							emulatorInterface.writeMemory16(0xffffb01a, (uint16)(int16)-0x300);
+							playSound(SFX_DEFLECT);
+							mecha.mFlash = 8;		// Not a hit, just a moment before the next touch counts
+						}
+						else
+						{
+							hitMecha(characterX);
+						}
+					}
+					else if (canBeHurt())
+					{
+						RMX_LOG_INFO("Mecha Sonic: hit the character");
+						hurtCharacter(dx < 0);
+						setMechaState(MechaState::TAUNT, MECHA_TAUNT_FRAMES + 30);		// A moment to get away
+					}
+				}
+			}
+
+			void drawMecha(int cameraX, int cameraY)
+			{
+				const Mecha& mecha = gMecha;
+				const int x = roundToInt(mecha.mX) - cameraX;
+				const int y = roundToInt(mecha.mY) - cameraY;
+				if (x < -64 || x > VideoOut::instance().getScreenWidth() + 64 || y < -64 || y > VideoOut::instance().getScreenHeight() + 64)
+					return;
+				if (mecha.mFlash > 0 && mecha.mHits < MECHA_HITS && mecha.mState != MechaState::DASH && (mecha.mFlash & 2))
+					return;		// Blinking after a hit
+
+				int frame = MECHA_FRAME_STAND;
+				switch (mecha.mState)
+				{
+					case MechaState::ARRIVE:
+					case MechaState::CHASE:
+					case MechaState::DASH:
+					case MechaState::KNOCKED:
+						frame = MECHA_FRAME_BALL + (mecha.mAge / ((mecha.mState == MechaState::DASH) ? 1 : 2)) % 3;
+						break;
+					case MechaState::TAUNT:
+						frame = (mecha.mStateAge < 25) ? MECHA_FRAME_UNFOLD + std::min(mecha.mStateAge / 5, 4) : MECHA_FRAME_STAND;
+						break;
+					case MechaState::CHARGE:
+						frame = MECHA_FRAME_CROUCH + (mecha.mStateAge / 2) % 3;
+						break;
+					case MechaState::EXPLODE:
+						frame = MECHA_FRAME_STAND;
+						break;
+					case MechaState::LEAVE:
+						frame = MECHA_FRAME_JUMP;
+						break;
+				}
+				if (gMechaKeys[frame] == 0)
+					return;
+				SpriteManager& spriteManager = RenderParts::instance().getSpriteManager();
+				spriteManager.setCustomSpritePaletteOverride(&gMechaPalette, &gMechaPalette);
+				const bool flashing = (mecha.mFlash > 0 && (mecha.mFlash & 1)) || (mecha.mState == MechaState::EXPLODE && (mecha.mStateAge & 2));
+				const bool flip = (mecha.mFacing > 0);		// The ROM's Mecha Sonic faces left
+				spriteManager.drawCustomSprite(gMechaKeys[frame], Vec2i(x, y), flashing ? 0x10 : 0x00, flip ? 0x01 : 0x00, 0x9e07, Color::WHITE);
+				spriteManager.setCustomSpritePaletteOverride(nullptr, nullptr);
+			}
+
 			// Room for Red Eye (about 48 pixels across) at a spot, and nothing in the way of its laser down to the ground
 			bool isClearForRedEye(int x, int y, int groundY)
 			{
@@ -690,11 +1168,6 @@ namespace n3ds
 				gRedEye.mDirection = (random(2) == 0) ? -1 : 1;
 			}
 
-			void playSound(uint8 sfx)
-			{
-				AudioOut::instance().playAudioDirect(sfx, AudioOut::SoundRegType::SOUND, AudioOut::CONTEXT_INGAME + AudioOut::CONTEXT_SOUND);
-			}
-
 			void updateRedEye(int characterX, int characterY, int cameraX, int cameraY, int screenWidth)
 			{
 				RedEye& eye = gRedEye;
@@ -767,6 +1240,7 @@ namespace n3ds
 						setupGraphics();
 						trySpawn(characterX, characterY, cameraX, screenWidth, 1);
 						trySpawn(characterX, characterY, cameraX, screenWidth, -1);
+						summonMecha();		// And their leader
 						RMX_LOG_INFO("Red Eye: firing");
 					}
 				}
@@ -910,6 +1384,10 @@ namespace n3ds
 				laser.mActive = false;
 			gRedEye.mActive = false;
 			gRedEyeGone = false;
+			gMecha.mActive = false;
+			gMechaBeaten = false;
+			gMechaPending = 0;
+			gPathCount = 0;
 			gHasFrameNumber = false;
 			gActFrames = 0;
 		}
@@ -946,6 +1424,10 @@ namespace n3ds
 
 			const int characterX = emulatorInterface.readMemory16(0xffffb010);
 			const int characterY = emulatorInterface.readMemory16(0xffffb014);
+			PathPoint& pathPoint = gPath[gPathCount % MECHA_PATH_SIZE];		// The character's way, for Mecha Sonic to follow
+			pathPoint.mX = (int16)characterX;
+			pathPoint.mY = (int16)characterY;
+			++gPathCount;
 			const int cameraX = emulatorInterface.readMemory16(0xffffee80);
 			const int cameraY = emulatorInterface.readMemory16(0xffffee84);
 			const int screenWidth = VideoOut::instance().getScreenWidth();
@@ -982,6 +1464,14 @@ namespace n3ds
 			{
 				if (laser.mActive)
 					updateLaser(laser, characterX, characterY, cameraX, screenWidth);
+			}
+			if (gMechaPending > 0 && !bossFight)
+				tryMechaArrival(cameraY);
+			if (gMecha.mActive)
+			{
+				if (bossFight)
+					leaveMecha();
+				updateMecha(characterX, characterY, cameraX, cameraY, screenWidth);
 			}
 			// Red Eye at its post in this act (looked for once the act's objects are there)
 			if (gRedEyePostAct != zoneAct && gActFrames > 2)
@@ -1023,12 +1513,14 @@ namespace n3ds
 				any = any || laser.mActive;
 			if (gRedEye.mActive && gRedEyeReady)
 				drawRedEye();
-			if (!any || !gPaletteReady)
-				return;
-
 			EmulatorInterface& emulatorInterface = emu();
 			const int cameraX = emulatorInterface.readMemory16(0xffffee80);
 			const int cameraY = emulatorInterface.readMemory16(0xffffee84);
+			if (gMecha.mActive && gMechaReady)
+				drawMecha(cameraX, cameraY);
+			if (!any || !gPaletteReady)
+				return;
+
 			SpriteManager& spriteManager = RenderParts::instance().getSpriteManager();
 			spriteManager.setCustomSpritePaletteOverride(&gPalette, &gPalette);
 

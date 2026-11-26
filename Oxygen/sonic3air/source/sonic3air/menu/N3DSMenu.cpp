@@ -2717,7 +2717,7 @@ void N3DSMenu::render()
 					const int setting = entry.hasSelected() ? (int)entry.selected().mValue : n3ds::challenges::getEggRoboSetting();
 					status = isSelected ? ("< " + entry.selected().mText + " >") : entry.selected().mText;
 					statusColor = (setting == 0) ? Color(0.6f, 0.6f, 0.7f, tabAlpha) : Color(0.5f, 0.8f, 1.0f, tabAlpha);
-					description = "Sky Sanctuary's Egg Robos fly into other zones to hunt you down. They line up at your height to fire their lasers - jump into them to pop them like badniks.";
+					description = "Sky Sanctuary's Egg Robos hunt you in other zones - jump into them to pop them. Red Eye guards each act: if it spots you, Mecha Sonic leads the squad in.";
 					drawer.drawRect(imageRect, Color(0.06f, 0.08f, 0.2f, tabAlpha));
 					drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 8, 32, 32), mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha * ((setting > 0) ? 1.0f : 0.4f)));
 					if (setting > 0)
