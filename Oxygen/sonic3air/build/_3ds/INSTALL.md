@@ -209,6 +209,10 @@ The main menu has a **3DS** entry (it can be hidden in Options → System). Ther
   The `README.txt` and `template.png` there show where the buttons and panels go.
 - **Secrets** that you'd otherwise unlock by playing.
 - **A starting shield** you get at the start of each act and after losing a life.
+- **Bonus boxes** (15 Play Coins, buy as many as you like, on the Shield tab): the same boxes stamp cards give, opened
+  in the Journal for a shield or 50 rings at the start of your next act.
+- **A new challenge** (10 Play Coins, any time, on the Challenge tab): swaps one of today's challenges you haven't
+  beaten yet for a different one of the same difficulty.
 
 Play Coins are shared with the rest of the 3DS (StreetPass Mii Plaza and other games use them too).
 What you bought and chose is saved in `savedata/3ds_shop.txt`.
@@ -256,6 +260,9 @@ in zones you've already reached. They count in a normal game and in Act Select.
   **Robotnik's Special** (50 XP). In Robotnik's Special, your shadow starts 2 seconds behind and his touch is the end.
 - **Pinning:** press A on a challenge to pin it. It then shows on the main menu (bottom left) with your progress, until
   it's beaten. The notification light glows red when you beat one.
+- **New Challenge:** don't fancy one? Pick it with Left / Right on "New Challenge" and swap it for a different kind of
+  challenge of the same difficulty, for 10 Play Coins (a voucher works too). Beaten ones can't be swapped, and the next
+  day brings new challenges as usual.
 
 Two surprises can also turn up while you play. Both are set on the Challenge tab:
 

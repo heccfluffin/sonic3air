@@ -80,6 +80,7 @@ namespace n3ds
 			Challenge mChallenges[MAX_PER_DAY];
 			int mCount = 3;						// Today's challenges: 3, more with higher medal levels
 			int mPinned = -1;					// The one pinned to the main menu, -1 for none (unpinned once beaten, and with each new day)
+			uint32_t mSwaps = 0;				// Challenges swapped for new ones today (bought with Play Coins in the 3DS menu)
 			uint32_t mXp = 0;					// In total, the level follows from it
 			uint32_t mBeaten = 0;				// Challenges beaten in total
 			uint32_t mPerfectDays = 0;			// Days with all of them beaten
@@ -108,6 +109,10 @@ namespace n3ds
 
 		// Pins one of today's challenges to the main menu (-1: none); only one that isn't beaten yet
 		void setPinned(int index);
+
+		// Swaps one of today's challenges that isn't beaten yet for a new one of the same slot (easy stays easy...): of another
+		// kind, and not the same as any other of today's. False if it isn't possible (beaten, no such slot)
+		bool swapChallenge(int index);
 
 		// What the game tells every frame while a level runs (in a normal game or Act Select)
 		struct Frame

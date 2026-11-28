@@ -94,9 +94,9 @@ namespace n3ds
 			std::string toText(const Data& data)
 			{
 				char text[256];
-				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\nemeralds=%u\nambush=%d\nambushes_survived=%u\neggrobos=%d\npinned=%d\n",
+				snprintf(text, sizeof(text), "date=%u\nxp=%u\nbeaten=%u\nperfect_days=%u\nzones=%u\nemeralds=%u\nambush=%d\nambushes_survived=%u\neggrobos=%d\npinned=%d\nswaps=%u\n",
 						 (unsigned)data.mDate, (unsigned)data.mXp, (unsigned)data.mBeaten, (unsigned)data.mPerfectDays, (unsigned)gZoneMask, (unsigned)gEmeraldsSeen,
-						 gAmbushChance, (unsigned)gAmbushesSurvived, gEggRoboSetting, data.mPinned);
+						 gAmbushChance, (unsigned)gAmbushesSurvived, gEggRoboSetting, data.mPinned, (unsigned)data.mSwaps);
 				std::string result = text;
 				for (int index = 0; index < data.mCount; ++index)
 				{
@@ -113,10 +113,10 @@ namespace n3ds
 				return (zone == 0) || ((gZoneMask >> (zone * 2)) & 3) != 0;
 			}
 
-			// Chooses the day's challenges: the same for the same day and zones
-			void generate(uint32_t date)
+			// Chooses the challenge for slot "index" (0 easy, 1 medium, 2 hard, 3 expert, 4 Robotnik's Special), with the random
+			// numbers from "random" (the same numbers give the same challenge, for the same zones)
+			Challenge chooseChallenge(uint32_t& random, int index)
 			{
-				uint32_t random = date * 2654435761u + 0x9e3779b9u;
 				const auto next = [&random](uint32_t range)
 				{
 					random = random * 1103515245u + 12345u;
@@ -173,209 +173,215 @@ namespace n3ds
 					challenge.mAct = SHADOW_ACTS[pick][1];
 				};
 
-				Data& data = gData;
-				data.mDate = date;
-				data.mPinned = -1;
-				data.mCount = getSlotsForLevel(getLevel(data.mXp));
-				for (int index = 0; index < data.mCount; ++index)
+				Challenge challenge;
+				const uint32_t kind = next((index == 4) ? 4 : 3);
+				if (index >= 3)
 				{
-					Challenge challenge;
-					const uint32_t kind = next((index == 4) ? 4 : 3);
-					if (index >= 3)
+					// Expert (40 XP) and Robotnik's Special (50 XP): both at once, or a lot of rings; or a shadow that's the end
+					const bool special = (index == 4);
+					if (kind == 3)
 					{
-						// Expert (40 XP) and Robotnik's Special (50 XP): both at once, or a lot of rings; or a shadow that's the end
-						const bool special = (index == 4);
-						if (kind == 3)
-						{
-							pickShadowAct(challenge);
-							challenge.mTarget = 1;
-						}
-						else if (kind == 0)
-						{
-							challenge.mType = Type::FAST_NO_HIT;
-							challenge.mZone = pickZone();
-							challenge.mAct = pickAct(challenge.mZone);
-							const uint32_t par = ZONES[challenge.mZone].mParTime[challenge.mAct];
-							challenge.mTarget = special ? (par * 3 / 4 / 10 * 10) : par;
-						}
-						else if (kind == 1)
-						{
-							challenge.mType = Type::FINISH_WITH_RINGS;
-							challenge.mZone = pickZone();
-							challenge.mTarget = special ? 100 : 75;		// Never more than 100 rings: one hit loses them all
-						}
-						else
-						{
-							// A really fast run: two thirds of the relaxed time, or three fifths for the special
-							challenge.mType = Type::ACT_UNDER_TIME;
-							challenge.mZone = pickZone();
-							challenge.mAct = pickAct(challenge.mZone);
-							const uint32_t par = ZONES[challenge.mZone].mParTime[challenge.mAct];
-							challenge.mTarget = (special ? (par * 3 / 5) : (par * 2 / 3)) / 10 * 10;
-						}
+						pickShadowAct(challenge);
+						challenge.mTarget = 1;
 					}
-					else if (index == 0)
+					else if (kind == 0)
 					{
-						// Easy
-						const uint32_t easyKind = next(6);
-						if (easyKind == 4)
-						{
-							challenge.mType = Type::MONITORS;
-							challenge.mTarget = 5;
-						}
-						else if (easyKind == 5)
-						{
-							challenge.mType = Type::MOVES;
-							challenge.mTarget = pickMove(false);
-						}
-						else if (easyKind == 3)
-						{
-							challenge.mType = Type::BADNIKS;
-							challenge.mTarget = 10;
-						}
-						else if (easyKind == 0)
-						{
-							challenge.mType = Type::RINGS_IN_ZONE;
-							challenge.mZone = pickZone();
-							challenge.mTarget = (next(2) == 0) ? 30 : 50;
-						}
-						else if (easyKind == 1)
-						{
-							challenge.mType = Type::FINISH_ZONE;
-							challenge.mZone = pickZone();
-						}
-						else
-						{
-							challenge.mType = Type::SONIC_STEPS;
-							challenge.mTarget = 500 + 250 * next(3);
-						}
+						challenge.mType = Type::FAST_NO_HIT;
+						challenge.mZone = pickZone();
+						challenge.mAct = pickAct(challenge.mZone);
+						const uint32_t par = ZONES[challenge.mZone].mParTime[challenge.mAct];
+						challenge.mTarget = special ? (par * 3 / 4 / 10 * 10) : par;
 					}
-					else if (index == 1)
+					else if (kind == 1)
 					{
-						// Medium
-						const uint32_t mediumKind = next(12);
-						if (mediumKind == 8)
-						{
-							challenge.mType = Type::MONITORS;
-							challenge.mTarget = 15;
-						}
-						else if (mediumKind == 9 && gEmeraldsSeen >= 7)
-						{
-							challenge.mType = Type::GO_SUPER;		// Only with all the emeralds, and then 50 rings and a jump
-						}
-						else if (mediumKind == 11 && isZoneAvailable(8))
-						{
-							// Sandopolis 2's light switches, before the ghosts come out
-							challenge.mType = Type::LIGHT_SWITCHES;
-							challenge.mZone = 8;
-							challenge.mAct = 1;
-							challenge.mTarget = 3;
-						}
-						else if (mediumKind == 10 && isZoneAvailable(3))
-						{
-							challenge.mType = Type::BALLOONS;
-							challenge.mZone = 3;
-							challenge.mTarget = 10;
-						}
-						else if (mediumKind >= 9)
-						{
-							challenge.mType = Type::MOVES;
-							challenge.mTarget = pickMove(true);
-						}
-						else if (mediumKind >= 3)
-						{
-							switch (mediumKind)
-							{
-								case 3:  challenge.mType = Type::BADNIKS;  challenge.mTarget = 25;  break;
-								case 4:  challenge.mType = Type::SCORE_IN_ACT;  challenge.mTarget = 10000;  break;		// About a good act: 3 minutes, 50 rings, some badniks
-								case 5:  challenge.mType = Type::EXTRA_LIFE;  challenge.mZone = pickZone();  break;
-								case 6:  challenge.mType = Type::FINISH_AS;  challenge.mZone = pickZone();  challenge.mTarget = (next(2) == 0) ? 2 : 3;  break;
-								default: challenge.mType = Type::BONUS_STAGE;  break;
-							}
-						}
-						else if (mediumKind == 0)
-						{
-							challenge.mType = Type::RINGS_AT_ONCE;
-							challenge.mTarget = 100;
-						}
-						else if (mediumKind == 1)
-						{
-							challenge.mType = Type::ACT_UNDER_TIME;
-							challenge.mZone = pickZone();
-							challenge.mAct = pickAct(challenge.mZone);
-							challenge.mTarget = ZONES[challenge.mZone].mParTime[challenge.mAct];
-						}
-						else
-						{
-							challenge.mType = Type::FINISH_WITH_RINGS;
-							challenge.mZone = pickZone();
-							challenge.mTarget = 50;
-						}
+						challenge.mType = Type::FINISH_WITH_RINGS;
+						challenge.mZone = pickZone();
+						challenge.mTarget = special ? 100 : 75;		// Never more than 100 rings: one hit loses them all
 					}
 					else
 					{
-						// Hard
-						const uint32_t hardKind = next(7);
-						if (hardKind == 6)
+						// A really fast run: two thirds of the relaxed time, or three fifths for the special
+						challenge.mType = Type::ACT_UNDER_TIME;
+						challenge.mZone = pickZone();
+						challenge.mAct = pickAct(challenge.mZone);
+						const uint32_t par = ZONES[challenge.mZone].mParTime[challenge.mAct];
+						challenge.mTarget = (special ? (par * 3 / 5) : (par * 2 / 3)) / 10 * 10;
+					}
+				}
+				else if (index == 0)
+				{
+					// Easy
+					const uint32_t easyKind = next(6);
+					if (easyKind == 4)
+					{
+						challenge.mType = Type::MONITORS;
+						challenge.mTarget = 5;
+					}
+					else if (easyKind == 5)
+					{
+						challenge.mType = Type::MOVES;
+						challenge.mTarget = pickMove(false);
+					}
+					else if (easyKind == 3)
+					{
+						challenge.mType = Type::BADNIKS;
+						challenge.mTarget = 10;
+					}
+					else if (easyKind == 0)
+					{
+						challenge.mType = Type::RINGS_IN_ZONE;
+						challenge.mZone = pickZone();
+						challenge.mTarget = (next(2) == 0) ? 30 : 50;
+					}
+					else if (easyKind == 1)
+					{
+						challenge.mType = Type::FINISH_ZONE;
+						challenge.mZone = pickZone();
+					}
+					else
+					{
+						challenge.mType = Type::SONIC_STEPS;
+						challenge.mTarget = 500 + 250 * next(3);
+					}
+				}
+				else if (index == 1)
+				{
+					// Medium
+					const uint32_t mediumKind = next(12);
+					if (mediumKind == 8)
+					{
+						challenge.mType = Type::MONITORS;
+						challenge.mTarget = 15;
+					}
+					else if (mediumKind == 9 && gEmeraldsSeen >= 7)
+					{
+						challenge.mType = Type::GO_SUPER;		// Only with all the emeralds, and then 50 rings and a jump
+					}
+					else if (mediumKind == 11 && isZoneAvailable(8))
+					{
+						// Sandopolis 2's light switches, before the ghosts come out
+						challenge.mType = Type::LIGHT_SWITCHES;
+						challenge.mZone = 8;
+						challenge.mAct = 1;
+						challenge.mTarget = 3;
+					}
+					else if (mediumKind == 10 && isZoneAvailable(3))
+					{
+						challenge.mType = Type::BALLOONS;
+						challenge.mZone = 3;
+						challenge.mTarget = 10;
+					}
+					else if (mediumKind >= 9)
+					{
+						challenge.mType = Type::MOVES;
+						challenge.mTarget = pickMove(true);
+					}
+					else if (mediumKind >= 3)
+					{
+						switch (mediumKind)
 						{
-							pickShadowAct(challenge);
+							case 3:  challenge.mType = Type::BADNIKS;  challenge.mTarget = 25;  break;
+							case 4:  challenge.mType = Type::SCORE_IN_ACT;  challenge.mTarget = 10000;  break;		// About a good act: 3 minutes, 50 rings, some badniks
+							case 5:  challenge.mType = Type::EXTRA_LIFE;  challenge.mZone = pickZone();  break;
+							case 6:  challenge.mType = Type::FINISH_AS;  challenge.mZone = pickZone();  challenge.mTarget = (next(2) == 0) ? 2 : 3;  break;
+							default: challenge.mType = Type::BONUS_STAGE;  break;
 						}
-						else if (hardKind == 5)
+					}
+					else if (mediumKind == 0)
+					{
+						challenge.mType = Type::RINGS_AT_ONCE;
+						challenge.mTarget = 100;
+					}
+					else if (mediumKind == 1)
+					{
+						challenge.mType = Type::ACT_UNDER_TIME;
+						challenge.mZone = pickZone();
+						challenge.mAct = pickAct(challenge.mZone);
+						challenge.mTarget = ZONES[challenge.mZone].mParTime[challenge.mAct];
+					}
+					else
+					{
+						challenge.mType = Type::FINISH_WITH_RINGS;
+						challenge.mZone = pickZone();
+						challenge.mTarget = 50;
+					}
+				}
+				else
+				{
+					// Hard
+					const uint32_t hardKind = next(7);
+					if (hardKind == 6)
+					{
+						pickShadowAct(challenge);
+					}
+					else if (hardKind == 5)
+					{
+						challenge.mType = Type::SCORE_IN_ACT;		// Like under 2 minutes with 100 rings (time bonus 10,000 plus ring bonus 10,000)
+						challenge.mTarget = 20000;
+					}
+					else if (hardKind == 3)
+					{
+						// All three elemental shields in one act: only acts with at least two monitors of each (counted in the level
+						// object lists), so it never hangs on a single monitor that might be on another character's path
+						static const uint8_t SHIELD_ACTS[][2] = { { 0, 1 }, { 3, 0 }, { 3, 1 }, { 6, 0 }, { 7, 1 }, { 8, 1 } };	// AIZ 2, CNZ 1 + 2, LBZ 1, MHZ 2, SOZ 2
+						std::vector<int> candidates;
+						for (int k = 0; k < (int)(sizeof(SHIELD_ACTS) / sizeof(SHIELD_ACTS[0])); ++k)
 						{
-							challenge.mType = Type::SCORE_IN_ACT;		// Like under 2 minutes with 100 rings (time bonus 10,000 plus ring bonus 10,000)
-							challenge.mTarget = 20000;
+							if (isZoneAvailable(SHIELD_ACTS[k][0]))
+								candidates.push_back(k);
 						}
-						else if (hardKind == 3)
-						{
-							// All three elemental shields in one act: only acts with at least two monitors of each (counted in the level
-							// object lists), so it never hangs on a single monitor that might be on another character's path
-							static const uint8_t SHIELD_ACTS[][2] = { { 0, 1 }, { 3, 0 }, { 3, 1 }, { 6, 0 }, { 7, 1 }, { 8, 1 } };	// AIZ 2, CNZ 1 + 2, LBZ 1, MHZ 2, SOZ 2
-							std::vector<int> candidates;
-							for (int k = 0; k < (int)(sizeof(SHIELD_ACTS) / sizeof(SHIELD_ACTS[0])); ++k)
-							{
-								if (isZoneAvailable(SHIELD_ACTS[k][0]))
-									candidates.push_back(k);
-							}
-							if (candidates.empty())
-							{
-								challenge.mType = Type::NO_HIT_ACT;
-								challenge.mZone = pickZone();
-							}
-							else
-							{
-								const int pick = candidates[next((uint32_t)candidates.size())];
-								challenge.mType = Type::ALL_SHIELDS;
-								challenge.mZone = SHIELD_ACTS[pick][0];
-								challenge.mAct = SHIELD_ACTS[pick][1];
-							}
-						}
-						else if (hardKind == 4)
-						{
-							// Hydrocity without running low on air, once it's been reached; otherwise a run without a hit
-							challenge.mType = isZoneAvailable(1) ? Type::NO_DROWN : Type::NO_HIT_ACT;
-							challenge.mZone = isZoneAvailable(1) ? 1 : pickZone();
-						}
-						else if (hardKind == 0)
+						if (candidates.empty())
 						{
 							challenge.mType = Type::NO_HIT_ACT;
 							challenge.mZone = pickZone();
 						}
-						else if (hardKind == 1)
-						{
-							challenge.mType = Type::RINGS_IN_ZONE;		// 100 rings, but in one particular zone
-							challenge.mZone = pickZone();
-							challenge.mTarget = 100;
-						}
 						else
 						{
-							challenge.mType = Type::ACT_UNDER_TIME;
-							challenge.mZone = pickZone();
-							challenge.mAct = pickAct(challenge.mZone);
-							challenge.mTarget = ZONES[challenge.mZone].mParTime[challenge.mAct] * 3 / 4 / 10 * 10;		// A quarter faster
+							const int pick = candidates[next((uint32_t)candidates.size())];
+							challenge.mType = Type::ALL_SHIELDS;
+							challenge.mZone = SHIELD_ACTS[pick][0];
+							challenge.mAct = SHIELD_ACTS[pick][1];
 						}
 					}
-					data.mChallenges[index] = challenge;
+					else if (hardKind == 4)
+					{
+						// Hydrocity without running low on air, once it's been reached; otherwise a run without a hit
+						challenge.mType = isZoneAvailable(1) ? Type::NO_DROWN : Type::NO_HIT_ACT;
+						challenge.mZone = isZoneAvailable(1) ? 1 : pickZone();
+					}
+					else if (hardKind == 0)
+					{
+						challenge.mType = Type::NO_HIT_ACT;
+						challenge.mZone = pickZone();
+					}
+					else if (hardKind == 1)
+					{
+						challenge.mType = Type::RINGS_IN_ZONE;		// 100 rings, but in one particular zone
+						challenge.mZone = pickZone();
+						challenge.mTarget = 100;
+					}
+					else
+					{
+						challenge.mType = Type::ACT_UNDER_TIME;
+						challenge.mZone = pickZone();
+						challenge.mAct = pickAct(challenge.mZone);
+						challenge.mTarget = ZONES[challenge.mZone].mParTime[challenge.mAct] * 3 / 4 / 10 * 10;		// A quarter faster
+					}
 				}
+				return challenge;
+			}
+
+			// Chooses the day's challenges: the same for the same day and zones
+			void generate(uint32_t date)
+			{
+				uint32_t random = date * 2654435761u + 0x9e3779b9u;
+				Data& data = gData;
+				data.mDate = date;
+				data.mPinned = -1;
+				data.mSwaps = 0;
+				data.mCount = getSlotsForLevel(getLevel(data.mXp));
+				for (int index = 0; index < data.mCount; ++index)
+					data.mChallenges[index] = chooseChallenge(random, index);
 				gStepDistance = 0;
 				std::string list;
 				for (int index = 0; index < data.mCount; ++index)
@@ -409,6 +415,7 @@ namespace n3ds
 						else if (sscanf(line, "ambushes_survived=%u", &value) == 1)	gAmbushesSurvived = value;
 						else if (sscanf(line, "eggrobos=%u", &value) == 1)		gEggRoboSetting = std::min<int>((int)value, 3);
 						else if (sscanf(line, "pinned=%d", &type) == 1)			gData.mPinned = type;
+						else if (sscanf(line, "swaps=%u", &value) == 1)			gData.mSwaps = value;
 						else if (sscanf(line, "challenge=%d %d %d %u %u %d", &type, &zone, &act, &target, &progress, &done) == 6 && index < MAX_PER_DAY &&
 								 type >= 0 && type < (int)Type::_NUM && zone >= 0 && zone < NUM_ZONES && act >= 0 && act < ZONES[zone].mActs)
 						{
@@ -575,6 +582,40 @@ namespace n3ds
 				index = -1;
 			gData.mPinned = index;
 			save();
+		}
+
+		bool swapChallenge(int index)
+		{
+			load();
+			if (index < 0 || index >= gData.mCount || gData.mChallenges[index].mDone)
+				return false;
+
+			// Other random numbers for each swap of the day; another kind of challenge than before if at all possible (the first
+			// tries), at least not one of today's again
+			const Challenge before = gData.mChallenges[index];
+			for (uint32_t attempt = 0; attempt < 64; ++attempt)
+			{
+				uint32_t random = (gData.mDate * 2654435761u) ^ ((gData.mSwaps + 1) * 0x85ebca6bu) ^ ((attempt + 1) * 0xc2b2ae35u) ^ ((uint32_t)index * 0x27d4eb2fu);
+				const Challenge candidate = chooseChallenge(random, index);
+				if (attempt < 48 && candidate.mType == before.mType)
+					continue;
+
+				bool repeated = false;
+				for (int other = 0; other < gData.mCount; ++other)
+				{
+					const Challenge& existing = gData.mChallenges[other];
+					repeated = repeated || (existing.mType == candidate.mType && existing.mZone == candidate.mZone && existing.mAct == candidate.mAct && existing.mTarget == candidate.mTarget);
+				}
+				if (repeated)
+					continue;
+
+				gData.mChallenges[index] = candidate;
+				++gData.mSwaps;
+				RMX_LOG_INFO("Daily challenge: swapped \"" << describe(before) << "\" for \"" << describe(candidate) << "\"");
+				save();
+				return true;
+			}
+			return false;
 		}
 
 		bool onFrame(const Frame& frame)

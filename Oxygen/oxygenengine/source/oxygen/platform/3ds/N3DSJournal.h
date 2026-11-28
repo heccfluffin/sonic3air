@@ -122,6 +122,9 @@ namespace n3ds
 		// Vouchers from elsewhere (like Robotnik medal levels); shown with the next reward notice
 		void addVouchers(int count);
 
+		// A bonus box bought with Play Coins in the 3DS menu, waiting to be opened like the ones from stamp cards
+		void addBonusBox();
+
 		// Opens a bonus box with the given gift inside, ready for the next act; choosing again while one is ready only changes
 		// what's inside, without another box. False if there's no box.
 		bool prepareBonus(int gift);

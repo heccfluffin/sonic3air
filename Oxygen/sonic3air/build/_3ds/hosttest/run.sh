@@ -42,7 +42,7 @@ g++ $FLAGS -include "$HERE/fake/3ds.h" \
 	-Wl,--wrap=time -Wl,--wrap=write -lcurl -lturbojpeg -larchive -lz -pthread -o "$OUT/hosttest"
 
 FAILED=0
-for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload postcards postcardsall rewards rewardsreload postcardswap postcardswapreload challenges challengeslots challengetypes challengetypes2 challengetypes3 challengegeneration challengelights editedfiles modserver gamebanana; do
+for scenario in clock24 clock12 idle timeofday nightmode taps greeting birthday unusualname filewriter shopreload postcards postcardsall rewards rewardsreload postcardswap postcardswapreload challenges challengeslots challengetypes challengetypes2 challengetypes3 challengegeneration challengeswap challengelights editedfiles modserver gamebanana; do
 	echo "== $scenario"
 	mkdir -p "$OUT/sd_$scenario/sdmc:"		# The SD card itself, which always exists on the 3DS
 	(cd "$OUT/sd_$scenario" && "$OUT/hosttest" "$scenario" "$OUT/shots") || FAILED=1

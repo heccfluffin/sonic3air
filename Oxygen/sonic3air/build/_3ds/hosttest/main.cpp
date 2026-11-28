@@ -1033,6 +1033,62 @@ namespace
 		check(getRank(getLevel(4000000000u)).length() < 60, "and its rank name stays short: " + getRank(getLevel(4000000000u)));
 	}
 
+	void challengeSwap()
+	{
+		// Swapping a challenge (bought in the 3DS menu): another kind, the same slot, not one of today's; counted and kept
+		using namespace n3ds::challenges;
+		FTX::FileSystem->createDirectory(L"sdmc:/3ds/sonic3air/savedata");
+		fake::setTime(2026, 3, 14, 12, 0);
+		std::ofstream("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt") << "date=20250101\nxp=2300\nbeaten=60\nperfect_days=12\nzones=16777215\n";
+		setAvailableMovesProvider(&onlySpindash);
+		const Data& data = get(0xffffff);
+		check(data.mCount == 5 && data.mSwaps == 0, "five challenges at a high medal level, none swapped yet");
+		bool allDifferent = true, allSwapped = true;
+		for (int round = 0; round < 40; ++round)
+		{
+			const int index = round % data.mCount;
+			const Challenge before = data.mChallenges[index];
+			allSwapped = allSwapped && swapChallenge(index);
+			const Challenge& after = data.mChallenges[index];
+			if (after.mType == before.mType)
+				allDifferent = false;
+			for (int other = 0; other < data.mCount; ++other)
+			{
+				const Challenge& c = data.mChallenges[other];
+				if (other != index && c.mType == after.mType && c.mZone == after.mZone && c.mAct == after.mAct && c.mTarget == after.mTarget)
+					allDifferent = false;
+			}
+			if (index != 4 && after.mType == Type::SHADOW_RUN && after.mTarget == 1)
+				allDifferent = false;		// The deadly shadow is only for Robotnik's Special
+		}
+		check(allSwapped && allDifferent, "40 swaps: each one another kind of challenge, never a copy of one of the others");
+		check(data.mSwaps == 40, "the swaps are counted");
+
+		// A beaten one can't be swapped (it would sell XP)
+		ActResult result;
+		result.mZone = 0;
+		fake::setTime(2026, 3, 14, 12, 5);
+		{
+			// Beat the easy one by making it "finish Angel Island" and finishing it there
+			Data& writable = const_cast<Data&>(data);
+			writable.mChallenges[0].mType = Type::FINISH_ZONE;
+			writable.mChallenges[0].mZone = 0;
+			onActCompleted(result);
+		}
+		check(data.mChallenges[0].mDone && !swapChallenge(0), "a beaten challenge can't be swapped");
+		check(!swapChallenge(-1) && !swapChallenge(5), "no swapping slots that aren't there");
+		save();
+		n3ds::filewriter::waitUntilDone();
+		std::ifstream file("sdmc:/3ds/sonic3air/savedata/3ds_challenges.txt");
+		std::stringstream text;
+		text << file.rdbuf();
+		check(text.str().find("swaps=40") != std::string::npos, "the swap count is saved");
+
+		// The next day: new challenges, the count starts over
+		fake::setTime(2026, 3, 15, 9, 0);
+		check(get(0xffffff).mSwaps == 0, "a new day starts with no swaps");
+	}
+
 	void challengesSlots()
 	{
 		using namespace n3ds::challenges;
@@ -1459,7 +1515,7 @@ int main(int argc, char** argv)
 	{
 		{ "clock24", clock24 }, { "clock12", clock12 }, { "idle", idleRedraws }, { "timeofday", timeOfDay }, { "nightmode", nightMode },
 		{ "taps", taps }, { "greeting", greeting }, { "birthday", greetingBirthday }, { "unusualname", greetingUnusualName },
-		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "postcardswap", postcardSwap }, { "postcardswapreload", postcardSwapReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengelights", challengeLights }, { "editedfiles", editedFiles }, { "modserver", modServer }, { "gamebanana", gameBanana },
+		{ "filewriter", fileWriter }, { "shopreload", shopReload }, { "postcards", postcards }, { "postcardsall", postcardsAll }, { "rewards", rewards }, { "rewardsreload", rewardsReload }, { "postcardswap", postcardSwap }, { "postcardswapreload", postcardSwapReload }, { "challenges", challenges }, { "challengeslots", challengesSlots }, { "challengetypes", challengeTypes }, { "challengetypes2", challengeTypes2 }, { "challengetypes3", challengeTypes3 }, { "challengegeneration", challengeGeneration }, { "challengeswap", challengeSwap }, { "challengelights", challengeLights }, { "editedfiles", editedFiles }, { "modserver", modServer }, { "gamebanana", gameBanana },
 	};
 	const auto it = SCENARIOS.find(scenario);
 	if (it == SCENARIOS.end())

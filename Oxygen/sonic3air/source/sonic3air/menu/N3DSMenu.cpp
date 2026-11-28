@@ -47,6 +47,7 @@ namespace
 	static constexpr uint32 BACK = 0xffff;
 	static constexpr uint32 SHIELD_BUY = 0x100;
 	static constexpr uint32 SHIELD_SELECT = 0x200;		// Plus the shield, see n3ds::shop::Shield
+	static constexpr uint32 BONUS_BUY = 0x101;			// A bonus box, bought as often as wanted
 	static constexpr uint32 CUSTOM_THEME = 0x400;		// Plus the index in "mCustomThemes"
 	static constexpr uint32 CUSTOM_INFO = 0x4ff;		// Explanation entry for the player's own pictures
 	static constexpr uint32 AUTO_THEME = 0x4fe;			// The theme that follows the time of day (n3ds::shop::THEME_AUTO)
@@ -64,6 +65,7 @@ namespace
 	static constexpr uint32 JOURNAL_SWAP = 0x60c;			// Swapping postcards by local wireless; the options are which one to share
 	static constexpr uint32 CHALLENGE_MEDAL = 0x700;		// Doctor Robotnik's Daily Challenge: him, and the Robotnik medal
 	static constexpr uint32 CHALLENGE_FIRST = 0x701;		// Today's challenges, 0x701 to 0x705
+	static constexpr uint32 CHALLENGE_SWAP = 0x70c;			// A new challenge for one not beaten yet; the options are which one
 	static constexpr uint32 CHALLENGE_EGGROBOS = 0x70d;		// Egg Robo patrols, changed with left / right
 	static constexpr uint32 CHALLENGE_AMBUSH = 0x70e;		// The shadow ambush's chance, changed with left / right
 	static constexpr uint32 CHALLENGE_LOCKED = 0x70f;		// The next challenge slot, unlocked by a higher medal level
@@ -540,6 +542,8 @@ namespace
 	};
 
 	const constexpr int SHIELD_PRICE = 50;
+	const constexpr int BONUS_BOX_PRICE = 15;			// These two can be bought again and again
+	const constexpr int CHALLENGE_SWAP_PRICE = 10;
 
 	struct ShieldInfo
 	{
@@ -1247,6 +1251,7 @@ void N3DSMenu::rebuildTabs()
 		{
 			entries.addEntry("Starting Shield", SHIELD_BUY);
 		}
+		entries.addEntry("Bonus Box", BONUS_BUY);
 		entries.addEntry("Back", BACK);
 		entries.mSelectedEntryIndex = clamp(selected, 0, (int)entries.size() - 1);
 	}
@@ -1312,6 +1317,17 @@ void N3DSMenu::rebuildTabs()
 			entries.addEntry(n3ds::challenges::getSlotName(k), CHALLENGE_FIRST + k);
 		if (challenges.mCount < n3ds::challenges::MAX_PER_DAY)
 			entries.addEntry(n3ds::challenges::getSlotName(challenges.mCount), CHALLENGE_LOCKED);		// The next one to unlock, as a teaser
+		{
+			// Swapping a challenge for a new one: the options are the ones not beaten yet
+			GameMenuEntry& entry = entries.addEntry("New Challenge", CHALLENGE_SWAP);
+			for (int k = 0; k < challenges.mCount; ++k)
+			{
+				if (!challenges.mChallenges[k].mDone)
+					entry.addOption(n3ds::challenges::getSlotName(k), (uint32)k);
+			}
+			if (mSwapChallengeSlot >= 0)
+				entry.setSelectedIndexByValue((uint32)mSwapChallengeSlot);
+		}
 		{
 			GameMenuEntry& entry = entries.addEntry("Shadow Ambush", CHALLENGE_AMBUSH);
 			for (const int chance : n3ds::challenges::AMBUSH_CHANCES)
@@ -1385,6 +1401,13 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 		}
 
 		case Tab::Id::SHIELD:
+			if (data == BONUS_BUY)
+			{
+				outItem.mName = "Bonus Box";
+				outItem.mPrice = BONUS_BOX_PRICE;
+				applyVoucher(outItem);
+				return true;
+			}
 			if (data != SHIELD_BUY)
 				return false;
 			outItem.mName = "Starting Shield";
@@ -1392,6 +1415,23 @@ bool N3DSMenu::getItem(size_t tabIndex, uint32 data, Item& outItem) const
 			outItem.mOwned = shop.mOwnsShield;
 			applyVoucher(outItem);
 			return true;
+
+		case Tab::Id::CHALLENGE:
+		{
+			// Only while there's one not beaten yet
+			if (data != CHALLENGE_SWAP)
+				return false;
+			const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+			bool anyLeft = false;
+			for (int k = 0; k < challenges.mCount; ++k)
+				anyLeft = anyLeft || !challenges.mChallenges[k].mDone;
+			if (!anyLeft)
+				return false;
+			outItem.mName = "a New Challenge";
+			outItem.mPrice = CHALLENGE_SWAP_PRICE;
+			applyVoucher(outItem);
+			return true;
+		}
 	}
 	return false;
 }
@@ -1674,7 +1714,19 @@ void N3DSMenu::onAccept()
 			showMessage("Change the chance with Left and Right", false);
 			return;
 		}
-		if (data == CHALLENGE_LOCKED)
+		if (data == CHALLENGE_SWAP)
+		{
+			const GameMenuEntry& entry = mActiveMenu->selected();
+			if (!entry.hasSelected())
+			{
+				playMenuSound(0xad);
+				showMessage("All beaten today! Nothing left to swap", false);
+				return;
+			}
+			mSwapChallengeSlot = (int)entry.selected().mValue;
+			// Bought like everything else, below
+		}
+		else if (data == CHALLENGE_LOCKED)
 		{
 			const int level = n3ds::challenges::getLevel(challenges.mXp);
 			const int needed = (challenges.mCount == 3) ? n3ds::challenges::EXPERT_LEVEL : n3ds::challenges::SPECIAL_LEVEL;
@@ -1701,7 +1753,8 @@ void N3DSMenu::onAccept()
 			playMenuSound(pin ? 0x63 : 0x5b);
 			showMessage(pin ? "Pinned to the main menu - play a normal game or Act Select" : "Unpinned", false);
 		}
-		return;
+		if (data != CHALLENGE_SWAP)
+			return;
 	}
 
 	if (mActiveTab == Tab::Id::JOURNAL)
@@ -1868,6 +1921,18 @@ void N3DSMenu::buySelected()
 	Item item;
 	if (!getItem(mActiveTab, data, item) || item.mOwned)
 		return;
+	if (mActiveTab == Tab::Id::CHALLENGE)
+	{
+		// The challenge to swap must still be there (not beaten meanwhile, the day not over)
+		const n3ds::challenges::Data& challenges = n3ds::challenges::get(PlayerProgress::instance().mUnlocks.mFinishedZoneAct);
+		if (mSwapChallengeSlot < 0 || mSwapChallengeSlot >= challenges.mCount || challenges.mChallenges[mSwapChallengeSlot].mDone)
+		{
+			playMenuSound(0xad);
+			showMessage("That challenge can't be swapped any more", true);
+			rebuildTabs();
+			return;
+		}
+	}
 
 	int coinsLeft = mPlayCoins;
 	if (item.mPrice > 0 && !n3ds::playcoins::spend(item.mPrice, coinsLeft))
@@ -1881,6 +1946,7 @@ void N3DSMenu::buySelected()
 
 	n3ds::shop::Data& shop = n3ds::shop::get();
 	bool unlockedTimeOfDay = false;
+	std::string boughtMessage;
 	switch (mActiveTab)
 	{
 		case Tab::Id::THEMES:
@@ -1899,10 +1965,26 @@ void N3DSMenu::buySelected()
 			break;
 
 		case Tab::Id::SHIELD:
+			if (data == BONUS_BUY)
+			{
+				n3ds::journal::addBonusBox();
+				boughtMessage = "Bonus Box bought! Open it in the Journal tab";
+				break;
+			}
 			shop.mOwnsShield = true;
 			shop.mSelectedShield = n3ds::shop::SHIELD_CLASSIC;
 			n3ds::shop::save();
 			break;
+
+		case Tab::Id::CHALLENGE:
+		{
+			const int index = mSwapChallengeSlot;
+			if (n3ds::challenges::swapChallenge(index))
+				boughtMessage = std::string("New ") + n3ds::challenges::getSlotName(index) + ": " + n3ds::challenges::describe(n3ds::challenges::get().mChallenges[index]);
+			else
+				boughtMessage = "Robotnik had no other idea for that one, sorry";		// Not expected: there are always other kinds
+			break;
+		}
 	}
 	RMX_LOG_INFO("3DS menu: bought '" << item.mName << "' for " << item.mPrice << " Play Coins" << (item.mVoucher ? " with a voucher" : ""));
 	if (item.mVoucher)
@@ -1910,7 +1992,7 @@ void N3DSMenu::buySelected()
 	n3ds::journal::addPurchase(item.mPrice);
 
 	playMenuSound(0x33);	// Ring sound
-	showMessage(item.mName + (unlockedTimeOfDay ? " bought! And Time of Day is unlocked" : " bought!"), false);
+	showMessage(!boughtMessage.empty() ? boughtMessage : item.mName + (unlockedTimeOfDay ? " bought! And Time of Day is unlocked" : " bought!"), false);
 	rebuildTabs();
 }
 
@@ -2867,6 +2949,41 @@ void N3DSMenu::render()
 						}
 					}
 				}
+				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_SWAP)
+				{
+					// A new challenge instead of one not beaten yet: Robotnik's monitor, with arrows going round
+					const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+					const bool canSwap = entry.hasSelected() && (int)entry.selected().mValue < challenges.mCount;
+					drawer.drawRect(imageRect, Color(0.12f, 0.04f, 0.04f, tabAlpha));
+					drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 5, 32, 32), mEggmanMonitor, Color(1.0f, 1.0f, 1.0f, tabAlpha * (canSwap ? 1.0f : 0.4f)));
+					if (canSwap)
+					{
+						const float angle = (float)std::fmod(FTX::getTime() * 3.0, 6.2831853);
+						for (int k = 0; k < 2; ++k)
+						{
+							const float a = angle + k * 3.1415927f;
+							drawSparkle(drawer, imageRect.x + 32 + roundToInt(std::cos(a) * 24.0f), imageRect.y + 21 + roundToInt(std::sin(a) * 18.0f), 3, Color(1.0f, 0.85f, 0.2f, tabAlpha));
+						}
+					}
+					if (!canSwap)
+					{
+						status = "ALL BEATEN";
+						statusColor = Color(0.5f, 1.0f, 0.6f, tabAlpha);
+						description = "Swap a challenge you don't fancy for a new one of the same kind of difficulty. Nothing left to swap today!";
+					}
+					else
+					{
+						const int index = (int)entry.selected().mValue;
+						String slotName(n3ds::challenges::getSlotName(index));
+						slotName.upperCase();
+						status = isSelected ? ("< " + slotName.toStdString() + " >") : slotName.toStdString();
+						statusColor = Color(1.0f, 0.85f, 0.2f, tabAlpha);
+						const std::string price = !isItem ? String(0, "%d Play Coins", CHALLENGE_SWAP_PRICE).toStdString() : (item.mPrice == 0) ? std::string("free with your voucher") :
+												  String(0, item.mVoucher ? "%d Play Coins with your voucher" : "%d Play Coins", item.mPrice).toStdString();
+						description = "Swap \"" + n3ds::challenges::describe(challenges.mChallenges[index]) + "\" for a new one, " + price + ". Left / Right: which one.";
+						item.mVoucher = false;		// Already said
+					}
+				}
 				else if (tabIndex == Tab::Id::CHALLENGE && entry.mData == CHALLENGE_LOCKED)
 				{
 					// The next challenge slot, still locked: a dim monitor and a padlock-ish note
@@ -2911,6 +3028,19 @@ void N3DSMenu::render()
 						description = n3ds::challenges::describe(challenge) + "." + (progress.empty() ? std::string() : ("  " + progress + " so far.")) +
 									  ((challenges.mPinned == index) ? "  Pinned to the main menu." : "  A: Pin it to the main menu.");
 					}
+				}
+				else if (tabIndex == Tab::Id::SHIELD && entry.mData == BONUS_BUY)
+				{
+					// A bonus box to buy: the ring monitor, like the one in the journal
+					const n3ds::journal::Data& journal = n3ds::journal::get();
+					const uint32 waiting = journal.mBonusBoxes;
+					const bool startingShield = shop.mOwnsShield && shop.mSelectedShield != n3ds::shop::SHIELD_OFF;		// Then the box holds rings only
+					description = std::string(startingShield ? "50 rings (or a shield, with your starting shield off)" : "A shield or 50 rings") +
+								  " at the start of your next act - open it in the Journal tab. Buy as many as you like." +
+								  ((waiting == 0) ? std::string() : (waiting == 1) ? std::string(" 1 is waiting.") : (" " + formatNumber(waiting) + " are waiting."));
+					drawer.drawRect(imageRect, Color(0.05f, 0.08f, 0.2f, tabAlpha));
+					if (mHasJournalIcons)
+						drawer.drawRect(Recti(imageRect.x + 16, imageRect.y + 8, 32, 32), mStampIcons[0], Color(1.0f, 1.0f, 1.0f, tabAlpha));
 				}
 				else if (tabIndex == Tab::Id::SHIELD)
 				{
@@ -3441,6 +3571,23 @@ void N3DSMenu::renderConfirmation(float alpha)
 	String title(0, "Buy %s?", item.mName.c_str());
 	drawer.printText(global::mSonicFontB, Recti(200, box.y + 10, 0, 10), title, 5, Color(1.0f, 1.0f, 1.0f, alpha));
 	drawer.printText(global::mOxyfontRegular, Recti(200, box.y + 30, 0, 10), String(0, item.mVoucher ? "%d Play Coins with your voucher  (you have %d)" : "%d Play Coins  (you have %d)", item.mPrice, mPlayCoins), 5, Color(1.0f, 0.85f, 0.2f, alpha));
+	if (mActiveTab == Tab::Id::CHALLENGE)
+	{
+		// Which one goes
+		const n3ds::challenges::Data& challenges = n3ds::challenges::get();
+		if (mSwapChallengeSlot >= 0 && mSwapChallengeSlot < challenges.mCount)
+		{
+			const std::string text = std::string("Instead of: ") + n3ds::challenges::describe(challenges.mChallenges[mSwapChallengeSlot]);
+			drawer.printText(global::mOxyfontTiny, Recti(200, box.y + 44, 0, 10), text, 5, Color(0.8f, 0.9f, 1.0f, alpha));
+		}
+	}
+	else if (mActiveMenu->selected().mData == BONUS_BUY)
+	{
+		const n3ds::shop::Data& shop = n3ds::shop::get();
+		const bool startingShield = shop.mOwnsShield && shop.mSelectedShield != n3ds::shop::SHIELD_OFF;
+		drawer.printText(global::mOxyfontTiny, Recti(200, box.y + 44, 0, 10), startingShield ? "50 rings for your next act, or a shield with your starting shield off" : "A shield or 50 rings - you choose when you open it",
+						 5, Color(0.8f, 0.9f, 1.0f, alpha));
+	}
 
 	const Color blink(1.0f, 1.0f - std::fabs(std::fmod(FTX::getTime(), 1.0f) - 0.5f) * 2.0f, 0.0f, alpha);
 	drawer.printText(global::mOxyfontSmall, Recti(200, box.y + 56, 0, 10), "A: Buy        B: Cancel", 5, blink);

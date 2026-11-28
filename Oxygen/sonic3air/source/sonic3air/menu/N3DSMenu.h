@@ -116,6 +116,8 @@ private:
 	State mState = State::INACTIVE;
 	GameMenuScrolling mScrolling;
 
+	int mSwapChallengeSlot = -1;	// The challenge chosen for "New Challenge" (bought after the confirmation)
+
 	int mPlayCoins = -1;			// -1 if they could not be read
 	bool mPlayCoinsLoading = false;	// Still being read in the background
 	std::string mPreviewedTheme;	// Theme currently shown on the bottom screen as preview ("t<number>" or "c<file name>")

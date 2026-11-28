@@ -567,6 +567,14 @@ namespace n3ds
 			save();
 		}
 
+		void addBonusBox()
+		{
+			load();
+			if (gData.mBonusBoxes < 0xffffffffu)
+				++gData.mBonusBoxes;
+			save();
+		}
+
 		bool prepareBonus(int gift)
 		{
 			load();
